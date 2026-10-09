@@ -19,6 +19,12 @@ MARK = ('<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rec
         '<text x="13" y="16.4" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="7" fill="#FFC72C">TAXI</text>'
         '<rect x="5" y="4" width="4" height="4" fill="#1C2430"/><rect x="13" y="4" width="4" height="4" fill="#1C2430"/>'
         '<rect x="9" y="19" width="4" height="4" fill="#1C2430"/><rect x="17" y="19" width="4" height="4" fill="#1C2430"/></svg>')
+# Taxi z boku (animacje: droga w hero i taksometr)
+CAR = ('<svg width="64" height="28" viewBox="0 0 64 28" aria-hidden="true"><rect x="25" y="1" width="13" height="5" rx="1.5" fill="#FFC72C" stroke="#1C2430" stroke-width=".8"/>'
+       '<path d="M6 18 12 10Q14 8 18 8H42Q46 8 49 11L54 16Q60 17 61 20V23H3V20Q3 18 6 18Z" fill="#FFC72C"/>'
+       '<path d="M16 11H30V17H11ZM33 11H43Q45 11 47 13L50 17H33Z" fill="#9FC3E0"/><rect x="3" y="19" width="58" height="1.4" fill="#1C2430" opacity=".35"/>'
+       '<circle cx="16" cy="22.5" r="4.5" fill="#1C2430"/><circle cx="16" cy="22.5" r="1.8" fill="#C9D0DA"/>'
+       '<circle cx="48" cy="22.5" r="4.5" fill="#1C2430"/><circle cx="48" cy="22.5" r="1.8" fill="#C9D0DA"/><rect x="58" y="17.5" width="3.5" height="2.2" rx="1" fill="#FFF7D6"/></svg>')
 
 DEST = {d["slug"]: d for d in DESTINATIONS}
 def by_kind(k): return [d for d in DESTINATIONS if d["kind"] == k]
@@ -141,10 +147,15 @@ BASE = r"""<!doctype html>
 </body></html>"""
 
 METER = r"""<form class="meter" id="booking" data-from="{{ m_from or 'v:knurow' }}" data-to="{{ m_to or 'd:lotnisko-pyrzowice' }}" onsubmit="return false" novalidate>
-  <h2>{{ m_title or 'Sprawdź cenę i zarezerwuj' }}</h2>
-  <div class="field"><label for="from">Skąd</label><select id="from" name="from"></select></div>
-  <div class="swap"><button type="button" id="swap">Zamień kierunek ⇅</button></div>
-  <div class="field"><label for="to">Dokąd</label><select id="to" name="to"></select></div>
+  <div class="meter-head">
+    <span class="roof-sign" aria-hidden="true">TAXI</span>
+    <div><h2>{{ m_title or 'Sprawdź cenę i zarezerwuj' }}</h2><p class="meter-sub"><span class="live" aria-hidden="true"></span>Całodobowo · 7 dni w tygodniu</p></div>
+  </div>
+  <div class="route">
+    <div class="field f-from"><label for="from">Skąd</label><select id="from" name="from"></select></div>
+    <button type="button" id="swap" class="swap-btn" aria-label="Zamień kierunek" title="Zamień kierunek"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 3 3 7h3v9h2V7h3zm10 18 4-4h-3V8h-2v9h-3z"/></svg></button>
+    <div class="field f-to"><label for="to">Dokąd</label><select id="to" name="to"></select></div>
+  </div>
   <div class="row2">
     <div class="field"><label for="date">Data</label><input type="date" id="date" name="date" required></div>
     <div class="field"><label for="time">Godzina odbioru</label><input type="time" id="time" name="time" required></div>
@@ -155,7 +166,10 @@ METER = r"""<form class="meter" id="booking" data-from="{{ m_from or 'v:knurow' 
   </div>
   <label class="chk"><input type="checkbox" id="round"> Kurs powrotny</label>
   <div class="field" id="back-wrap" hidden><label for="back">Data i godzina powrotu</label><input type="text" id="back" placeholder="np. 24.10, przylot 21:40"></div>
-  <div class="readout" aria-live="polite"><span class="lbl">Cena od</span><span class="val" id="price">–</span></div>
+  <div class="readout">
+    <div class="readout-row" aria-live="polite"><span class="lbl">Cena od</span><span class="val" id="price">–</span></div>
+    <div class="meter-road" aria-hidden="true"><span class="car">{{ car }}</span></div>
+  </div>
   <p class="readout-note" id="price-note"></p>
   <details class="more"><summary>Dodaj szczegóły (adres, lot, uwagi)</summary>
     <div class="field"><label for="addr">Adres odbioru</label><input id="addr" autocomplete="street-address"></div>
@@ -179,7 +193,7 @@ NAV = [("/lotniska/", "Lotniska"), ("/sanatoria/", "Sanatoria"), ("/kliniki/", "
 PLACES = places_json()
 
 def meter(**kw):
-    return env.get_template("meter").render(B=B, icon=ICON, **kw)
+    return env.get_template("meter").render(B=B, icon=ICON, car=CAR, **kw)
 
 def ld(obj): return json.dumps(obj, ensure_ascii=False)
 
@@ -242,7 +256,29 @@ def hero(h1, lead, meter_html, crumbs=None, facts=True):
              f'<li>{ICON["star"]}<span class="stars">{B["rating"]}</span>&nbsp;z {B["reviews"]} opinii w Google</li>'
              f'<li>{ICON["check"]} Auta do {B["seats"]} osób</li><li>{ICON["check"]} Karta, BLIK, przelew</li></ul>')
     return (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs or ""}<h1>{h1}</h1>'
-            f'<p class="lead">{lead}</p>{f}</div>{meter_html}</div></section>')
+            f'<p class="lead">{lead}</p>{f}</div>{meter_html}</div>{ROAD}</section>')
+
+ROAD = f'<div class="hero-road" aria-hidden="true"><span class="car">{CAR}</span></div>'
+
+# Usługi jako karty ze zdjęciami (zdjęcia: Unsplash License, hostowane lokalnie)
+def min_price(k): return min(d["price"] for d in by_kind(k))
+SERVICES = [
+    ("lotniska", "/lotniska/", "Lotniska", f"Transfer od {min_price('airport')} zł", "Pyrzowice, Balice, Wrocław, Warszawa. Śledzimy lot przy powrocie.", "Podróżny z walizką na lotnisku, w tle startujący samolot"),
+    ("sanatoria", "/sanatoria/", "Sanatoria", f"Przejazd od {min_price('spa')} zł", "Busko-Zdrój, Szczyrk, Ustroń. Pomoc z bagażem i powrót po turnusie.", "Zabieg relaksacyjny w ośrodku uzdrowiskowym"),
+    ("kliniki", "/kliniki/", "Kliniki", f"Wizyty od {min_price('clinic')} zł", "Katowice, Gliwice, Zabrze. Kierowca może poczekać podczas wizyty.", "Lekarz w białym fartuchu ze stetoskopem"),
+    ("dworce", "/dworce/", "Dworce", f"Dojazd od {min_price('station')} zł", "PKP i autobusy dalekobieżne, także pierwsze i ostatnie połączenia.", "Pociągi na peronach pod zadaszeniem dworca"),
+    ("miasta", "/miasta/", "Miasta", f"Kursy od {min_price('city')} zł", "Rynek, zakupy, wieczorne wyjścia i bezpieczne powroty nocą.", "Podświetlony znak TAXI na dachu samochodu nocą"),
+    ("firmy", "/dla-firm/", "Dla firm", "Faktura i przelew", "Delegacje, transfery gości i rozliczenie raz w miesiącu.", "Kierowca z zegarkiem na nadgarstku prowadzi samochód o zmierzchu"),
+]
+def services_block():
+    cards = "".join(
+        f'<li class="svc" data-reveal style="--i:{i}"><a href="{href}">'
+        f'<span class="svc-ph"><img src="/assets/img/{img}.webp" alt="{alt}" width="900" height="760" loading="lazy" decoding="async"></span>'
+        f'<span class="svc-cap"><span class="svc-title">{title}</span><span class="svc-sub">{sub}</span></span>'
+        f'<span class="svc-more"><span>{more}</span><b>Zobacz ceny <span aria-hidden="true">→</span></b></span></a></li>'
+        for i, (img, href, title, sub, more, alt) in enumerate(SERVICES))
+    return (f'<section class="services"><div class="wrap"><div class="sec-head"><h2>Nasze usługi</h2>'
+            f'<p class="muted">Jeden numer, każdy kurs: {B["phone"]}</p></div><ul class="svc-grid">{cards}</ul></div></section>')
 
 STEPS = ('<ol class="steps"><li><h3>Wybierz trasę</h3><p>Kalkulator od razu pokazuje cenę od – bez taksometru i niespodzianek.</p></li>'
          '<li><h3>Wyślij rezerwację</h3><p>Jednym kliknięciem przez WhatsApp lub SMS. Wszystkie szczegóły są już w wiadomości.</p></li>'
@@ -268,14 +304,10 @@ home_faq = [
 body = hero("Taxi Knurów Adam Mączka: lotniska, sanatoria i kliniki ze stałą ceną",
             f"Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł, Balice od {DEST['lotnisko-balice']['price']} zł. Sprawdź cenę swojej trasy i zarezerwuj w 30 sekund – przez WhatsApp, SMS albo telefon.",
             meter())
-body += ('<section><div class="wrap"><div class="sec-head"><h2>Najczęstsze trasy</h2><p class="muted">Ceny od, z Knurowa. Odbiór z innych miejscowości: +10 lub +20 zł.</p></div>'
+body += services_block()
+body += ('<section class="alt"><div class="wrap"><div class="sec-head"><h2>Najczęstsze trasy</h2><p class="muted">Ceny od, z Knurowa. Odbiór z innych miejscowości: +10 lub +20 zł.</p></div>'
          + board(["airport", "spa"]) + '<p style="margin-top:14px">Kliniki, dworce i miasta: <a href="/kliniki/">kliniki</a>, <a href="/dworce/">dworce</a>, <a href="/miasta/">miasta</a> albo <a href="/cennik/">pełny cennik</a>.</p></div></section>')
-body += f'<section class="alt"><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div></section>'
-body += ('<section><div class="wrap cols">'
-         '<div class="panel"><h3>Sanatoria z odbiorem po turnusie</h3><p>Busko-Zdrój, Szczyrk, Ustroń, Goczałkowice-Zdrój. Pomagamy z bagażem, a powrót rezerwujesz od razu.</p><a href="/sanatoria/">Przejazdy do sanatoriów</a></div>'
-         '<div class="panel"><h3>Wizyty w klinikach</h3><p>Katowice, Gliwice, Zabrze, Sosnowiec, Czeladź, Wrocław. Kierowca może poczekać podczas wizyty.</p><a href="/kliniki/">Kliniki i szpitale</a></div>'
-         '<div class="panel"><h3>Kursy dla firm</h3><p>Faktura, przelew i rozliczenie miesięczne dla stałych klientów biznesowych.</p><a href="/dla-firm/">Oferta dla firm</a></div>'
-         '</div></section>')
+body += f'<section><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div></section>'
 body += reviews_block()
 body += (f'<section id="rejon"><div class="wrap"><h2>Rejon odbioru</h2><p>Przyjeżdżamy po pasażerów w tych miejscowościach. Wybierz swoją, żeby zobaczyć ceny z Twojej okolicy.</p>{village_links()}</div></section>')
 body += f'<section class="alt"><div class="wrap"><h2>Pytania i odpowiedzi</h2>{faq_html(home_faq)}</div></section>'
@@ -399,7 +431,7 @@ air = by_kind("airport")
 rows = "".join(f'<tr><td>{d["name"].replace("Lotnisko ", "").replace("Warszawa", "Warsaw")} ({d["code"]})</td><td>from {d["price"]} PLN</td></tr>' for d in air)
 en_meter = (meter(m_title="Price and booking").replace(">Skąd<", ">From<").replace(">Dokąd<", ">To<").replace(">Data<", ">Date<")
             .replace(">Godzina odbioru<", ">Pickup time<").replace(">Liczba osób<", ">Passengers<").replace(">Bagaż<", ">Luggage<")
-            .replace("Kurs powrotny", "Return trip").replace("Cena od", "From").replace("Wyślij rezerwację:", "Send booking:")
+            .replace("Kurs powrotny", "Return trip").replace("Całodobowo · 7 dni w tygodniu", "Open 24/7, every day").replace("Cena od", "From").replace("Wyślij rezerwację:", "Send booking:")
             .replace("Wyślij SMS", "Send SMS").replace("Zadzwoń:", "Call:").replace("Zamień kierunek", "Swap").replace("Dodaj szczegóły (adres, lot, uwagi)", "Add details (address, flight, notes)")
             .replace(">Adres odbioru<", ">Pickup address<").replace(">Numer lotu / pociągu<", ">Flight / train number<").replace(">Imię<", ">Name<")
             .replace(">Telefon<", ">Phone<").replace(">Uwagi<", ">Notes<").replace(">Data i godzina powrotu<", ">Return date and time<"))
@@ -422,20 +454,20 @@ shutil.copytree(os.path.join(HERE, "assets"), os.path.join(OUT, "assets"), dirs_
 urls = [p for p in pages if not p.endswith(".html")]
 sm = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "".join(
     f"  <url><loc>{SITE_URL}{u}</loc><lastmod>{TODAY}</lastmod></url>\n" for u in urls) + "</urlset>\n"
-open(os.path.join(OUT, "sitemap.xml"), "w").write(sm)
-open(os.path.join(OUT, "robots.txt"), "w").write(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n")
-open(os.path.join(OUT, "manifest.webmanifest"), "w").write(json.dumps({
+open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8").write(sm)
+open(os.path.join(OUT, "robots.txt"), "w", encoding="utf-8").write(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n")
+open(os.path.join(OUT, "manifest.webmanifest"), "w", encoding="utf-8").write(json.dumps({
     "name": B["name"], "short_name": B["short"], "start_url": "/rezerwacja/", "display": "standalone",
     "background_color": "#FFC72C", "theme_color": "#FFC72C", "lang": "pl",
     "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
               {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
     "shortcuts": [{"name": "Zadzwoń", "url": "tel:" + B["phone_e164"]}, {"name": "Lotniska", "url": "/lotniska/"}]}, ensure_ascii=False, indent=1))
-open(os.path.join(OUT, "sw.js"), "w").write(
-    "const C='taxi-v1';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/icon.svg','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
+open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
+    "const C='taxi-v2';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/icon.svg','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
     "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));\n"
     "self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));\n"
     "self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==location.origin)return;\n"
     " e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp));return r;}).catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});\n")
 # Netlify / Cloudflare Pages: 404 + stare adresy z taxifest.pl (uzupełnij, jeśli domena będzie przekierowana)
-open(os.path.join(OUT, "_redirects"), "w").write("/cennik-transfery-na-lotniska  /lotniska/  301\n/kontakt.html  /kontakt/  301\n")
+open(os.path.join(OUT, "_redirects"), "w", encoding="utf-8").write("/cennik-transfery-na-lotniska  /lotniska/  301\n/kontakt.html  /kontakt/  301\n")
 print(f"OK: {len(pages)} stron -> {os.path.abspath(OUT)}")

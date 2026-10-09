@@ -39,11 +39,38 @@
     try { localStorage.setItem("theme", next); } catch (e) {}
   });
 
+  /* ---------- scroll reveal (service cards) ---------- */
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var rv = document.querySelectorAll("[data-reveal]");
+  if (rv.length && !reduce && "IntersectionObserver" in window) {
+    document.documentElement.classList.add("reveal-ready");
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+    Array.prototype.forEach.call(rv, function (el) { io.observe(el); });
+  }
+
   /* ---------- calculator ---------- */
   var form = document.getElementById("booking");
   if (!form || !D.places) return;
   var $ = function (id) { return document.getElementById(id); };
   var fromSel = $("from"), toSel = $("to"), val = $("price"), noteEl = $("price-note"), err = $("form-error");
+  var readout = form.querySelector(".readout"), tick = 0;
+
+  // taximeter: roll the number from the previous price to the new one
+  function countUp(el, from, to) {
+    var id = ++tick;
+    if (reduce || from === to) { el.textContent = to; return; }
+    var t0 = null, dur = 700;
+    function step(t) {
+      if (id !== tick) return;
+      if (!t0) t0 = t;
+      var k = Math.min(1, (t - t0) / dur); k = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(from + (to - from) * k);
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
   var places = {}; D.places.forEach(function (p) { places[p.id] = p; });
 
   function fill(sel, def) {
@@ -80,15 +107,20 @@
     if (f === null) {
       val.innerHTML = '<small>' + T.none + '</small>'; noteEl.textContent = extra.trim(); last = null; return;
     }
-    var total = round ? f * 2 : f;
-    if (total !== last) { val.classList.remove("bump"); void val.offsetWidth; val.classList.add("bump"); }
+    var total = round ? f * 2 : f, prev = last;
+    if (total !== last) {
+      val.classList.remove("bump"); if (readout) readout.classList.remove("go");
+      void val.offsetWidth;
+      val.classList.add("bump"); if (readout) readout.classList.add("go");
+    }
     last = total;
-    val.innerHTML = total + " <small>zł" + (round ? " · " + T.round : "") + "</small>";
+    val.innerHTML = '<span class="num"></span> <small>zł' + (round ? " · " + T.round : "") + "</small>";
+    countUp(val.firstChild, prev || 0, total);
     noteEl.textContent = T.note + extra;
   }
   ["change", "input"].forEach(function (ev) { form.addEventListener(ev, update); });
   var sw = $("swap");
-  if (sw) sw.addEventListener("click", function () { var t = fromSel.value; fromSel.value = toSel.value; toSel.value = t; update(); });
+  if (sw) sw.addEventListener("click", function () { var t = fromSel.value; fromSel.value = toSel.value; toSel.value = t; sw.classList.toggle("flip"); update(); });
   $("round").addEventListener("change", function () { $("back-wrap").hidden = !this.checked; });
   // default date = tomorrow
   var dt = $("date"); if (dt && !dt.value) { var d = new Date(Date.now() + 864e5); dt.value = d.toISOString().slice(0, 10); dt.min = new Date().toISOString().slice(0, 10); }
