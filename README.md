@@ -1,51 +1,39 @@
-# Taxi Knurów – Adam Mączka
+# Taxi Knurów Adam Mączka – strona www
 
-Strona internetowa dla firmy **Taxi Knurów Adam Mączka** zbudowana w Next.js 14 + Tailwind CSS.
+Statyczna strona (50 podstron) generowana z jednego pliku danych. Bez bazy danych, bez cookies, bez opłat za hosting.
 
-## Uruchomienie lokalne
+## Co jest w środku
+
+| Funkcja | Opis |
+|---|---|
+| Kalkulator ceny | Skąd → dokąd → cena od, z dopłatą strefową i kursem powrotnym |
+| Rezerwacja | Gotowa wiadomość na WhatsApp lub SMS (trasa, termin, osoby, bagaż, lot, uwagi) – bez serwera |
+| 50 podstron SEO | 6 lotnisk, 4 sanatoria, 6 miast z klinikami, 4 dworce, 5 miast, 12 miejscowości, huby, cennik, dla firm, kontakt, EN |
+| Dane strukturalne | LocalBusiness, Service z ceną, FAQPage, BreadcrumbList |
+| PWA | Instalacja na telefonie, działa offline (cennik i kalkulator) |
+| Dostępność | Czcionka Atkinson Hyperlegible (czytelność dla seniorów), pełna obsługa klawiatury, tryb ciemny |
+| Prywatność | Czcionki hostowane lokalnie, zero zewnętrznych skryptów i trackerów |
+
+## Zmiana cen, telefonu, miejscowości
+
+Wszystko jest w `src/data.py`. Po zmianie:
 
 ```bash
-npm install
-npm run dev
+pip install jinja2
+python3 src/build.py      # wynik w dist/
 ```
 
-Otwórz [http://localhost:3000](http://localhost:3000).
+Pozycje z `confirmed=False` to **szacunki** – potwierdź je z Adamem przed publikacją.
 
-## Budowanie produkcyjne
+## Przed publikacją (TODO)
 
-```bash
-npm run build
-npm start
-```
+1. `SITE_URL` w `src/data.py` – docelowa domena
+2. Kod pocztowy i dokładne współrzędne (z wizytówki Google)
+3. Link do opinii Google (`google_review`) – z panelu wizytówki: „Poproś o opinie”
+4. Ceny oznaczone `confirmed=False`
+5. Czy opłaty za autostradę są w cenie lotnisk (dopisać na stronach lotnisk)
 
-## Wdrożenie na Vercel
+## Publikacja
 
-1. Wrzuć repo na GitHub (prywatne)
-2. Wejdź na [vercel.com](https://vercel.com) → **Add New Project** → importuj repo
-3. Vercel wykryje Next.js automatycznie → kliknij **Deploy**
-4. Podepnij własną domenę w ustawieniach projektu
-
-## Struktura projektu
-
-```
-app/
-  layout.tsx       # metadane SEO, fonty
-  page.tsx         # główna strona
-  globals.css
-components/
-  Header.tsx       # sticky nav z numerem telefonu
-  Hero.tsx         # sekcja główna z CTA
-  WhyUs.tsx        # pasek zaufania (oceny, 24/7, płatności)
-  Services.tsx     # 3 karty usług
-  CoverageArea.tsx # siatka 9 miejscowości
-  Contact.tsx      # numery, WhatsApp, BLIK, Maps
-  Footer.tsx
-public/            # tu wrzuć zdjęcia auta i logo
-```
-
-## Personalizacja
-
-- **Zdjęcia**: wrzuć do `public/` i dodaj `<Image>` w `Hero.tsx`
-- **Numery**: zmień w `components/Contact.tsx` i `components/Header.tsx`
-- **Miejscowości**: edytuj tablicę `towns` w `components/CoverageArea.tsx`
-- **Usługi**: edytuj tablicę `services` w `components/Services.tsx`
+- **GitHub Pages:** workflow `.github/workflows/deploy.yml` buduje i publikuje po każdym `git push` na `main`. W ustawieniach repo: Settings → Pages → Source: GitHub Actions. Domenę ustawiasz w Settings → Pages → Custom domain.
+- **Cloudflare Pages / Netlify:** build command `pip install jinja2 && python3 src/build.py`, output `dist`. Plik `dist/_redirects` obsługują obie platformy.
