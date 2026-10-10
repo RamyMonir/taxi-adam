@@ -15,10 +15,14 @@ BUSINESS = {
     "phone": "570 762 777",
     "phone_e164": "+48570762777",
     "whatsapp": "48570762777",
-    "street": "ul. Kosmonautów 18",
-    "postal": "44-190",          # TODO: potwierdzić kod pocztowy
-    "city": "Knurów",
-    "lat": 50.2316, "lng": 18.6610,  # przybliżone – podmień na dokładne z wizytówki
+    # baza (z facebooka Adama): Gierałtowice; jeździ w Gierałtowicach, Knurowie i po całym Śląsku
+    "street": "ul. Powstańców Śląskich 116",
+    "postal": "44-186",
+    "city": "Gierałtowice",
+    "lat": 50.2218, "lng": 18.7142,
+    "email": "jo.pako@o2.pl",
+    "facebook": "https://www.facebook.com/profile.php?id=61569049205468",
+    "aka": "Taxi Fest Knurów",
     "google_maps": "https://www.google.com/maps/search/?api=1&query=Taxi+Knur%C3%B3w+Adam+M%C4%85czka",
     "google_review": "https://www.google.com/maps/search/?api=1&query=Taxi+Knur%C3%B3w+Adam+M%C4%85czka",  # TODO: link "Poproś o opinię" z panelu wizytówki
     "rating": "4,9",
@@ -29,7 +33,7 @@ BUSINESS = {
 
 # Strefy odbioru: dopłata do ceny trasy, gdy kurs zaczyna się poza Knurowem
 ZONES = {
-    "0":  {"label": "Knurów (z Szczygłowicami i Krywałdem)", "surcharge": 0},
+    "0":  {"label": "Knurów i Gierałtowice", "surcharge": 0},
     "A":  {"label": "strefa A", "surcharge": 10},
     "B":  {"label": "strefa B", "surcharge": 20},
 }
@@ -38,7 +42,7 @@ ZONES = {
 VILLAGES = [
     # slug, nazwa, miejscownik ("w ..."), strefa odbioru, cena kursu z Knurowa
     ("knurow",       "Knurów",       "w Knurowie",       "0", 15),
-    ("gieraltowice", "Gierałtowice", "w Gierałtowicach", "A", 30),
+    ("gieraltowice", "Gierałtowice", "w Gierałtowicach", "0", 15),   # baza Adama – bez dopłaty
     ("beksza",       "Beksza",       "w Bekszy",         "A", 30),
     ("bojkow",       "Bojków",       "w Bojkowie",       "A", 25),
     ("przyszowice",  "Przyszowice",  "w Przyszowicach",  "A", 35),
@@ -122,6 +126,9 @@ for _d in DESTINATIONS:
 # Strefy odbioru liczone odległością od centrum Knurowa (km w linii prostej).
 # Do ZONE_KM["0"] = Knurów, do "A" = strefa A, do "B" = strefa B, dalej = wycena za kilometr.
 KNUROW_CENTER = (50.2197, 18.6767)
+# Gierałtowice (baza Adama) też bez dopłaty: do tylu km od centrum Gierałtowic = strefa "0"
+GIERALTOWICE_CENTER = (50.2241, 18.7271)
+GIERALTOWICE_KM = 2.5
 ZONE_KM = {"0": 4.5, "A": 9, "B": 16}
 
 # Wycena kursów spoza cennika (SZACUNEK – potwierdź z Adamem): start + zł za km trasy, nie mniej niż minimum.

@@ -10,13 +10,18 @@ export const CONFIG = {
   "ahead_min": 60
  },
  "base": {
-  "lat": 50.2316,
-  "lng": 18.661
+  "lat": 50.2218,
+  "lng": 18.7142
  },
  "center": {
   "lat": 50.2197,
   "lng": 18.6767
  },
+ "center2": {
+  "lat": 50.2241,
+  "lng": 18.7271
+ },
+ "center2Km": 2.5,
  "zoneKm": {
   "0": 4.5,
   "A": 9,

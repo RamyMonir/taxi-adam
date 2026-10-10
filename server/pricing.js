@@ -5,6 +5,7 @@ import { kmBetween, hasXY } from "./util.js";
 
 export function zoneOf(p) {
   if (!hasXY(p)) return null;
+  if (CONFIG.center2 && kmBetween(p, CONFIG.center2) <= CONFIG.center2Km) return "0";   // Gierałtowice
   const d = kmBetween(p, CONFIG.center);
   for (const z of ["0", "A", "B"]) if (d <= CONFIG.zoneKm[z]) return z;
   return null;

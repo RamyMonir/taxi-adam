@@ -369,7 +369,7 @@ section.alt{background:var(--road)}
 /* ---------- footer ---------- */
 footer{background:var(--night);color:#C9D3EA;padding:48px 0 110px}
 footer a{color:#fff}
-.foot-logo{width:230px;margin:0 0 26px}
+.foot-logo{width:min(320px,80%);margin:0 0 26px}
 footer .cols{gap:28px}
 footer h3{color:#fff;font-size:1.05rem;font-stretch:100%}
 footer ul{list-style:none;padding:0;margin:0}
@@ -618,3 +618,26 @@ html,body{overflow-x:hidden}
 /* night: "now" rides only by reservation */
 .seg-btn.off{opacity:.55}
 .seg-btn.off small{color:var(--yellow)}
+
+/* ---------- fleet: Adam's cars ---------- */
+.fleet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.car{border-radius:var(--radius-l);overflow:hidden;background:var(--card);border:1px solid var(--card-line);color:#EEF2FB;
+  box-shadow:0 30px 60px -34px rgba(0,0,0,.7);display:flex;flex-direction:column}
+.car .vip-ph{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
+.car-main img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;transition:transform .6s ease}
+.car:hover .car-main img{transform:scale(1.04)}
+.car-main{overflow:hidden}
+.car-body{padding:18px 20px 20px}
+.car-tag{display:inline-block;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);background:var(--yellow);border-radius:999px;padding:3px 10px}
+.car h3{margin:10px 0 8px;color:#fff;font-size:1.35rem}
+.car-feats{list-style:none;margin:0 0 12px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:.95rem;color:#C9D3EA}
+.car-feats li::before{content:"✓";color:var(--yellow);font-weight:800;margin-right:6px}
+.car-thumbs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.car-thumbs img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;border:1px solid var(--card-line);transition:border-color .2s,transform .2s}
+.car-thumbs .vip-ph:hover img{border-color:var(--yellow);transform:translateY(-2px)}
+@media (max-width:760px){.fleet-grid{grid-template-columns:1fr}.car-feats{grid-template-columns:1fr}}
+.car .vip-ph{aspect-ratio:auto;border-radius:0;overflow:hidden}
+.car .vip-ph::after{display:none}
+.car .vip-ph img{height:auto;filter:none}
+.car-thumbs .vip-ph{border-radius:10px}
+.hero h1 em{white-space:nowrap}
