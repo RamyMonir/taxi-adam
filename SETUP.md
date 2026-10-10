@@ -95,10 +95,17 @@ Telegram can't reach `localhost`, so button taps don't work locally unless you s
 
 ## Instrukcja dla kierowcy (Telegram)
 
-Każde zamówienie przychodzi jako wiadomość z adresami (kliknij adres → nawigacja w Mapach Google), telefonem klienta, ceną i przyciskami:
+Każde zamówienie przychodzi jako wiadomość z adresami (kliknij adres → nawigacja w Mapach Google), telefonem klienta, ceną, lotem i przyciskami:
 
-- **Kurs TERAZ**: wybierz, za ile minut będziesz (**✅ 5 / 10 / 15 / 20 / 30 min**) albo **❌ Odrzuć**. Klient od razu widzi odliczanie.
+- **Kurs TERAZ**: wybierz, za ile minut będziesz (**✅ 5 / 10 / 15 / 20 / 30 min**) albo **❌ Odrzuć**. Klient widzi taksówkę jadącą po drodze i odliczanie.
 - **REZERWACJA**: **✅ Potwierdź rezerwację** albo **❌ Odrzuć**. W dniu kursu kliknij **🚕 Wyjeżdżam – 10/20/30 min**.
 - W drodze: **⏱ +5 min**, jeśli się spóźnisz; **📍 Jestem na miejscu**, gdy czekasz pod adresem.
-- Na końcu **🏁 Kurs zakończony**. Klient dostaje prośbę o opinię w Google.
+- Na miejscu bot wysyła nową wiadomość: **▶️ Klient wsiadł – rozpocznij kurs** (albo **❌ Klient nie przyszedł**).
+- W trasie: **🏁 Zakończ kurs**. Klient dostaje prośbę o opinię w Google.
 - Jeśli klient anuluje, przychodzi osobna wiadomość **🚫 Klient anulował**.
+
+**Lokalizacja na żywo (zalecane):** w czacie z botem: 📎 → Lokalizacja → **„Udostępniaj lokalizację na żywo”** (np. na 8 godzin).
+Wtedy klient widzi, ile km jesteś od niego, a gdy dojedziesz pod adres, bot **sam zapyta**, czy jesteś na miejscu – wystarczy potwierdzić.
+Po dojechaniu do celu bot zapyta, czy zakończyć kurs.
+
+> Po aktualizacji strony otwórz raz `…/api/admin/setup?key=ADMIN_KEY` – to włącza odbieranie lokalizacji na żywo.

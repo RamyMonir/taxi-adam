@@ -543,3 +543,31 @@ html,body{overflow-x:hidden}
   @keyframes point{50%{transform:translateY(8px)}}
 }
 .fl-st.bad{background:rgba(229,56,75,.18);color:#FF9AA5}
+
+/* ---------- status page: taxi driving along the road while you wait ---------- */
+.eta-road{--p:3%;position:relative;height:58px;margin:12px 0 8px;border-radius:14px;overflow:hidden;
+  background:linear-gradient(#0A1430,#0A1430) padding-box;border:1px solid var(--card-line)}
+.eta-road::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;margin-top:6px;
+  background:repeating-linear-gradient(90deg,rgba(255,200,30,.55) 0 18px,transparent 18px 34px)}
+.er-fill{position:absolute;left:0;bottom:0;height:4px;width:var(--p);border-radius:0 4px 4px 0;
+  background:linear-gradient(90deg,var(--blue-2),var(--yellow));transition:width 1s linear}
+.er-car{position:absolute;bottom:14px;left:clamp(4px,calc(var(--p) - 62px),calc(100% - 104px));line-height:0;transition:left 1s linear;z-index:2}
+.er-pin{position:absolute;right:14px;top:50%;width:22px;height:22px;margin-top:-14px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+  background:var(--go);box-shadow:0 0 0 6px rgba(51,209,122,.18)}
+.er-pin::after{content:"";position:absolute;inset:6px;border-radius:50%;background:#0A1430}
+.eta-road.trip .er-pin{background:var(--blue-2);box-shadow:0 0 0 6px rgba(77,134,255,.22)}
+.eta-note{margin:0 0 12px;font-size:.92rem;color:#BFEFD3;display:flex;align-items:center;gap:8px}
+.eta-note::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--go);flex:none}
+.mk-car{font-size:26px;line-height:1;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+.install-hint{font-size:.9rem;color:#DCE4F5;margin:0}
+.install-hint b{color:#fff}
+@media (prefers-reduced-motion: no-preference){
+  .eta-road::before{right:-34px;animation:lane2 .9s linear infinite}
+  @keyframes lane2{to{transform:translateX(-34px)}}
+  .er-car svg{animation:bob .5s ease-in-out infinite alternate}
+  @keyframes bob{to{transform:translateY(-1.5px)}}
+  .er-pin{animation:pinpulse 1.8s ease-in-out infinite}
+  @keyframes pinpulse{50%{box-shadow:0 0 0 11px rgba(51,209,122,.05)}}
+  .eta-note::before{animation:live 2s ease-out infinite}
+  .track-visual[data-state="ontrip"] img{animation:drive 1.6s ease-in-out infinite}
+}

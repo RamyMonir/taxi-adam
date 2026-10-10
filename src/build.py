@@ -138,6 +138,7 @@ BASE = r"""<!doctype html>
 <link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
+<script>window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;});</script>
 {% for s in schema %}<script type="application/ld+json">{{ s }}</script>
 {% endfor %}</head>
 <body>
@@ -183,6 +184,8 @@ BASE = r"""<!doctype html>
       <li>{{ 'Tap' if lang=='en' else 'Dotknij' }} <span class="ios-share"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 7.5 6.5l1.4 1.4L11 5.8V15h2V5.8l2.1 2.1 1.4-1.4zM5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10h-4v2h2v8H7v-8h2v-2z"/></svg> {{ 'Share' if lang=='en' else 'Udostępnij' }}</span> {{ 'in Safari' if lang=='en' else 'na dole Safari' }}</li>
       <li>{{ 'Choose' if lang=='en' else 'Wybierz' }} <b>{{ '„Add to Home Screen”' if lang=='en' else '„Do ekranu początkowego”' }}</b></li>
     </ol>
+    <p class="install-hint install-android" hidden>{{ 'Open the browser menu' if lang=='en' else 'Otwórz menu przeglądarki' }} <b>⋮</b> {{ 'and choose' if lang=='en' else 'i wybierz' }} <b>{{ '„Install app” / „Add to Home screen”' if lang=='en' else '„Zainstaluj aplikację” / „Dodaj do ekranu głównego”' }}</b>.</p>
+    <p class="install-hint install-desktop" hidden>{{ 'Click the install icon' if lang=='en' else 'Kliknij ikonę instalacji' }} <b>⊕</b> {{ 'on the right of the address bar, or open the menu ⋮ → „Install”.' if lang=='en' else 'po prawej stronie paska adresu albo menu ⋮ → „Zainstaluj”.' }}</p>
     <button type="button" class="btn btn-book install-go" id="install-go" hidden>{{ 'Add to home screen' if lang=='en' else 'Dodaj do ekranu' }}</button>
   </div>
   <span class="ios-arrow" aria-hidden="true">↓</span>
@@ -599,7 +602,8 @@ body = ('<section class="hero track-hero" style="padding:0"><div class="wrap tra
         '<h1 id="t-title">Ładuję status…</h1>'
         '<p class="lead" id="t-sub"></p>'
         '<div class="eta" id="t-eta" hidden><b id="t-eta-min">–</b><span><small id="t-eta-lbl">min</small><small id="t-eta-at"></small></span></div>'
-        '<div class="progress" id="t-progress" hidden><span></span></div>'
+        '<div class="eta-road" id="t-progress" hidden><span class="er-fill"></span><span class="er-car">' + CAR + '</span><span class="er-pin"></span></div>'
+        '<p class="eta-note" id="t-car" hidden></p>'
         '<ol class="tl" id="t-steps"></ol>'
         f'<div class="track-actions"><a class="btn btn-call" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zadzwoń do kierowcy</a>'
         '<button type="button" class="btn btn-line" id="t-cancel" hidden>Anuluj kurs</button>'
@@ -626,7 +630,7 @@ open(os.path.join(OUT, "manifest.webmanifest"), "w", encoding="utf-8").write(jso
               {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
     "shortcuts": [{"name": "Zadzwoń", "url": "tel:" + B["phone_e164"]}, {"name": "Lotniska", "url": "/lotniska/"}]}, ensure_ascii=False, indent=1))
 open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
-    "const C='taxi-v4';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
+    "const C='taxi-v5';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
     "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));\n"
     "self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));\n"
     "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;\n"

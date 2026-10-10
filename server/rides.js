@@ -1,13 +1,14 @@
 // Rides: storage in Cloudflare D1 (binding "DB") and the driver's Telegram messages.
 //
 // Status flow
-//   now:   pending -> enroute (driver picked ETA) -> arrived -> done
-//   later: pending -> scheduled (driver confirmed) -> enroute -> arrived -> done
+//   now:   pending -> enroute (driver picked ETA) -> arrived -> ontrip (customer on board) -> done
+//   later: pending -> scheduled (driver confirmed) -> enroute -> arrived -> ontrip -> done
 //   any open ride can end as declined (driver), cancelled (customer) or expired (no answer).
 import { CONFIG } from "./config.js";
-import { esc, whenLabel, clockWarsaw } from "./util.js";
+import { esc, whenLabel, clockWarsaw, kmBetween, hasXY } from "./util.js";
 
-export const OPEN = ["pending", "scheduled", "enroute", "arrived"];
+export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
+const CAR_FRESH_MS = 3 * 60000;
 const EXPIRE_NOW_MIN = 15;   // unanswered "now" request closes after this
 const KEEP_DAYS = 30;        // ride data is deleted after this (privacy policy says so)
 
@@ -22,6 +23,9 @@ export async function db(env) {
         ip TEXT, data TEXT NOT NULL)`
     ).run();
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS rides_ip ON rides (ip, created)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS rides_status ON rides (status, updated)").run();
+    // the driver's last live location from Telegram (one row)
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS driver (id INTEGER PRIMARY KEY, lat REAL, lng REAL, ts INTEGER, hint_ts INTEGER)").run();
     schemaReady = true;
   }
   return env.DB;
@@ -61,10 +65,34 @@ export async function expireIfStale(env, r) {
   return r;
 }
 
+/* ---------------- driver's live location ---------------- */
+export async function driverPos(env) {
+  const row = await (await db(env)).prepare("SELECT lat, lng, ts, hint_ts FROM driver WHERE id = 1").first();
+  return row || null;
+}
+export async function saveDriverPos(env, lat, lng) {
+  await (await db(env)).prepare(
+    "INSERT INTO driver (id, lat, lng, ts) VALUES (1, ?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET lat = ?1, lng = ?2, ts = ?3"
+  ).bind(lat, lng, Date.now()).run();
+}
+export async function markHint(env) {
+  await (await db(env)).prepare("INSERT INTO driver (id, hint_ts) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET hint_ts = ?1").bind(Date.now()).run();
+}
+export async function activeRides(env) {
+  const { results } = await (await db(env)).prepare(
+    "SELECT * FROM rides WHERE status IN ('enroute','ontrip') ORDER BY updated DESC LIMIT 3").all();
+  return (results || []).map((row) => ({ ...row, data: JSON.parse(row.data) }));
+}
+
 // What the customer's status page may see (no name / phone).
-export function publicView(r) {
+export function publicView(r, car) {
   const d = r.data;
+  const live = car && car.ts && Date.now() - car.ts < CAR_FRESH_MS && (r.status === "enroute" || r.status === "ontrip");
+  const target = r.status === "ontrip" ? d.dest : d.pickup;
   return {
+    car: live ? { lat: car.lat, lng: car.lng, ts: car.ts, km: hasXY(target) ? Math.round(kmBetween(car, target) * 10) / 10 : null,
+                  startKm: r.status === "ontrip" ? (d.distanceM ? d.distanceM / 1000 : null) : (d.carStartKm || null) } : null,
+    startedAt: d.startedAt || null, enrouteAt: d.enrouteAt || null,
     id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated, etaAt: r.eta_at || null, now: Date.now(),
     when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
     approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
@@ -103,7 +131,9 @@ export function keyboard(r) {
     case "enroute":
       return [[btn("📍 Jestem na miejscu", `a|${id}`)], [btn("⏱ +5 min", `p|${id}|5`), btn("❌ Anuluj", `x|${id}`)]];
     case "arrived":
-      return [[btn("🏁 Kurs zakończony", `d|${id}`)]];
+      return [[btn("▶️ Klient wsiadł – rozpocznij kurs", `t|${id}`)], [btn("❌ Klient nie przyszedł", `n|${id}`)]];
+    case "ontrip":
+      return [[btn("🏁 Zakończ kurs", `d|${id}`)]];
     default:
       return [];
   }
@@ -114,6 +144,8 @@ const STATUS_PL = {
   scheduled: "📅 rezerwacja potwierdzona",
   enroute: "🚕 jedziesz do klienta",
   arrived: "📍 czekasz na klienta",
+  ontrip: "🛣 kurs w trakcie",
+  noshow: "🙅 klient nie przyszedł",
   done: "🏁 zakończony",
   declined: "❌ odrzucony",
   cancelled: "🚫 klient anulował",

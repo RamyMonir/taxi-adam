@@ -20,7 +20,7 @@ export async function onRequestGet({ request, env }) {
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_WEBHOOK_SECRET) {
     const hook = await tg(env, "setWebhook", {
       url: `${url.origin}/api/telegram`, secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-      allowed_updates: ["message", "callback_query"], drop_pending_updates: true,
+      allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: true,
     });
     report.webhook = hook && hook.ok ? `${url.origin}/api/telegram` : hook;
     const me = await tg(env, "getMe", {});

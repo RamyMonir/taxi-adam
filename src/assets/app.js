@@ -24,14 +24,17 @@
         waiting: ["Kierowca jeszcze nie odpowiedział", "Może być w trasie. Zadzwoń, a potwierdzi kurs od ręki."],
         scheduled: ["Rezerwacja potwierdzona", "Kierowca przyjedzie {when}. W dniu kursu zobaczysz tu, kiedy wyjedzie."],
         enroute: ["Kierowca jedzie do Ciebie", "Będzie ok. {clock}. Przygotuj się do wyjścia."],
-        arrived: ["Kierowca czeka na Ciebie", "Auto stoi pod adresem odbioru."],
+        arrived: ["Kierowca czeka na Ciebie", "Auto stoi pod adresem odbioru. Wyjdź, kiedy będziesz gotowy."],
+        ontrip: ["Jesteś w drodze", "Miłej podróży! Na miejscu będziesz ok. {dclock}."],
+        noshow: ["Kierowca Cię nie zastał", "Czekał pod adresem odbioru, ale nikt nie przyszedł. Zadzwoń, jeśli nadal potrzebujesz kursu."],
         done: ["Dziękujemy za wspólną trasę!", "Jeśli było dobrze, zostaw opinię w Google – bardzo nam to pomaga."],
         declined: ["Kierowca jest teraz zajęty", "Adam wiezie innego pasażera i nie zdąży do Ciebie na czas. Przepraszamy! Zarezerwuj kurs na późniejszą godzinę albo zadzwoń – podpowiemy najbliższy wolny termin."],
         cancelled: ["Kurs anulowany", "Kierowca dostał informację o anulowaniu."],
         expired: ["Kierowca jest teraz w trasie", "Nie zdążył odpowiedzieć na zgłoszenie. Zadzwoń – ustalimy kurs od ręki – albo zarezerwuj na później."],
         notfound: ["Nie znaleziono kursu", "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń."],
       },
-      steps: { sent: "Zgłoszenie wysłane", confirmed: "Kierowca potwierdził", scheduled: "Rezerwacja potwierdzona", enroute: "Kierowca w drodze", arrived: "Kierowca na miejscu", done: "Kurs zakończony" },
+      steps: { sent: "Zgłoszenie wysłane", confirmed: "Kierowca jedzie po Ciebie", scheduled: "Rezerwacja potwierdzona", enroute: "Kierowca w drodze", arrived: "Kierowca na miejscu", ontrip: "W trasie", done: "Kurs zakończony" },
+      carKm: "Auto jest {km} km od Ciebie", carKmDest: "Do celu zostało {km} km", destLbl: "min do celu",
       flLooking: "Szukam lotu…", flNone: "Nie znaleźliśmy lotu {no} w dniu {date}. Sprawdź numer i datę.", flNoneWeek: "Nie znaleźliśmy lotu {no} w najbliższych 7 dniach. Sprawdź numer.",
       flDep: "Wylot", flArr: "Przylot", flOther: "Inne dni:", flSet: "ustawiliśmy datę i godzinę odbioru",
       flSugDep: "Odbiór: {d}, {t} (2 h przed wylotem + dojazd).", flSugArr: "Kierowca czeka od {t}, {d} (20 min po lądowaniu).", flUse: "Ustaw tę godzinę",
@@ -59,14 +62,17 @@
         waiting: ["No answer from the driver yet", "He may be driving. Call and he'll confirm right away."],
         scheduled: ["Booking confirmed", "The driver will pick you up {when}. On the day you'll see here when he sets off."],
         enroute: ["Your driver is on the way", "Arriving around {clock}. Get ready to go."],
-        arrived: ["Your driver is waiting", "The car is at your pickup address."],
+        arrived: ["Your driver is waiting", "The car is at your pickup address. Come out when you're ready."],
+        ontrip: ["You're on your way", "Enjoy the ride! Arriving around {dclock}."],
+        noshow: ["The driver couldn't find you", "He waited at the pickup address. Call us if you still need a ride."],
         done: ["Thanks for riding with us!", "If you enjoyed it, please leave a Google review – it helps a lot."],
         declined: ["The driver is busy right now", "Adam is driving another passenger and can't reach you in time. Sorry! Book for a later time or call us for the next free slot."],
         cancelled: ["Ride cancelled", "The driver has been notified."],
         expired: ["The driver is on the road", "He couldn't answer your request in time. Call us or book for later."],
         notfound: ["Ride not found", "The link may have expired. Book a new ride or call us."],
       },
-      steps: { sent: "Request sent", confirmed: "Driver confirmed", scheduled: "Booking confirmed", enroute: "Driver on the way", arrived: "Driver arrived", done: "Ride finished" },
+      steps: { sent: "Request sent", confirmed: "Driver on the way", scheduled: "Booking confirmed", enroute: "Driver on the way", arrived: "Driver arrived", ontrip: "On the trip", done: "Ride finished" },
+      carKm: "The car is {km} km away", carKmDest: "{km} km to go", destLbl: "min to destination",
       flLooking: "Looking up the flight…", flNone: "We couldn't find flight {no} on {date}. Check the number and date.", flNoneWeek: "We couldn't find flight {no} in the next 7 days. Check the number.",
       flDep: "Departs", flArr: "Arrives", flOther: "Other days:", flSet: "pickup date and time filled in",
       flSugDep: "Pickup: {d}, {t} (2 h before departure + drive).", flSugArr: "The driver waits from {t}, {d} (20 min after landing).", flUse: "Use this time",
@@ -166,7 +172,14 @@
   function TripMap(el) {
     var m = null, a = null, b = null, line = null, g = null;
     var box = el.classList.contains("map-lg") ? el : el.parentNode;   // element to show/hide
+    var carM = null;
     return {
+      car: function (c) {
+        if (!m || !g || !g.marker) return;
+        if (!c) { if (carM) carM.map = null; carM = null; return; }
+        if (!carM) { var el = document.createElement("div"); el.className = "mk-car"; el.textContent = "🚕"; carM = new g.marker.AdvancedMarkerElement({ map: m, content: el }); }
+        carM.position = { lat: c.lat, lng: c.lng };
+      },
       show: function (pick, dest, polyline) {
         if (!hasXY(pick) && !hasXY(dest)) { box.hidden = true; return; }
         loadMaps().then(function (G) {
@@ -590,8 +603,8 @@
     function clock(ms) { return new Date(ms).toLocaleTimeString(lang === "en" ? "en-GB" : "pl-PL", { hour: "2-digit", minute: "2-digit" }); }
 
     function steps(r) {
-      var order = r.mode === "now" ? ["sent", "confirmed", "arrived", "done"] : ["sent", "scheduled", "enroute", "arrived", "done"];
-      var at = { pending: 0, scheduled: 1, enroute: r.mode === "now" ? 1 : 2, arrived: order.indexOf("arrived"), done: order.length - 1 }[r.status];
+      var order = r.mode === "now" ? ["sent", "confirmed", "arrived", "ontrip", "done"] : ["sent", "scheduled", "enroute", "arrived", "ontrip", "done"];
+      var at = { pending: 0, scheduled: 1, enroute: r.mode === "now" ? 1 : 2, arrived: order.indexOf("arrived"), ontrip: order.indexOf("ontrip"), done: order.length - 1 }[r.status];
       var failed = at == null;
       $("t-steps").innerHTML = order.map(function (k, i) {
         var cls = failed ? (i === 0 ? "done" : "off") : i < at || r.status === "done" ? "done" : i === at ? "now" : "";
@@ -603,7 +616,7 @@
       var key = r.status === "pending" ? (r.mode === "now" ? "pending_now" : "pending_later") : r.status;
       var waiting = r.status === "pending" && r.mode === "now" && Date.now() + skew - r.created > (r.waitMin || 3) * 60000;
       var txt = T.st[waiting ? "waiting" : key] || T.st.notfound;
-      var o = { when: whenTxt(r), clock: r.etaAt ? clock(r.etaAt - skew) : "" };
+      var o = { when: whenTxt(r), clock: r.etaAt ? clock(r.etaAt - skew) : "", dclock: destAt(r) ? clock(destAt(r) - skew) : "–" };
       $("t-kicker").textContent = T.kicker[r.mode] || "";
       $("t-title").textContent = fmt(txt[0], o);
       $("t-sub").textContent = fmt(txt[1], o);
@@ -612,12 +625,13 @@
       track.classList.toggle("urgent", waiting || ["declined", "expired"].indexOf(r.status) >= 0);
       document.title = $("t-title").textContent + " | Taxi Knurów";
       steps(r);
-      var open = ["pending", "scheduled", "enroute", "arrived"].indexOf(r.status) >= 0;
-      var busy = r.status === "declined" || r.status === "expired";
+      var open = ["pending", "scheduled", "enroute", "arrived", "ontrip"].indexOf(r.status) >= 0;
+      var busy = r.status === "declined" || r.status === "expired" || r.status === "noshow";
       track.classList.toggle("busy", busy);
       $("t-steps").hidden = busy;
       $("t-later").hidden = !busy;
-      $("t-cancel").hidden = !(open && mine && mine.token && r.status !== "arrived");
+      $("t-cancel").hidden = !(open && mine && mine.token && r.status !== "arrived" && r.status !== "ontrip");
+      if (map.car) map.car(r.car);
       $("t-new").hidden = open;
       if (r.status === "done") {
         $("t-new").hidden = false; $("t-new").href = C.review || C.maps; $("t-new").textContent = T.review; $("t-new").target = "_blank";
@@ -636,17 +650,25 @@
       countdown();
     }
 
+    function destAt(r) { return r && r.startedAt && r.durationS ? r.startedAt + r.durationS * 1000 : null; }
+    // the little taxi drives along the road: by live GPS distance when the driver shares it, otherwise by time
     function countdown() {
-      var r = last, eta = $("t-eta"), bar = $("t-progress");
-      if (!r || r.status !== "enroute" || !r.etaAt) { eta.hidden = true; bar.hidden = true; return; }
-      var left = r.etaAt - (Date.now() + skew);
-      total = Math.max(total, left);
+      var r = last, eta = $("t-eta"), bar = $("t-progress"), note = $("t-car");
+      var trip = r && r.status === "ontrip", end = r && (trip ? destAt(r) : r.etaAt);
+      if (!r || !(r.status === "enroute" || trip) || !end) { eta.hidden = true; bar.hidden = true; note.hidden = true; return; }
+      var now = Date.now() + skew, left = end - now;
+      var start = trip ? r.startedAt : (r.enrouteAt || r.updated);
+      var p = Math.min(1, Math.max(0, (now - start) / Math.max(60000, end - start)));
+      if (r.car && r.car.km != null && r.car.startKm) p = Math.min(1, Math.max(0, 1 - r.car.km / r.car.startKm));
       eta.hidden = false; bar.hidden = false;
       var m = Math.ceil(left / 60000);
       $("t-eta-min").textContent = m > 0 ? m : "0";
-      $("t-eta-lbl").textContent = m > 0 ? T.etaLbl : T.anyMoment;
-      $("t-eta-at").textContent = fmt(T.at, { clock: clock(r.etaAt - skew) });
-      bar.firstChild.style.width = Math.min(100, Math.max(4, 100 - (left / (total || 1)) * 100)) + "%";
+      $("t-eta-lbl").textContent = m > 0 ? (trip ? T.destLbl : T.etaLbl) : T.anyMoment;
+      $("t-eta-at").textContent = fmt(T.at, { clock: clock(end - skew) });
+      bar.style.setProperty("--p", (Math.max(0.03, p) * 100).toFixed(1) + "%");
+      bar.classList.toggle("trip", trip); bar.classList.toggle("has-car", !!r.car);
+      note.hidden = !(r.car && r.car.km != null);
+      if (!note.hidden) note.textContent = fmt(trip ? T.carKmDest : T.carKm, { km: String(r.car.km).replace(".", lang === "pl" ? "," : ".") });
     }
 
     function alertChange() {
@@ -668,7 +690,7 @@
         fails = 0; $("t-sub").classList.remove("muted");
         skew = r.now ? r.now - Date.now() : 0;
         render(r);
-        var next = { pending: 4000, enroute: 5000, arrived: 6000, scheduled: 30000 }[r.status];
+        var next = { pending: 4000, enroute: 5000, arrived: 6000, ontrip: 10000, scheduled: 30000 }[r.status];
         if (next) timer = setTimeout(poll, document.hidden ? next * 3 : next);
       }).catch(function () {
         fails++;
@@ -704,7 +726,8 @@
     var later = 0; try { later = parseInt(localStorage.getItem("taxi.install") || "0", 10); } catch (e) {}
     if (standalone || Date.now() < later) return;
     var ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
-    var promptEvt = null, shown = false;
+    var android = /Android/.test(ua), chromium = !!window.chrome && !/OPR|SamsungBrowser/.test(ua);
+    var promptEvt = window.__bip || null, shown = false;
     function show() {
       if (shown) return; shown = true;
       box.hidden = false; box.classList.toggle("is-ios", ios);
@@ -716,12 +739,15 @@
       try { localStorage.setItem("taxi.install", String(Date.now() + days * 864e5)); } catch (e) {}
     }
     // after a booking the customer is most likely to want it; otherwise wait a bit
-    var delay = $("track") ? 2500 : 9000;
-    window.addEventListener("beforeinstallprompt", function (e) {
-      e.preventDefault(); if (ios) return; promptEvt = e; $("install-go").hidden = false;
-      setTimeout(show, delay);
-    });
-    if (ios) { box.querySelector(".install-ios").hidden = false; setTimeout(show, delay); }
+    var delay = $("track") ? 2500 : 7000;
+    function useEvent(e) { if (ios) return; promptEvt = e; $("install-go").hidden = false; box.querySelector(".install-android").hidden = true; box.querySelector(".install-desktop").hidden = true; }
+    window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); useEvent(e); });
+    if (promptEvt) useEvent(promptEvt);
+    else if (ios) box.querySelector(".install-ios").hidden = false;
+    else if (android) box.querySelector(".install-android").hidden = false;
+    else if (chromium) box.querySelector(".install-desktop").hidden = false;
+    else return;   // e.g. desktop Firefox: can't install sites, don't nag
+    setTimeout(show, delay);
     $("install-go").addEventListener("click", function () {
       if (!promptEvt) return;
       promptEvt.prompt();
