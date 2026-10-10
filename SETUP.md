@@ -34,7 +34,7 @@ Without the backend (for example on GitHub Pages or a plain local preview), the 
 3. **Credentials → Create API key** twice:
    - **Browser key**: Application restriction *Websites*. Add your Cloudflare address, e.g. `https://taxi-knurow.pages.dev/*` and `https://*.taxi-knurow.pages.dev/*` (previews), plus `http://localhost:8788/*` for local tests. Add `https://YOUR-DOMAIN/*` and `https://www.YOUR-DOMAIN/*` when you have a domain. Don't use `*.pages.dev`, which would let every pages.dev site use your key. API restriction: Maps JavaScript API, Places API (New), Geocoding API.
      Put it in `src/data.py` → `GOOGLE_MAPS_BROWSER_KEY`. It's visible in the page source by design; the website restriction is what protects it.
-   - **Server key**: no application restriction. API restriction: Routes API, Places API (New). This becomes the Cloudflare secret `GOOGLE_SERVER_KEY`, so **never** put it in the code.
+   - **Server key**: no application restriction. API restriction: Routes API, Places API (New), Geocoding API. Address suggestions and GPS → street address run through this key on the server. This becomes the Cloudflare secret `GOOGLE_SERVER_KEY`, so **never** put it in the code.
 4. **Map ID**: Google Maps Platform → *Map management* → *Create map ID* (JavaScript, Vector). Put it in `src/data.py` → `GOOGLE_MAP_ID`.
 5. **Place ID** of the business (for reviews): find "Taxi Knurów Adam Mączka" in the [Place ID Finder](https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder). This becomes `GOOGLE_PLACE_ID`.
 6. Recommended: **Billing → Budgets & alerts**, set an alert at e.g. 10 €.
@@ -60,6 +60,7 @@ Note: Google returns at most **5 reviews** and chooses them itself. The site kee
      | `GOOGLE_SERVER_KEY` | server key from step 2 |
      | `GOOGLE_PLACE_ID` | place ID from step 2 |
      | `TELEGRAM_CHAT_ID` | added in step 4 |
+     | `AERODATABOX_KEY` | optional: flight times. Sign up at rapidapi.com, subscribe to **AeroDataBox** (free Basic plan), copy your `X-RapidAPI-Key` |
 5. **Deployments → Retry deployment** so the settings take effect.
 6. Custom domain: **Custom domains → Set up a custom domain**.
 
