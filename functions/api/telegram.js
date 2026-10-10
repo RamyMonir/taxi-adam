@@ -1,8 +1,10 @@
 // POST /api/telegram – webhook for the driver's bot: button taps, /start and live location.
-import { json, clockWarsaw, kmBetween, hasXY, esc } from "../../server/util.js";
-import { route } from "../../server/google.js";
+import { json, clockWarsaw, kmBetween, hasXY, esc, randomId, canonicalOrigin } from "../../server/util.js";
+import { route, findPlace } from "../../server/google.js";
+import { price } from "../../server/pricing.js";
+import { parseRide, HELP, PARSE_ERRORS } from "../../server/phone.js";
 import { CONFIG } from "../../server/config.js";
-import { load, save, saveIfUnchanged, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides, navUrl, isLive, refreshEta, SET_OFF_MS } from "../../server/rides.js";
+import { db, notifyDriver, load, save, saveIfUnchanged, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides, navUrl, isLive, refreshEta, SET_OFF_MS } from "../../server/rides.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
 const ARRIVE_KM = 0.15, FINISH_KM = 0.3;
@@ -62,6 +64,39 @@ async function onLocation(env, msg, edited) {
   }
 }
 
+// "/kurs SKĄD > DOKĄD, KIEDY, TELEFON, IMIĘ" – a ride taken over the phone. Shows a preview first.
+async function phoneRide(env, request, text) {
+  const say = (t) => tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: t, parse_mode: "HTML" });
+  const p = parseRide(text);
+  if (p.error) { await say((PARSE_ERRORS[p.error] ? "⚠️ " + PARSE_ERRORS[p.error] + "\n\n" : "") + HELP); return; }
+  if (!env.GOOGLE_SERVER_KEY) { await say("⚠️ Brak klucza Google (GOOGLE_SERVER_KEY) – nie znajdę adresów."); return; }
+  const find = async (q) => {
+    const f = await findPlace(env, q, CONFIG.base).catch(() => null);
+    if (!f) return null;
+    const address = f.name && !f.address.toLowerCase().includes(f.name.toLowerCase()) ? `${f.name}, ${f.address}` : f.address;
+    return { address, lat: f.lat, lng: f.lng };
+  };
+  const [pickup, dest] = await Promise.all([find(p.pickup), find(p.dest)]);
+  if (!pickup || !dest) {
+    await say(`⚠️ Nie znalazłem adresu: <b>${esc(!pickup ? p.pickup : p.dest)}</b>. Dopisz miejscowość albo ulicę z numerem.`);
+    return;
+  }
+  const trip = await route(env, pickup, dest).catch(() => null);
+  const pr = price(pickup, dest, trip && trip.distanceM);
+  const r = {
+    id: randomId(12), token: randomId(24), status: "draft", mode: p.when ? "later" : "now", created: Date.now(), ip: "phone", eta_at: null, tg_msg: null,
+    data: {
+      source: "phone", origin: canonicalOrigin(request, env), typed: { pickup: p.pickup, dest: p.dest },
+      pickup, dest, when: p.when, pax: p.pax, phone: p.phone, name: p.name, notes: p.notes, lang: "pl",
+      distanceM: trip?.distanceM ?? null, durationS: trip?.durationS ?? null, polyline: trip?.polyline ?? null,
+      price: pr?.amount ?? null, priceKind: pr?.kind ?? null,
+    },
+  };
+  await save(env, r);
+  r.tg_msg = await notifyDriver(env, r);
+  await save(env, r);
+}
+
 export async function onRequestPost({ request, env }) {
   if (!env.TELEGRAM_WEBHOOK_SECRET || request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.TELEGRAM_WEBHOOK_SECRET) {
     return new Response("forbidden", { status: 403 });
@@ -73,13 +108,18 @@ export async function onRequestPost({ request, env }) {
   // live location shared by the driver (first message + edits while it moves)
   if (msg && msg.location && fromDriver) { await onLocation(env, msg, !!u.edited_message); return json({ ok: true }); }
 
+  if (u.message && u.message.text && /^\/kurs\b/i.test(u.message.text) && fromDriver) {
+    await phoneRide(env, request, u.message.text);
+    return json({ ok: true });
+  }
+
   // /start – tells whoever set up the bot their chat ID (needed for TELEGRAM_CHAT_ID)
   if (u.message && u.message.text && u.message.text.startsWith("/start")) {
     const id = u.message.chat.id;
     await tg(env, "sendMessage", {
       chat_id: id,
       text: fromDriver
-        ? "✅ Bot działa. Tutaj będą przychodzić nowe kursy ze strony.\n\n📡 Wskazówka: udostępniaj mi lokalizację na żywo (📎 → Lokalizacja → Udostępniaj na żywo). Klient zobaczy, gdzie jesteś, a ja sam zapytam, czy jesteś na miejscu."
+        ? "✅ Bot działa. Tutaj będą przychodzić nowe kursy ze strony.\n\n📞 Kurs przyjęty telefonicznie dodasz komendą /kurs (napisz samo /kurs, a pokażę przykład).\n\n📡 Wskazówka: udostępniaj mi lokalizację na żywo (📎 → Lokalizacja → Udostępniaj na żywo). Klient zobaczy, gdzie jesteś, a ja sam zapytam, czy jesteś na miejscu."
         : `Twój chat ID: ${id}\nWpisz go w Cloudflare jako TELEGRAM_CHAT_ID, a kursy zaczną przychodzić tutaj.`,
     });
     return json({ ok: true });
@@ -94,9 +134,21 @@ export async function onRequestPost({ request, env }) {
   const r = await load(env, id);
   if (!r) { await answer("Nie znaleziono kursu", true); return json({ ok: true }); }
 
-  const st = r.status, min = parseInt(arg, 10) || 0, d = r.data;
+  let st = r.status, act2 = act;
+  const min = parseInt(arg, 10) || 0, d = r.data;
   let toast = null, follow = null;
-  if (act === "e" && (st === "pending" || st === "scheduled")) {
+  // preview of a phone ride: save it (a "now" ride goes straight to "I'm on my way"), or delete it
+  if (act === "del" && st === "draft") {
+    await (await db(env)).prepare("DELETE FROM rides WHERE id = ? AND status = 'draft'").bind(r.id).run();
+    await answer("Usunięto");
+    await tg(env, "deleteMessage", { chat_id: env.TELEGRAM_CHAT_ID, message_id: q.message.message_id });
+    return json({ ok: true });
+  }
+  if (act === "ok" && st === "draft") {
+    if (r.mode === "later") { r.status = "scheduled"; await save(env, r); await Promise.all([answer("Zapisano rezerwację"), syncDriverMessage(env, r)]); return json({ ok: true }); }
+    st = "pending"; act2 = "e";
+  }
+  if (act2 === "e" && (st === "pending" || st === "scheduled")) {
     // arrival time: Google route with traffic from the driver's live position, else from the base
     const pos = await driverPos(env).catch(() => null);
     const live = isLive(pos);

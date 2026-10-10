@@ -678,6 +678,9 @@
 
   function initTrack() {
     var id = new URLSearchParams(location.search).get("id") || (Rides.active() || {}).id;
+    var tok = new URLSearchParams(location.search).get("t");
+    if (id && tok && /^[a-z0-9]{24}$/.test(tok) && !Rides.get(id)) Rides.add({ id: id, token: tok, created: Date.now(), mode: "now" });
+    if (tok) try { history.replaceState(null, "", location.pathname + "?id=" + id + (lang === "en" ? "&lang=en" : "")); } catch (e) {}
     var mine = id && Rides.get(id), last = null, skew = 0, total = 0, timer = null, tick = null, fails = 0;
     var map = TripMap($("t-map")), mapDone = false;
     if (lang === "en") {

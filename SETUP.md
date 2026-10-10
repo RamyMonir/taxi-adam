@@ -112,6 +112,13 @@ Każde zamówienie przychodzi jako wiadomość z adresami (kliknij adres → naw
 - Gdy dojedziesz pod adres, bot **sam** oznaczy, że jesteś na miejscu, powiadomi klienta i wyśle wiadomość **▶️ Klient wsiadł – rozpocznij kurs** (albo **❌ Klient nie przyszedł**). Bez lokalizacji na żywo kliknij **📍 Jestem na miejscu**.
 - W trasie: **🏁 Zakończ kurs**. Klient dostaje prośbę o opinię w Google.
 - Jeśli klient anuluje, przychodzi osobna wiadomość **🚫 Klient anulował**.
+- Kurs można anulować także w trakcie: **🚫 Anuluj kurs** / **🚫 Przerwij kurs** (bot pyta jeszcze „Na pewno?”).
+
+**Kurs przyjęty przez telefon:** napisz do bota jedną linijkę, np.
+`/kurs Rynek 1 Knurów > Lotnisko Pyrzowice, jutro 14:30, 600100200, Pani Ewa`
+(bez godziny = kurs teraz; dodatkowo: `2 os`, `uwagi: …`; samo `/kurs` pokazuje przykłady).
+Bot znajdzie adresy, policzy trasę i cenę i pokaże **podgląd** – sprawdź adresy i kliknij **✅ Zapisz** (albo **🗑 Usuń**).
+Potem kurs działa jak zamówienie ze strony, a przycisk **📲 Wyślij klientowi link (WhatsApp)** otwiera czat z klientem z gotową wiadomością – klient zobaczy na żywo, gdzie jesteś.
 
 **Lokalizacja na żywo (zalecane):** w czacie z botem: 📎 → Lokalizacja → **„Udostępniaj lokalizację na żywo”** (np. na 8 godzin).
 Wtedy klient widzi, ile km jesteś od niego, a gdy dojedziesz pod adres, bot **sam zapyta**, czy jesteś na miejscu – wystarczy potwierdzić.

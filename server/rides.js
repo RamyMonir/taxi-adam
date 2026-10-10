@@ -7,6 +7,7 @@
 import { CONFIG } from "./config.js";
 import { esc, whenLabel, clockWarsaw, kmBetween, hasXY } from "./util.js";
 import { route } from "./google.js";
+import { customerWaUrl } from "./phone.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
 const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
@@ -174,8 +175,18 @@ export const suggestMin = (d) => (d.approachS ? Math.max(3, Math.ceil(d.approach
 const driveMin = (d) => Math.max(1, Math.round((d.approachS - (d.approachApprox ? 120 : 0)) / 60));
 
 export function keyboard(r) {
+  const rows = baseKeyboard(r);
+  // ride taken over the phone: one tap opens WhatsApp with the customer's live-status link
+  const wa = r.data.source === "phone" && ["scheduled", "enroute", "arrived"].includes(r.status) && r.data.origin && customerWaUrl(r, r.data.origin);
+  if (wa) rows.push([{ text: "📲 Wyślij klientowi link (WhatsApp)", url: wa }]);
+  return rows;
+}
+
+function baseKeyboard(r) {
   const id = r.id, sm = suggestMin(r.data);
   switch (r.status) {
+    case "draft":
+      return [[btn(r.mode === "now" ? "✅ Zapisz i jadę" : "✅ Zapisz rezerwację", `ok|${id}`)], [btn("🗑 Usuń", `del|${id}`)]];
     case "pending":
       return r.mode === "now"
         ? [[btn(sm ? `✅ Przyjmuję – dojazd ~${sm} min` : "✅ Przyjmuję kurs", `e|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]]
@@ -195,6 +206,7 @@ export function keyboard(r) {
 }
 
 const STATUS_PL = {
+  draft: "📝 podgląd – sprawdź adresy i zapisz",
   pending: "⏳ czeka na Twoją decyzję",
   scheduled: "📅 rezerwacja potwierdzona",
   enroute: "🚕 jedziesz do klienta",
@@ -217,7 +229,9 @@ export function driverText(r) {
   const price = d.price ? `${d.price} zł${d.priceKind === "fixed" ? " (cena z cennika)" : " (szacunek)"}` : "do ustalenia";
   const L = [];
   L.push(r.mode === "now" ? "🚖 <b>KURS TERAZ</b>" : `📅 <b>REZERWACJA: ${esc(whenLabel(d.when))}</b>`);
+  if (d.source === "phone") L.push("📞 <i>kurs przyjęty telefonicznie</i>");
   L.push("");
+  if (r.status === "draft") L.push(`✍️ Wpisałeś: ${esc(d.typed.pickup)} &gt; ${esc(d.typed.dest)}`);
   L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>${d.pickup.gps ? (d.pickup.near ? " (GPS klienta – w pobliżu, zadzwoń)" : " (GPS klienta)") : ""}`);
   L.push(`🏁 <b>Dokąd:</b> <a href="${mapLink(d.dest)}">${esc(d.dest.address)}</a>`);
   L.push("");

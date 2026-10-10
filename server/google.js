@@ -124,12 +124,12 @@ export async function reverseGeocode(env, lat, lng) {
 
 // typed text that wasn't picked from the suggestions -> coordinates
 export async function findPlace(env, text, center) {
-  const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
+  const r = await fetch(`${env.PLACES_API_BASE || "https://places.googleapis.com"}/v1/places:searchText`, {   // override only for local tests
     method: "POST",
     headers: { "content-type": "application/json", "X-Goog-Api-Key": env.GOOGLE_SERVER_KEY, "X-Goog-FieldMask": "places.location,places.formattedAddress,places.displayName" },
     body: JSON.stringify({ textQuery: text, languageCode: "pl", regionCode: "pl", pageSize: 1, locationBias: BIAS(center) }),
   });
   if (!r.ok) throw new Error("Text search: " + (await googleError(r)));
   const p = (await r.json()).places?.[0];
-  return p ? { address: tidy(p.formattedAddress), lat: p.location.latitude, lng: p.location.longitude } : null;
+  return p ? { address: tidy(p.formattedAddress), name: p.displayName?.text || "", lat: p.location.latitude, lng: p.location.longitude } : null;
 }
