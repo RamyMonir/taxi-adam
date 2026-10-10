@@ -3,6 +3,7 @@ import { json, clockWarsaw, kmBetween, hasXY, esc, randomId, canonicalOrigin } f
 import { route, findPlace } from "../../server/google.js";
 import { price } from "../../server/pricing.js";
 import { parseRide, HELP, PARSE_ERRORS } from "../../server/phone.js";
+import { lookupCustomer, recordOrder, recordDone } from "../../server/customers.js";
 import { CONFIG } from "../../server/config.js";
 import { db, notifyDriver, load, save, saveIfUnchanged, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides, navUrl, isLive, refreshEta, SET_OFF_MS } from "../../server/rides.js";
 
@@ -81,7 +82,7 @@ async function phoneRide(env, request, text) {
     await say(`⚠️ Nie znalazłem adresu: <b>${esc(!pickup ? p.pickup : p.dest)}</b>. Dopisz miejscowość albo ulicę z numerem.`);
     return;
   }
-  const trip = await route(env, pickup, dest).catch(() => null);
+  const [trip, cust] = await Promise.all([route(env, pickup, dest).catch(() => null), lookupCustomer(env, p.phone).catch(() => null)]);
   const pr = price(pickup, dest, trip && trip.distanceM);
   const r = {
     id: randomId(12), token: randomId(24), status: "draft", mode: p.when ? "later" : "now", created: Date.now(), ip: "phone", eta_at: null, tg_msg: null,
@@ -90,6 +91,9 @@ async function phoneRide(env, request, text) {
       pickup, dest, when: p.when, pax: p.pax, phone: p.phone, name: p.name, notes: p.notes, lang: "pl",
       distanceM: trip?.distanceM ?? null, durationS: trip?.durationS ?? null, polyline: trip?.polyline ?? null,
       price: pr?.amount ?? null, priceKind: pr?.kind ?? null,
+      // the customer's account (same phone number): the ride shows up there too
+      ...(cust && cust.uid ? { uid: cust.uid } : {}),
+      ...(cust ? { cust: { ...cust, uid: undefined }, name: p.name || cust.name || cust.accountName || "" } : {}),
     },
   };
   await save(env, r);
@@ -145,6 +149,7 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true });
   }
   if (act === "ok" && st === "draft") {
+    await recordOrder(env, r).catch(() => {});
     if (r.mode === "later") { r.status = "scheduled"; await save(env, r); await Promise.all([answer("Zapisano rezerwację"), syncDriverMessage(env, r)]); return json({ ok: true }); }
     st = "pending"; act2 = "e";
   }
@@ -184,6 +189,7 @@ export async function onRequestPost({ request, env }) {
     r.status = "noshow"; toast = "Zapisano: klient nie przyszedł";
   } else if (act === "d" && (st === "ontrip" || st === "arrived")) {
     r.status = "done"; toast = "Kurs zakończony 👍";
+    await recordDone(env, r).catch(() => {});
   } else if (act === "x" && ["pending", "scheduled", "enroute"].includes(st)) {
     r.status = "declined"; toast = "Kurs odrzucony – klient dostał informację";
   } else if (act === "c" && (st === "arrived" || st === "ontrip")) {

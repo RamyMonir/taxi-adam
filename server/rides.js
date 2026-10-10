@@ -8,6 +8,7 @@ import { CONFIG } from "./config.js";
 import { esc, whenLabel, clockWarsaw, kmBetween, hasXY } from "./util.js";
 import { route } from "./google.js";
 import { customerWaUrl } from "./phone.js";
+import { customerLine } from "./customers.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
 const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
@@ -236,6 +237,7 @@ export function driverText(r) {
   L.push(`🏁 <b>Dokąd:</b> <a href="${mapLink(d.dest)}">${esc(d.dest.address)}</a>`);
   L.push("");
   L.push(`👤 ${esc(d.name || "—")}   ☎️ ${esc(d.phone)}`);
+  if (d.cust) L.push(customerLine(d.cust, esc));
   const extra = [`👥 ${d.pax} os.`];
   if (d.luggage) extra.push(`🧳 ${esc(d.luggage)}`);
   if (d.flight && !d.flightInfo) extra.push(`✈️ ${esc(d.flight)}`);

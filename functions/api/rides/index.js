@@ -6,6 +6,7 @@ import { price } from "../../../server/pricing.js";
 import { CONFIG } from "../../../server/config.js";
 import { save, recentByIp, purgeOld, notifyDriver, publicView, driverPos, isLive } from "../../../server/rides.js";
 import { currentUser, updateProfile } from "../../../server/auth.js";
+import { lookupCustomer, recordOrder, purgeCustomers } from "../../../server/customers.js";
 
 const MAX_PER_HOUR = 8;   // override with the Cloudflare variable MAX_BOOKINGS_PER_HOUR (e.g. 100 while testing)
 const GPS_LABEL = /^(moja lokalizacja|my location|-?\d+\.\d+,\s*-?\d+\.\d+)$/i;
@@ -80,6 +81,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   ]);
   const p = price(pickup, dest, trip && trip.distanceM);
   const user = await currentUser(request, env).catch(() => null);   // signed in: the ride goes to the account
+  const cust = await lookupCustomer(env, phone).catch(() => null);  // new or returning customer (for the driver)
 
   const r = {
     id: randomId(12), token: randomId(24), status: "pending", mode, created: Date.now(), ip, eta_at: null, tg_msg: null,
@@ -91,6 +93,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       approachS: approach?.durationS ?? null, approachM: approach?.distanceM ?? null, approachFrom: carLive ? "live" : "base", approachApprox: !!approach?.approx,
       price: p?.amount ?? null, priceKind: p?.kind ?? null,
       ...(user ? { uid: user.id } : {}),
+      ...(cust ? { cust: { ...cust, uid: undefined } } : {}),
     },
   };
   await save(env, r);
@@ -98,6 +101,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   if (!r.tg_msg) return bad("driver could not be notified, please call", 502);
   await save(env, r);
   waitUntil(purgeOld(env));
+  waitUntil(recordOrder(env, r).then(() => purgeCustomers(env)).catch((e) => console.log("customers", e.message)));
   // remember name and phone for the next booking
   if (user && (!user.phone || (!user.name && r.data.name))) waitUntil(updateProfile(env, user.id, { phone: user.phone || phone, name: user.name || r.data.name }).catch(() => {}));
   return json({ id: r.id, token: r.token, ride: publicView(r) }, 201);
