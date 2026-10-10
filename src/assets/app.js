@@ -34,7 +34,7 @@
         notfound: ["Nie znaleziono kursu", "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń."],
       },
       steps: { sent: "Zgłoszenie wysłane", confirmed: "Kierowca jedzie po Ciebie", scheduled: "Rezerwacja potwierdzona", enroute: "Kierowca w drodze", arrived: "Kierowca na miejscu", ontrip: "W trasie", done: "Kurs zakończony" },
-      carKm: "Auto jest {km} km od Ciebie", carKmDest: "Do celu zostało {km} km", destLbl: "min do celu",
+      carKm: "Auto jest {km} km od Ciebie", carKmDest: "Do celu zostało {km} km", destLbl: "min do celu", byGoogle: " · czas z Google Maps, z korkami",
       flLooking: "Szukam lotu…", flNone: "Nie znaleźliśmy lotu {no} w dniu {date}. Sprawdź numer i datę.", flNoneWeek: "Nie znaleźliśmy lotu {no} w najbliższych 7 dniach. Sprawdź numer.",
       flDep: "Wylot", flArr: "Przylot", flOther: "Inne dni:", flSet: "ustawiliśmy datę i godzinę odbioru",
       flSugDep: "Odbiór: {d}, {t} (2 h przed wylotem + dojazd).", flSugArr: "Kierowca czeka od {t}, {d} (20 min po lądowaniu).", flUse: "Ustaw tę godzinę",
@@ -72,7 +72,7 @@
         notfound: ["Ride not found", "The link may have expired. Book a new ride or call us."],
       },
       steps: { sent: "Request sent", confirmed: "Driver on the way", scheduled: "Booking confirmed", enroute: "Driver on the way", arrived: "Driver arrived", ontrip: "On the trip", done: "Ride finished" },
-      carKm: "The car is {km} km away", carKmDest: "{km} km to go", destLbl: "min to destination",
+      carKm: "The car is {km} km away", carKmDest: "{km} km to go", destLbl: "min to destination", byGoogle: " · Google Maps time incl. traffic",
       flLooking: "Looking up the flight…", flNone: "We couldn't find flight {no} on {date}. Check the number and date.", flNoneWeek: "We couldn't find flight {no} in the next 7 days. Check the number.",
       flDep: "Departs", flArr: "Arrives", flOther: "Other days:", flSet: "pickup date and time filled in",
       flSugDep: "Pickup: {d}, {t} (2 h before departure + drive).", flSugArr: "The driver waits from {t}, {d} (20 min after landing).", flUse: "Use this time",
@@ -650,7 +650,7 @@
       countdown();
     }
 
-    function destAt(r) { return r && r.startedAt && r.durationS ? r.startedAt + r.durationS * 1000 : null; }
+    function destAt(r) { return r && r.destEtaAt ? r.destEtaAt : r && r.startedAt && r.durationS ? r.startedAt + r.durationS * 1000 : null; }
     // the little taxi drives along the road: by live GPS distance when the driver shares it, otherwise by time
     function countdown() {
       var r = last, eta = $("t-eta"), bar = $("t-progress"), note = $("t-car");
@@ -667,8 +667,9 @@
       $("t-eta-at").textContent = fmt(T.at, { clock: clock(end - skew) });
       bar.style.setProperty("--p", (Math.max(0.03, p) * 100).toFixed(1) + "%");
       bar.classList.toggle("trip", trip); bar.classList.toggle("has-car", !!r.car);
-      note.hidden = !(r.car && r.car.km != null);
-      if (!note.hidden) note.textContent = fmt(trip ? T.carKmDest : T.carKm, { km: String(r.car.km).replace(".", lang === "pl" ? "," : ".") });
+      var km = r.roadKm != null ? r.roadKm : r.car && r.car.km;
+      note.hidden = km == null;
+      if (!note.hidden) note.textContent = fmt(trip ? T.carKmDest : T.carKm, { km: String(km).replace(".", lang === "pl" ? "," : ".") }) + (r.etaSource === "google" ? T.byGoogle : "");
     }
 
     function alertChange() {

@@ -60,6 +60,7 @@ Note: Google returns at most **5 reviews** and chooses them itself. The site kee
      | `GOOGLE_SERVER_KEY` | server key from step 2 |
      | `GOOGLE_PLACE_ID` | place ID from step 2 |
      | `TELEGRAM_CHAT_ID` | added in step 4 |
+     | `MAX_BOOKINGS_PER_HOUR` | optional (type *Text*): bookings allowed per device per hour, default 8. Set e.g. `100` while testing, then delete it |
      | `AERODATABOX_KEY` | optional: flight times. Sign up at rapidapi.com, subscribe to **AeroDataBox** (free Basic plan), copy your `X-RapidAPI-Key` |
 5. **Deployments → Retry deployment** so the settings take effect.
 6. Custom domain: **Custom domains → Set up a custom domain**.

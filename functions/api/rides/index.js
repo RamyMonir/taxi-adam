@@ -4,9 +4,9 @@ import { route, reverseGeocode, findPlace } from "../../../server/google.js";
 import { lookupFlight, flightLine, normFlight, validFlight } from "../../../server/flights.js";
 import { price } from "../../../server/pricing.js";
 import { CONFIG } from "../../../server/config.js";
-import { save, recentByIp, purgeOld, notifyDriver, publicView } from "../../../server/rides.js";
+import { save, recentByIp, purgeOld, notifyDriver, publicView, driverPos } from "../../../server/rides.js";
 
-const MAX_PER_HOUR = 5;
+const MAX_PER_HOUR = 8;   // override with the Cloudflare variable MAX_BOOKINGS_PER_HOUR (e.g. 100 while testing)
 const GPS_LABEL = /^(moja lokalizacja|my location|-?\d+\.\d+,\s*-?\d+\.\d+)$/i;
 const clean = (v, n) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -31,7 +31,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
   }
 
   const ip = await sha((request.headers.get("cf-connecting-ip") || "") + (env.TELEGRAM_WEBHOOK_SECRET || ""));
-  if ((await recentByIp(env, ip, Date.now() - 3600e3)) >= MAX_PER_HOUR) return bad("too many bookings, please call", 429);
+  const limit = parseInt(env.MAX_BOOKINGS_PER_HOUR, 10) || MAX_PER_HOUR;
+  if ((await recentByIp(env, ip, Date.now() - 3600e3)) >= limit) return bad("too many bookings, please call", 429);
 
   // make sure the driver gets real addresses and map links: GPS -> street address, typed text -> coordinates
   if (env.GOOGLE_SERVER_KEY) {
@@ -58,10 +59,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
     flightInfo = flightLine(f);
   }
 
-  // price and distances are always computed here, never taken from the browser
+  // price and distances are always computed here, never taken from the browser.
+  // "now": drive time to the pickup from the driver's live position (Telegram), else from the base.
+  const car = mode === "now" ? await driverPos(env).catch(() => null) : null;
+  const carLive = car && car.ts && Date.now() - car.ts < 5 * 60000;
   const [trip, approach] = await Promise.all([
     hasXY(pickup) && hasXY(dest) ? route(env, pickup, dest) : null,
-    mode === "now" && hasXY(pickup) ? route(env, CONFIG.base, pickup, true) : null,
+    mode === "now" && hasXY(pickup) ? route(env, carLive ? { lat: car.lat, lng: car.lng } : CONFIG.base, pickup, true) : null,
   ]);
   const p = price(pickup, dest, trip && trip.distanceM);
 
@@ -72,7 +76,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
       name: clean(b.name, 60), luggage: clean(b.luggage, 40), flight: clean(b.flight, 30), flightInfo,
       notes: clean(b.notes, 500), returnTrip: mode === "later" ? clean(b.returnTrip, 120) : "", lang: b.lang === "en" ? "en" : "pl",
       distanceM: trip?.distanceM ?? null, durationS: trip?.durationS ?? null, polyline: trip?.polyline ?? null,
-      approachS: approach?.durationS ?? null, price: p?.amount ?? null, priceKind: p?.kind ?? null,
+      approachS: approach?.durationS ?? null, approachM: approach?.distanceM ?? null, approachFrom: carLive ? "live" : "base", approachApprox: !!approach?.approx,
+      price: p?.amount ?? null, priceKind: p?.kind ?? null,
     },
   };
   await save(env, r);

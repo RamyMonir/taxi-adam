@@ -1,9 +1,10 @@
 // POST /api/telegram – webhook for the driver's bot: button taps, /start and live location.
 import { json, clockWarsaw, kmBetween, hasXY, esc } from "../../server/util.js";
-import { load, save, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides } from "../../server/rides.js";
+import { route } from "../../server/google.js";
+import { load, save, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides, navUrl } from "../../server/rides.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
-const ARRIVE_KM = 0.15, FINISH_KM = 0.3;
+const ARRIVE_KM = 0.15, FINISH_KM = 0.3, ETA_EVERY_MS = 60000;
 
 // a new message (with sound) that asks the driver to confirm the next step
 async function ask(env, r, text, buttons) {
@@ -11,11 +12,24 @@ async function ask(env, r, text, buttons) {
                                   reply_markup: { inline_keyboard: buttons } });
 }
 
+// precise arrival: Google route (with traffic) from where the driver really is
+async function refreshEta(env, r, me) {
+  const d = r.data, target = r.status === "ontrip" ? d.dest : d.pickup;
+  if (!hasXY(target) || !env.GOOGLE_SERVER_KEY || (d.liveAt && Date.now() - d.liveAt < ETA_EVERY_MS)) return;
+  const x = await route(env, me, target, true).catch(() => null);
+  if (!x || x.approx) return;
+  d.liveAt = Date.now(); d.liveKm = Math.round(x.distanceM / 100) / 10; d.liveEtaAt = Date.now() + x.durationS * 1000; d.etaSource = "google";
+  if (r.status === "enroute") r.eta_at = d.liveEtaAt;
+  await save(env, r);
+  await syncDriverMessage(env, r);
+}
+
 async function onLocation(env, loc) {
   await saveDriverPos(env, loc.latitude, loc.longitude);
   const me = { lat: loc.latitude, lng: loc.longitude };
   for (const r of await activeRides(env)) {
     const d = r.data;
+    await refreshEta(env, r, me);
     if (r.status === "enroute" && hasXY(d.pickup)) {
       const km = kmBetween(me, d.pickup);
       if (!d.carStartKm) { d.carStartKm = Math.max(km, 0.3); await save(env, r); }
@@ -67,7 +81,7 @@ export async function onRequestPost({ request, env }) {
   let toast = null, follow = null;
   if (act === "e" && (st === "pending" || st === "scheduled") && min) {
     r.status = "enroute"; r.eta_at = Date.now() + min * 60000; d.enrouteAt = Date.now(); toast = `Klient widzi: będziesz za ${min} min`;
-    follow = "hint";
+    d.liveAt = 0; follow = "hint";
   } else if (act === "s" && st === "pending" && r.mode === "later") {
     r.status = "scheduled"; toast = "Rezerwacja potwierdzona";
   } else if (act === "p" && st === "enroute" && min) {
@@ -76,7 +90,8 @@ export async function onRequestPost({ request, env }) {
     r.status = "arrived"; d.arrivedAt = Date.now(); toast = "Klient dostał informację, że czekasz";
     follow = "start";
   } else if (act === "t" && st === "arrived") {
-    r.status = "ontrip"; d.startedAt = Date.now(); toast = "Kurs rozpoczęty – szerokiej drogi!";
+    r.status = "ontrip"; d.startedAt = Date.now(); d.liveAt = 0; d.liveEtaAt = null; d.liveKm = null; toast = "Kurs rozpoczęty – szerokiej drogi!";
+    follow = "navdest";
   } else if (act === "n" && st === "arrived") {
     r.status = "noshow"; toast = "Zapisano: klient nie przyszedł";
   } else if (act === "d" && (st === "ontrip" || st === "arrived")) {
@@ -100,10 +115,15 @@ export async function onRequestPost({ request, env }) {
   if (follow === "start") {
     await ask(env, r, `👋 Klient wie, że czekasz pod adresem <b>${esc(d.pickup.address)}</b>.\nGdy wsiądzie, rozpocznij kurs:`,
               [[btn("▶️ Klient wsiadł – rozpocznij kurs", `t|${r.id}`)], [btn("❌ Klient nie przyszedł", `n|${r.id}`)]]);
-  } else if (follow === "hint") {
+  } else if (follow === "navdest") {
+    await ask(env, r, `🛣 Kurs rozpoczęty. Cel: <b>${esc(d.dest.address)}</b>`, [[{ text: "🧭 Nawiguj do celu (Google Maps)", url: navUrl(d.dest) }]]);
+  }
+  if (follow === "hint") {
+    await ask(env, r, `🚕 Jedziesz do: <b>${esc(d.pickup.address)}</b>`, [[{ text: "🧭 Nawiguj do klienta (Google Maps)", url: navUrl(d.pickup) }]]);
     const pos = await driverPos(env).catch(() => null);
     const sharing = pos && pos.ts && Date.now() - pos.ts < 3 * 60000;
-    if (!sharing && (!pos || !pos.hint_ts || Date.now() - pos.hint_ts > 12 * 3600e3)) {
+    if (sharing) await refreshEta(env, r, { lat: pos.lat, lng: pos.lng });
+    if (!sharing &&(!pos || !pos.hint_ts || Date.now() - pos.hint_ts > 12 * 3600e3)) {
       await markHint(env);
       await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID,
         text: "📡 Udostępnij mi lokalizację na żywo: 📎 → Lokalizacja → „Udostępniaj lokalizację na żywo” (np. 8 h).\nKlient zobaczy, jak się zbliżasz, a gdy dojedziesz, sam zapytam, czy jesteś na miejscu." });

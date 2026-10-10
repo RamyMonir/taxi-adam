@@ -93,6 +93,8 @@ export function publicView(r, car) {
     car: live ? { lat: car.lat, lng: car.lng, ts: car.ts, km: hasXY(target) ? Math.round(kmBetween(car, target) * 10) / 10 : null,
                   startKm: r.status === "ontrip" ? (d.distanceM ? d.distanceM / 1000 : null) : (d.carStartKm || null) } : null,
     startedAt: d.startedAt || null, enrouteAt: d.enrouteAt || null,
+    destEtaAt: r.status === "ontrip" && d.liveEtaAt ? d.liveEtaAt : null, etaSource: d.etaSource || null,
+    roadKm: d.liveKm != null && d.liveAt && Date.now() - d.liveAt < CAR_FRESH_MS ? d.liveKm : null,
     id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated, etaAt: r.eta_at || null, now: Date.now(),
     when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
     approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
@@ -115,13 +117,19 @@ export async function tg(env, method, body) {
 }
 
 const btn = (text, data) => ({ text, callback_data: data });
+export const navUrl = (p) => (p && p.lat != null
+  ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving&dir_action=navigate`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((p && p.address) || "")}`);
+// Google's drive time to the pickup + 2 min to get going
+export const suggestMin = (d) => (d.approachS ? Math.max(3, Math.ceil(d.approachS / 60) + 2) : null);
 
 export function keyboard(r) {
-  const id = r.id;
+  const id = r.id, sm = suggestMin(r.data);
   switch (r.status) {
     case "pending":
       return r.mode === "now"
-        ? [[btn("✅ 5 min", `e|${id}|5`), btn("✅ 10 min", `e|${id}|10`), btn("✅ 15 min", `e|${id}|15`)],
+        ? [...(sm ? [[btn(`✅ Przyjmij – będę za ~${sm} min`, `e|${id}|${sm}`)]] : []),
+           [btn("✅ 5 min", `e|${id}|5`), btn("✅ 10 min", `e|${id}|10`), btn("✅ 15 min", `e|${id}|15`)],
            [btn("✅ 20 min", `e|${id}|20`), btn("✅ 30 min", `e|${id}|30`)],
            [btn("❌ Odrzuć", `x|${id}`)]]
         : [[btn("✅ Potwierdź rezerwację", `s|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]];
@@ -129,11 +137,12 @@ export function keyboard(r) {
       return [[btn("🚕 Wyjeżdżam – 10 min", `e|${id}|10`), btn("20 min", `e|${id}|20`), btn("30 min", `e|${id}|30`)],
               [btn("❌ Anuluj kurs", `x|${id}`)]];
     case "enroute":
-      return [[btn("📍 Jestem na miejscu", `a|${id}`)], [btn("⏱ +5 min", `p|${id}|5`), btn("❌ Anuluj", `x|${id}`)]];
+      return [[{ text: "🧭 Nawiguj do klienta", url: navUrl(r.data.pickup) }],
+              [btn("📍 Jestem na miejscu", `a|${id}`)], [btn("⏱ +5 min", `p|${id}|5`), btn("❌ Anuluj", `x|${id}`)]];
     case "arrived":
       return [[btn("▶️ Klient wsiadł – rozpocznij kurs", `t|${id}`)], [btn("❌ Klient nie przyszedł", `n|${id}`)]];
     case "ontrip":
-      return [[btn("🏁 Zakończ kurs", `d|${id}`)]];
+      return [[{ text: "🧭 Nawiguj do celu", url: navUrl(r.data.dest) }], [btn("🏁 Zakończ kurs", `d|${id}`)]];
     default:
       return [];
   }
@@ -172,7 +181,15 @@ export function driverText(r) {
   L.push(extra.join("   "));
   if (d.flightInfo) L.push(`✈️ ${esc(d.flightInfo)}`);
   L.push(`📏 ${[km, min].filter(Boolean).join(" · ") || "trasa nieznana"}   💰 ${price}`);
-  if (r.mode === "now" && d.approachS) L.push(`🚗 Dojazd z bazy: ok. ${Math.max(1, Math.round(d.approachS / 60))} min`);
+  if (r.mode === "now" && d.approachS) {
+    const km = d.approachM ? `${(d.approachM / 1000).toFixed(1).replace(".", ",")} km, ` : "";
+    L.push(d.approachFrom === "live"
+      ? `🚗 Od Ciebie do klienta: ${km}~${Math.max(1, Math.round(d.approachS / 60))} min ${d.approachApprox ? "(szacunek)" : "(Google, z korkami)"}`
+      : `🚗 Dojazd z bazy: ${km}~${Math.max(1, Math.round(d.approachS / 60))} min · udostępnij lokalizację na żywo, żeby liczyć od Ciebie`);
+  }
+  if (d.liveEtaAt && (r.status === "enroute" || r.status === "ontrip")) {
+    L.push(`📡 Google: ${d.liveKm != null ? String(d.liveKm).replace(".", ",") + " km, " : ""}na miejscu ok. ${clockWarsaw(d.liveEtaAt)}`);
+  }
   if (d.returnTrip) L.push(`🔁 Powrót: ${esc(d.returnTrip)}`);
   if (d.notes) L.push(`📝 ${esc(d.notes)}`);
   L.push("");
