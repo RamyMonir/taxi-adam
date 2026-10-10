@@ -4,16 +4,38 @@ import { route, findPlace } from "../../server/google.js";
 import { price } from "../../server/pricing.js";
 import { parseRide, HELP, PARSE_ERRORS } from "../../server/phone.js";
 import { lookupCustomer, recordOrder, recordDone } from "../../server/customers.js";
+import { METHODS, setPayMsg, setPaid, tripByPayMsg, parsePaid, parsePeriod, buildReport, REPORT_HELP } from "../../server/report.js";
 import { CONFIG } from "../../server/config.js";
-import { db, notifyDriver, load, save, saveIfUnchanged, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides, navUrl, isLive, refreshEta, SET_OFF_MS } from "../../server/rides.js";
+import { db, notifyDriver, tgFile, load, save, saveIfUnchanged, tg, syncDriverMessage, saveDriverPos, driverPos, markHint, activeRides, navUrl, isLive, refreshEta, SET_OFF_MS } from "../../server/rides.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
 const ARRIVE_KM = 0.15, FINISH_KM = 0.3;
 
 // a new message (with sound) that asks the driver to confirm the next step
 async function ask(env, r, text, buttons) {
-  await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", reply_to_message_id: r.tg_msg || undefined,
+  const j = await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text, parse_mode: "HTML", reply_to_message_id: r.tg_msg || undefined,
                                   reply_markup: { inline_keyboard: buttons } });
+  return j && j.ok ? j.result.message_id : null;
+}
+
+// after "Zakończ kurs": how much did the customer pay, and how
+async function askPayment(env, r) {
+  const p = r.data.price;
+  const rows = p ? [[btn(`💵 Gotówka ${p} zł`, `pay|${r.id}|g`), btn(`💳 Karta ${p} zł`, `pay|${r.id}|k`)],
+                    [btn(`📱 BLIK ${p} zł`, `pay|${r.id}|b`), btn(`🏦 Przelew ${p} zł`, `pay|${r.id}|p`)],
+                    [btn("✏️ Inna kwota", `pay|${r.id}|o`)]] : [];
+  const id = await ask(env, r, `💰 <b>Ile zapłacił klient?</b>${p ? "" : "\nOdpisz na tę wiadomość kwotą, np. <i>85 karta</i>."}`, rows);
+  if (id) await setPayMsg(env, r.id, id);
+}
+
+// "/raport [okres]" – summary in the chat + CSV file for Excel
+async function sendReport(env, text) {
+  const arg = text.replace(/^\/raport(@\w+)?/i, "").trim();
+  const per = parsePeriod(arg);
+  if (!per) { await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: "⚠️ Nie rozumiem okresu.\n\n" + REPORT_HELP, parse_mode: "HTML" }); return; }
+  const rep = await buildReport(env, per.from, per.to);
+  await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, text: rep.text, parse_mode: "HTML" });
+  if (rep.rows.length) await tgFile(env, `raport_${per.from}${per.to !== per.from ? "_" + per.to : ""}.csv`, rep.csv, `Wszystkie kursy: ${rep.title}`);
 }
 
 // live location window: shared "for 8 h" -> valid until message date + live_period.
@@ -112,6 +134,21 @@ export async function onRequestPost({ request, env }) {
   // live location shared by the driver (first message + edits while it moves)
   if (msg && msg.location && fromDriver) { await onLocation(env, msg, !!u.edited_message); return json({ ok: true }); }
 
+  if (u.message && u.message.text && /^\/raport\b/i.test(u.message.text) && fromDriver) {
+    await sendReport(env, u.message.text);
+    return json({ ok: true });
+  }
+  // a reply to "Ile zapłacił klient?" with the amount
+  if (u.message && u.message.text && u.message.reply_to_message && fromDriver) {
+    const t = await tripByPayMsg(env, u.message.reply_to_message.message_id).catch(() => null);
+    const p = t && parsePaid(u.message.text);
+    if (p) {
+      await setPaid(env, t.id, p.amount, p.method);
+      await tg(env, "sendMessage", { chat_id: env.TELEGRAM_CHAT_ID, reply_to_message_id: u.message.message_id,
+        text: `💰 Zapisano: ${String(p.amount).replace(".", ",")} zł${p.method ? " · " + p.method : ""}` });
+      return json({ ok: true });
+    }
+  }
   if (u.message && u.message.text && /^\/kurs\b/i.test(u.message.text) && fromDriver) {
     await phoneRide(env, request, u.message.text);
     return json({ ok: true });
@@ -138,6 +175,16 @@ export async function onRequestPost({ request, env }) {
   const r = await load(env, id);
   if (!r) { await answer("Nie znaleziono kursu", true); return json({ ok: true }); }
 
+  if (act === "pay") {
+    if (arg === "o") { await answer("Odpisz na tę wiadomość kwotą, np. 85 albo 85 karta", true); return json({ ok: true }); }
+    const method = METHODS[arg];
+    if (!method || !r.data.price) { await answer("Ten przycisk jest już nieaktualny", true); return json({ ok: true }); }
+    await setPaid(env, r.id, r.data.price, method);
+    await answer(`Zapisano: ${r.data.price} zł · ${method}`);
+    await tg(env, "editMessageText", { chat_id: env.TELEGRAM_CHAT_ID, message_id: q.message.message_id, parse_mode: "HTML",
+      text: `💰 Zapłacono: <b>${r.data.price} zł</b> · ${method}`, reply_markup: { inline_keyboard: [[btn("✏️ Popraw kwotę", `pay|${r.id}|o`)]] } });
+    return json({ ok: true });
+  }
   let st = r.status, act2 = act;
   const min = parseInt(arg, 10) || 0, d = r.data;
   let toast = null, follow = null;
@@ -163,6 +210,7 @@ export async function onRequestPost({ request, env }) {
       if (x) {
         // the straight-line fallback already includes 2 min; Google times get the 2 min to set off here
         secs = x.durationS + (x.approx ? 0 : SET_OFF_MS / 1000);
+        d.acceptKm = Math.round(x.distanceM / 100) / 10;   // km driven to the customer (for reports)
         if (live && !x.approx) {
           d.liveAt = Date.now(); d.liveFrom = d.acceptFrom = `${pos.lat},${pos.lng}`;
           d.liveKm = Math.round(x.distanceM / 100) / 10; d.liveEtaAt = Date.now() + secs * 1000; d.etaSource = "google";
@@ -188,7 +236,7 @@ export async function onRequestPost({ request, env }) {
   } else if (act === "n" && st === "arrived") {
     r.status = "noshow"; toast = "Zapisano: klient nie przyszedł";
   } else if (act === "d" && (st === "ontrip" || st === "arrived")) {
-    r.status = "done"; toast = "Kurs zakończony 👍";
+    r.status = "done"; toast = "Kurs zakończony 👍"; follow = "pay";
     await recordDone(env, r).catch(() => {});
   } else if (act === "x" && ["pending", "scheduled", "enroute"].includes(st)) {
     r.status = "declined"; toast = "Kurs odrzucony – klient dostał informację";
@@ -224,6 +272,7 @@ export async function onRequestPost({ request, env }) {
   } else if (follow === "navdest") {
     await ask(env, r, `🛣 Kurs rozpoczęty. Cel: <b>${esc(d.dest.address)}</b>`, [[{ text: "🧭 Nawiguj do celu (Google Maps)", url: navUrl(d.dest) }]]);
   }
+  if (follow === "pay") await askPayment(env, r);
   if (follow === "hint") {
     await ask(env, r, `🚕 Jedziesz do: <b>${esc(d.pickup.address)}</b>`, [[{ text: "🧭 Nawiguj do klienta (Google Maps)", url: navUrl(d.pickup) }]]);
     const pos = await driverPos(env).catch(() => null);

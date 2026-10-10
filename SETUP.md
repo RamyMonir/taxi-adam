@@ -114,6 +114,12 @@ Każde zamówienie przychodzi jako wiadomość z adresami (kliknij adres → naw
 - Jeśli klient anuluje, przychodzi osobna wiadomość **🚫 Klient anulował**.
 - Kurs można anulować także w trakcie: **🚫 Anuluj kurs** / **🚫 Przerwij kurs** (bot pyta jeszcze „Na pewno?”).
 
+**Zapłata i raporty:** po **🏁 Zakończ kurs** bot pyta **„Ile zapłacił klient?”** – kliknij sposób płatności (kwota z wyceny) albo **✏️ Inna kwota** i odpisz na tę wiadomość, np. `85 karta`.
+Raport: `/raport` (dziś), `/raport wczoraj`, `/raport tydzień`, `/raport miesiąc`, `/raport zeszły miesiąc`, `/raport rok`, `/raport 01.10-15.10`.
+Bot wysyła podsumowanie (kursy, km, godziny, przychód wg płatności, średnie, klienci) i plik CSV do Excela.
+W przeglądarce: `…/api/admin/report?key=ADMIN_KEY&okres=miesiąc&format=csv` (bez `format=csv` – podsumowanie tekstem).
+Historia kursów do raportów jest przechowywana 5 lat (dane do rozliczeń).
+
 **Kurs przyjęty przez telefon:** napisz do bota jedną linijkę, np.
 `/kurs Rynek 1 Knurów > Lotnisko Pyrzowice, jutro 14:30, 600100200, Pani Ewa`
 (bez godziny = kurs teraz; dodatkowo: `2 os`, `uwagi: …`; samo `/kurs` pokazuje przykłady).

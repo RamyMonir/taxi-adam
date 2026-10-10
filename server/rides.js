@@ -9,6 +9,7 @@ import { esc, whenLabel, clockWarsaw, kmBetween, hasXY } from "./util.js";
 import { route } from "./google.js";
 import { customerWaUrl } from "./phone.js";
 import { customerLine } from "./customers.js";
+import { FINAL, recordTrip } from "./report.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
 const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
@@ -51,6 +52,8 @@ export async function save(env, r) {
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
      ON CONFLICT(id) DO UPDATE SET status = ?3, updated = ?6, eta_at = ?7, tg_msg = ?8, data = ?10`
   ).bind(r.id, r.token, r.status, r.mode, r.created, r.updated, r.eta_at ?? null, r.tg_msg ?? null, r.ip ?? null, JSON.stringify(r.data)).run();
+  // finished or failed: copy to the long-term ride log (reports)
+  if (FINAL.includes(r.status)) await recordTrip(env, r).catch((e) => console.log("trip log", e.message));
 }
 
 // Background updates (route refresh, live location) only write if nobody changed the ride since it was read.
@@ -260,6 +263,17 @@ export function driverText(r) {
   if (r.status === "enroute" && r.eta_at) st += ` – u klienta ok. ${clockWarsaw(r.eta_at)}`;
   L.push(st);
   return L.join("\n");
+}
+
+// a file (e.g. the CSV report) to the driver's chat
+export async function tgFile(env, filename, content, caption) {
+  if (!env.TELEGRAM_BOT_TOKEN) return null;
+  const fd = new FormData();
+  fd.append("chat_id", String(env.TELEGRAM_CHAT_ID));
+  if (caption) fd.append("caption", caption);
+  fd.append("document", new Blob([content], { type: "text/csv" }), filename);
+  const r = await fetch(`${env.TELEGRAM_API_BASE || "https://api.telegram.org"}/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: "POST", body: fd });
+  return r.json().catch(() => null);
 }
 
 export async function notifyDriver(env, r) {
