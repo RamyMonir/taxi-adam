@@ -136,6 +136,9 @@ GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Manag
 # Logowanie klientów przez Google (opcjonalne). Client ID typu "Web application" z Google Cloud
 # (APIs & Services -> Credentials -> OAuth client ID). Publiczny z założenia. Pusty = brak logowania.
 GOOGLE_OAUTH_CLIENT_ID = "33873511500-i7snf730jquenheagpdku5j7l6dfkrld.apps.googleusercontent.com"
+# Kursy nocne (od Adama): od 22:00 do 5:00 tylko z wcześniejszą rezerwacją, bez rezerwacji w nocy nie jeździmy.
+# W tych godzinach nie da się zamówić kursu "teraz"; rezerwacja na noc najpóźniej ahead_min minut przed odbiorem.
+NIGHT = {"from": "22:00", "to": "05:00", "ahead_min": 60}   # TODO: ahead_min potwierdzić z Adamem
 # Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
 NOW_WAIT_MIN = 3
 

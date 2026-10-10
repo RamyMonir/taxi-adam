@@ -10,6 +10,13 @@ import { currentUser, updateProfile } from "../../../server/auth.js";
 const MAX_PER_HOUR = 8;   // override with the Cloudflare variable MAX_BOOKINGS_PER_HOUR (e.g. 100 while testing)
 const GPS_LABEL = /^(moja lokalizacja|my location|-?\d+\.\d+,\s*-?\d+\.\d+)$/i;
 const clean = (v, n) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+// night rides only with an earlier reservation ("YYYY-MM-DDTHH:MM", Warsaw time)
+const mins = (hm) => +hm.slice(0, 2) * 60 + +hm.slice(3, 5);
+function isNight(when) {
+  const n = CONFIG.night; if (!n) return false;
+  const m = mins(when.slice(11, 16)), f = mins(n.from), t = mins(n.to);
+  return f > t ? m >= f || m < t : m >= f && m < t;
+}
 
 export async function onRequestPost({ request, env, waitUntil }) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID || !env.DB) return bad("booking backend not configured", 503);
@@ -29,6 +36,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
     when = clean(b.when, 16);
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when)) return bad("when");
     if (when < nowWarsaw(10) || when > nowWarsaw(120 * 24 * 60)) return bad("when");
+    if (isNight(when) && when < nowWarsaw(CONFIG.night.ahead_min)) return bad("night");
+  } else if (isNight(nowWarsaw())) {
+    return bad("night");
   }
 
   const ip = await sha((request.headers.get("cf-connecting-ip") || "") + (env.TELEGRAM_WEBHOOK_SECRET || ""));

@@ -614,3 +614,7 @@ html,body{overflow-x:hidden}
 .ar-empty{color:var(--card-text);padding:8px 0}
 .acct-actions{margin-top:24px;display:flex;flex-wrap:wrap;gap:10px}
 @media (max-width:640px){.acct-card{padding:20px}.acct-form{grid-template-columns:1fr}}
+
+/* night: "now" rides only by reservation */
+.seg-btn.off{opacity:.55}
+.seg-btn.off small{color:var(--yellow)}

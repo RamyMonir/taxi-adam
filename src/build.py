@@ -3,7 +3,7 @@
 import json, os, shutil, datetime, hashlib
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID)
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -47,7 +47,7 @@ CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balic
 def client_config(lang):
     """window.TAXI – ustawienia dla app.js (formularz rezerwacji, status, opinie)."""
     return json.dumps(dict(
-        lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
+        lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
         chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS],
         airports=[dict(code=d["code"], lat=d["lat"], lng=d["lng"]) for d in DESTINATIONS if d["kind"] == "airport"]), ensure_ascii=False)
@@ -55,7 +55,7 @@ def client_config(lang):
 def write_server_config():
     """server/config.js – te same ceny i strefy dla funkcji Cloudflare (liczą cenę po stronie serwera)."""
     cfg = dict(
-        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN, googleClientId=GOOGLE_OAUTH_CLIENT_ID,
+        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN, googleClientId=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT,
         base=dict(lat=B["lat"], lng=B["lng"]), center=dict(lat=KNUROW_CENTER[0], lng=KNUROW_CENTER[1]),
         zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
         destinations=[dict(slug=d["slug"], code=d.get("code"), short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
@@ -71,9 +71,9 @@ def dest_copy(d):
         return dict(
             h1=f"Taxi z Knurowa na lotnisko {n.replace('Lotnisko ', '')} ({d['code']})",
             title=f"Taxi Knurów – {n} ({d['code']}) od {p} zł | {B['name']}",
-            desc=f"Transfer z Knurowa i okolic na lotnisko {n.replace('Lotnisko ', '')} od {p} zł. Stała cena ustalona przed wyjazdem, odbiór spod domu 24/7, auta do 7 osób, pomoc z bagażem.",
+            desc=f"Transfer z Knurowa i okolic na lotnisko {n.replace('Lotnisko ', '')} od {p} zł. Stała cena ustalona przed wyjazdem, odbiór spod domu o każdej porze (w nocy po rezerwacji), auta do 7 osób, pomoc z bagażem.",
             intro=f"Odbieramy spod domu w Knurowie, Gierałtowicach i okolicznych miejscowościach i wozimy prosto pod terminal. Cenę znasz przed wyjazdem, a przy powrocie czekamy w hali przylotów.",
-            points=["Odbiór spod drzwi o dowolnej porze, także w nocy", "Przy przylocie śledzimy numer lotu – opóźnienie nie podnosi ceny",
+            points=["Odbiór spod drzwi o dowolnej porze – w nocy (22:00–5:00) po wcześniejszej rezerwacji", "Przy przylocie śledzimy numer lotu – opóźnienie nie podnosi ceny",
                     "Auta do 7 osób i miejsce na walizki", "Płatność gotówką, kartą, BLIK-iem lub przelewem dla firm"],
             faq=[(f"Ile kosztuje taxi z Knurowa na {d['short']}?", f"Kurs z Knurowa kosztuje od {p} zł. Z Gierałtowic, Przyszowic i strefy A dochodzi {ZONES['A']['surcharge']} zł, ze strefy B {ZONES['B']['surcharge']} zł. Dokładną cenę potwierdzamy przy rezerwacji."),
                  ("Z jakim wyprzedzeniem rezerwować?", "Najlepiej dzień wcześniej, a przy wylotach w sezonie świątecznym i wakacyjnym kilka dni wcześniej. Kursy na już przyjmujemy telefonicznie, jeśli auto jest wolne."),
@@ -263,7 +263,7 @@ BOOK = r"""<form class="book" id="booking" data-mode="{{ mode }}"{% if dest %} d
 </form>"""
 
 T_BOOK = {
- "pl": dict(title="Zamów taxi", sub="Całodobowo · kierowca potwierdza w kilka minut", whenq="Kiedy jedziesz?",
+ "pl": dict(title="Zamów taxi", sub="Kierowca potwierdza w kilka minut · w nocy (22–5) tylko rezerwacje", whenq="Kiedy jedziesz?",
             now="Teraz", now_s="auto jak najszybciej", later="Na później", later_s="lotnisko, sanatorium…",
             from_="Skąd", from_ph="Skąd? Wpisz adres odbioru", to="Dokąd", to_ph="Dokąd jedziesz?",
             gps="Użyj mojej lokalizacji", gps_s="Tu jestem", swap="Zamień kierunek", popular="Popularne cele",
@@ -274,7 +274,7 @@ T_BOOK = {
             back="Kurs powrotny (data, godzina)", back_ph="np. 24.10, przylot 21:40",
             notes="Uwagi dla kierowcy", notes_ph="np. fotelik dla dziecka, pomoc z bagażem, brama od podwórza",
             book_now="Zamów teraz", book_later="Zarezerwuj kurs", or_="albo zadzwoń:"),
- "en": dict(title="Book a taxi", sub="24/7 · the driver confirms within minutes", whenq="When?",
+ "en": dict(title="Book a taxi", sub="The driver confirms within minutes · nights (10 pm–5 am) by advance booking", whenq="When?",
             now="Now", now_s="as soon as possible", later="Later", later_s="airport, scheduled…",
             from_="From", from_ph="Pickup address", to="To", to_ph="Where to?",
             gps="Use my location", gps_s="I'm here", swap="Swap", popular="Popular destinations",
@@ -363,7 +363,7 @@ STREAKS = '<div class="streaks" aria-hidden="true">' + "".join(f'<i style="--y:{
 def hero(h1, lead, meter_html, crumbs=None, facts=True, logo=False):
     f = ""
     if facts:
-        f = (f'<ul class="hero-facts"><li class="status">Całodobowo, 7 dni w tygodniu</li>'
+        f = (f'<ul class="hero-facts"><li class="status">7 dni w tygodniu · w nocy po rezerwacji</li>'
              f'<li>{ICON["star"]}<span class="stars">{B["rating"]}</span>&nbsp;z {B["reviews"]} opinii w Google</li>'
              f'<li>{ICON["check"]} Auta do {B["seats"]} osób</li><li>{ICON["check"]} Karta, BLIK, przelew</li></ul>')
     lg = ('<img class="hero-logo" src="/assets/img/logo.webp" alt="" width="560" height="671" fetchpriority="high">' if logo else "")
@@ -390,7 +390,7 @@ def services_block():
         f'<span class="svc-more"><span>{more}</span><b>Zobacz ceny <span aria-hidden="true">→</span></b></span></a></li>'
         for i, (img, href, title, sub, more, alt) in enumerate(SERVICES))
     return (f'<section class="services"><div class="wrap"><div class="sec-head"><h2>Nasze usługi</h2>'
-            f'<p class="muted">Jeden numer, każdy kurs: {B["phone"]}</p></div><ul class="svc-grid">{cards}</ul></div></section>')
+            f'<p class="muted">Jeździmy wszędzie, gdzie potrzebujesz – nie tylko na trasy z listy. Jeden numer: {B["phone"]}</p></div><ul class="svc-grid">{cards}</ul></div></section>')
 
 STEPS = ('<ol class="steps"><li><h3>Wskaż trasę</h3><p>Kliknij „Tu jestem” albo wpisz adres. Od razu widzisz trasę, czas jazdy i cenę.</p></li>'
          '<li><h3>Zamów teraz lub na później</h3><p>Kurs teraz trafia od razu do telefonu kierowcy. Lotnisko czy sanatorium rezerwujesz na wybrany dzień i godzinę.</p></li>'
@@ -442,7 +442,7 @@ def vip_block():
 # ================= HOME =================
 home_faq = [
     ("Ile kosztuje taxi z Knurowa na lotnisko w Pyrzowicach?", f"Od {DEST['lotnisko-pyrzowice']['price']} zł z Knurowa. Ceny dla wszystkich lotnisk znajdziesz w cenniku i w kalkulatorze."),
-    ("Czy jeździcie w nocy i w święta?", "Tak, przyjmujemy kursy całodobowo, 7 dni w tygodniu. Kursy na lotniska i dworce najlepiej rezerwować z wyprzedzeniem."),
+    ("Czy jeździcie w nocy i w święta?", "Jeździmy 7 dni w tygodniu, także w święta. Kursy nocne od 22:00 do 5:00 przyjmujemy tylko z wcześniejszą rezerwacją – zamów online („Na później”), telefonicznie albo przez WhatsApp. Bez rezerwacji w nocy nie jeździmy."),
     ("Jak zapłacić za kurs?", "Gotówką, kartą, BLIK-iem, a firmy także przelewem na fakturę."),
     ("Ile osób zmieści się w aucie?", f"Do {B['seats']} osób. Przy 5–7 pasażerach podstawimy auto 7-osobowe – zaznacz liczbę osób w rezerwacji."),
     ("Czy mogę zamówić kurs dla rodzica?", "Tak. W uwagach wpisz imię i telefon pasażera. Przed wyjazdem potwierdzimy z nim godzinę odbioru."),
@@ -458,8 +458,8 @@ body += f'<section><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div
 body += reviews_block()
 body += (f'<section id="rejon"><div class="wrap"><h2>Rejon odbioru</h2><p>Przyjeżdżamy po pasażerów w tych miejscowościach. Wybierz swoją, żeby zobaczyć ceny z Twojej okolicy.</p>{village_links()}</div></section>')
 body += f'<section class="alt"><div class="wrap"><h2>Pytania i odpowiedzi</h2>{faq_html(home_faq)}</div></section>'
-page("/", f"Taxi Knurów Adam Mączka – lotniska od {DEST['lotnisko-pyrzowice']['price']} zł, sanatoria, kliniki | 24/7",
-     f"Taxi w Knurowie i Gierałtowicach: transfery na lotniska (Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł), do sanatoriów i klinik. Stała cena przed kursem, rezerwacja przez WhatsApp, 24/7.",
+page("/", f"Taxi Knurów Adam Mączka – lotniska od {DEST['lotnisko-pyrzowice']['price']} zł, sanatoria, kliniki",
+     f"Taxi w Knurowie i Gierałtowicach: transfery na lotniska (Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł), do sanatoriów i klinik. Stała cena przed kursem, zamówienie online lub przez WhatsApp. Jeździmy wszędzie, gdzie potrzebujesz.",
      body, [org(), faq_ld(home_faq)])
 
 # ================= DESTINATIONS =================
@@ -512,8 +512,8 @@ for slug, name, loc, zone, price in VILLAGES:
     body += (f'<section><div class="wrap"><h2>Ceny z miejscowości {name}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Trasa</th><th>Cena od</th></tr></thead>'
              f'<tbody><tr><td>Knurów</td><td>{price} zł</td></tr>{rows}</tbody></table></div></div></section>')
     body += f'<section class="alt"><div class="wrap"><h2>Inne miejscowości w rejonie</h2>{village_links()}</div></section>'
-    page(f"/taxi-{slug}/", f"Taxi {name} – lotniska, sanatoria, kursy 24/7 | {B['name']}",
-         f"Taxi {loc}: odbiór spod domu 24/7, Pyrzowice od {DEST['lotnisko-pyrzowice']['price'] + sur} zł, sanatoria i kliniki. Rezerwacja przez WhatsApp lub telefon.",
+    page(f"/taxi-{slug}/", f"Taxi {name} – lotniska, sanatoria, kliniki | {B['name']}",
+         f"Taxi {loc}: odbiór spod domu 7 dni w tygodniu, Pyrzowice od {DEST['lotnisko-pyrzowice']['price'] + sur} zł, sanatoria i kliniki. Rezerwacja przez WhatsApp lub telefon.",
          body, [org(), crumbs_ld(cr)])
 
 # ================= CENNIK =================
@@ -559,7 +559,7 @@ page("/dla-firm/", f"Taxi dla firm Knurów – faktura, przelew, transfery gośc
 # ================= KONTAKT =================
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs_html([("Strona główna","/"),("Kontakt","/kontakt/")])}'
         f'<h1>Kontakt</h1><p class="lead"><a href="tel:{B["phone_e164"]}" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;text-decoration:none">{B["phone"]}</a></p>'
-        f'<p>{B["name"]}<br>{B["street"]}, {B["postal"]} {B["city"]}</p><p>Kursy przyjmujemy całodobowo: telefonicznie, przez WhatsApp lub SMS.</p>'
+        f'<p>{B["name"]}<br>{B["street"]}, {B["postal"]} {B["city"]}</p><p>Kursy przyjmujemy 7 dni w tygodniu: online, telefonicznie, przez WhatsApp lub SMS. Kursy nocne (22:00–5:00) tylko z wcześniejszą rezerwacją.</p>'
         f'<p><a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Pokaż w Mapach Google</a></p></div>{book()}</div></section>')
 page("/kontakt/", f"Kontakt – {B['name']}, tel. {B['phone']}", f"Zamów taxi w Knurowie: tel. {B['phone']}, WhatsApp, SMS. {B['street']}, {B['city']}.", body, [org()])
 
@@ -590,12 +590,12 @@ air = by_kind("airport")
 rows = "".join(f'<tr><td>{d["name"].replace("Lotnisko ", "").replace("Warszawa", "Warsaw")} ({d["code"]})</td><td>from {d["price"]} PLN</td></tr>' for d in air)
 en_meter = book(lang="en", title="Book your ride")
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div><h1>Airport taxi from Knurów and Gierałtowice</h1>'
-        f'<p class="lead">Fixed prices to Katowice, Kraków, Wrocław, Ostrava and Warsaw airports. Door-to-door pickup 24/7, cars for up to {B["seats"]} people.</p>'
+        f'<p class="lead">Fixed prices to Katowice, Kraków, Wrocław, Ostrava and Warsaw airports. Door-to-door pickup 7 days a week (night rides 10 pm–5 am by advance booking only), cars for up to {B["seats"]} people.</p>'
         f'<p>Call or WhatsApp: <a href="tel:{B["phone_e164"]}"><strong>{B["phone"]}</strong></a></p></div>{en_meter}</div></section>'
         f'<section><div class="wrap"><h2>Airport prices from Knurów</h2><div class="table-wrap"><table class="price-table"><tbody>{rows}</tbody></table></div>'
         '<p class="small muted" style="margin-top:12px">Pickup outside Knurów adds 10–20 PLN. We confirm the final price when you book. Pay by cash, card or BLIK.</p></div></section>')
 page("/en/", f"Airport taxi Knurów – Katowice from {air[0]['price']} PLN | {B['name']}",
-     f"Airport transfers from Knurów and Gierałtowice: Katowice (KTW) from {air[0]['price']} PLN, Kraków (KRK) from {air[1]['price']} PLN. Fixed price, 24/7, book on WhatsApp.",
+     f"Airport transfers from Knurów and Gierałtowice: Katowice (KTW) from {air[0]['price']} PLN, Kraków (KRK) from {air[1]['price']} PLN. Fixed price, book online or on WhatsApp.",
      body, [org()], lang="en")
 
 # ================= 404 =================

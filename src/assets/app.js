@@ -10,6 +10,8 @@
       gpsFail: "Nie udało się ustalić lokalizacji. Wpisz adres.", gpsRough: "Lokalizacja przybliżona (±{m} m) – sprawdź adres.",
       errFrom: "Podaj, skąd mamy Cię odebrać.", errTo: "Podaj, dokąd jedziesz.", errPhone: "Podaj numer telefonu – kierowca może potrzebować zadzwonić.",
       errWhen: "Wybierz datę i godzinę odbioru (najwcześniej za 15 minut).", errMany: "Za dużo zamówień z tego urządzenia. Zadzwoń, proszę.",
+      nightNow: "W nocy ({from}–{to}) jeździmy tylko z wcześniejszą rezerwacją – wybierz godzinę odbioru.",
+      errNight: "Kursy nocne ({from}–{to}) rezerwuj najpóźniej {ahead} min przed odbiorem. W pilnej sprawie zadzwoń.", nightTag: "w nocy tylko rezerwacja",
       errSend: "Nie udało się wysłać zamówienia online. Wyślij je jednym kliknięciem:", sending: "Wysyłam do kierowcy…",
       priceFixed: "Cena", priceEst: "Cena ok.", priceNone: "do ustalenia", etaNow: "Kierowca może być u Ciebie za ok. {m} min.",
       km: "km", min: "min", h: "godz.", approx: "w przybliżeniu",
@@ -51,6 +53,8 @@
       gpsFail: "Couldn't get your location. Please type the address.", gpsRough: "Approximate location (±{m} m) – please check the address.",
       errFrom: "Enter your pickup address.", errTo: "Enter your destination.", errPhone: "Enter your phone number so the driver can call you.",
       errWhen: "Choose a pickup date and time (at least 15 minutes from now).", errMany: "Too many bookings from this device. Please call us.",
+      nightNow: "At night ({from}–{to}) we only drive booked rides – please choose a pickup time.",
+      errNight: "Night rides ({from}–{to}) must be booked at least {ahead} min before pickup. If it's urgent, please call.", nightTag: "nights: booking only",
       errSend: "Online booking failed. Send it with one tap instead:", sending: "Sending to the driver…",
       priceFixed: "Price", priceEst: "Price approx.", priceNone: "to be agreed", etaNow: "The driver can be with you in about {m} min.",
       km: "km", min: "min", h: "h", approx: "approximately",
@@ -370,7 +374,25 @@
       } catch (e) {}
     }
 
+    // night (Warsaw time): no "now" rides, only earlier reservations
+    var NI = C.night;
+    function hm(s) { return +s.slice(0, 2) * 60 + +s.slice(3, 5); }
+    function nightAt(ms) {
+      if (!NI) return false;
+      var m = hm(new Date(ms).toLocaleTimeString("en-GB", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }));
+      var f = hm(NI.from), t = hm(NI.to);
+      return f > t ? m >= f || m < t : m >= f && m < t;
+    }
+    var nightTxt = NI ? { from: NI.from, to: NI.to, ahead: NI.ahead_min } : {};
+    function nightCheck() {
+      var night = nightAt(Date.now()), nb = form.querySelector('.seg-btn[data-mode="now"]');
+      if (nb) { nb.classList.toggle("off", night); nb.setAttribute("aria-disabled", night ? "true" : "false");
+        var sm = nb.querySelector("small"); if (sm) { if (!sm.getAttribute("data-day")) sm.setAttribute("data-day", sm.textContent); sm.textContent = night ? T.nightTag : sm.getAttribute("data-day"); } }
+      return night;
+    }
     function setMode(m) {
+      if (m === "now" && nightCheck()) { m = "later"; err.textContent = fmt(T.nightNow, nightTxt); }
+      else if (err.textContent === fmt(T.nightNow, nightTxt)) err.textContent = "";
       S.mode = m; form.setAttribute("data-mode", m);
       Array.prototype.forEach.call(form.querySelectorAll(".seg-btn"), function (b) { b.setAttribute("aria-checked", b.getAttribute("data-mode") === m ? "true" : "false"); });
       Array.prototype.forEach.call(form.querySelectorAll(".later-only"), function (el) { el.hidden = m !== "later"; });
@@ -593,6 +615,8 @@
       if (S.mode === "later") {
         var d = $("date").value, t = $("time").value;
         if (!d || !t || new Date(d + "T" + t).getTime() < Date.now() + 14 * 60000) { (d ? $("time") : $("date")).focus(); return T.errWhen; }
+        var at = new Date(d + "T" + t).getTime();
+        if (NI && nightAt(at) && at < Date.now() + NI.ahead_min * 60000) { $("time").focus(); return fmt(T.errNight, nightTxt); }
       }
       if ($("tel").value.replace(/\D/g, "").length < 9) { $("tel").focus(); return T.errPhone; }
       return null;
@@ -634,7 +658,9 @@
             location.href = "/przejazd/?id=" + r.id + (lang === "en" ? "&lang=en" : "");
             return;
           }
-          if (r._status === 429) err.textContent = T.errMany; else fallback(p);
+          if (r._status === 429) err.textContent = T.errMany;
+          else if (r.error === "night") { err.textContent = fmt(T.errNight, nightTxt); if (p.mode === "now") setMode("later"); }
+          else fallback(p);
           throw 0;
         }, function () { fallback(p); throw 0; });
       }).catch(function () {
@@ -643,6 +669,7 @@
     });
 
     setMode(S.mode);
+    setInterval(function () { if (nightCheck() && S.mode === "now") setMode("later"); }, 60000);
   }
 
   /* ---------- ride status page ---------- */

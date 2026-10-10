@@ -4,6 +4,11 @@ export const CONFIG = {
  "seats": 7,
  "waitMin": 3,
  "googleClientId": "33873511500-i7snf730jquenheagpdku5j7l6dfkrld.apps.googleusercontent.com",
+ "night": {
+  "from": "22:00",
+  "to": "05:00",
+  "ahead_min": 60
+ },
  "base": {
   "lat": 50.2316,
   "lng": 18.661
