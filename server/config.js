@@ -57,7 +57,7 @@ export const CONFIG = {
    "slug": "lotnisko-pyrzowice",
    "code": "KTW",
    "short": "Pyrzowice",
-   "price": 150,
+   "price": 170,
    "lat": 50.4743,
    "lng": 19.08,
    "matchKm": 3
@@ -66,7 +66,7 @@ export const CONFIG = {
    "slug": "lotnisko-balice",
    "code": "KRK",
    "short": "Balice",
-   "price": 320,
+   "price": 340,
    "lat": 50.0777,
    "lng": 19.7848,
    "matchKm": 3
@@ -75,7 +75,7 @@ export const CONFIG = {
    "slug": "lotnisko-wroclaw",
    "code": "WRO",
    "short": "Wrocław",
-   "price": 420,
+   "price": 460,
    "lat": 51.1027,
    "lng": 16.8858,
    "matchKm": 3
@@ -93,7 +93,7 @@ export const CONFIG = {
    "slug": "lotnisko-okecie",
    "code": "WAW",
    "short": "Okęcie",
-   "price": 800,
+   "price": 850,
    "lat": 52.1657,
    "lng": 20.9671,
    "matchKm": 3
@@ -102,7 +102,7 @@ export const CONFIG = {
    "slug": "lotnisko-modlin",
    "code": "WMI",
    "short": "Modlin",
-   "price": 850,
+   "price": 900,
    "lat": 52.4511,
    "lng": 20.6518,
    "matchKm": 3
@@ -111,7 +111,7 @@ export const CONFIG = {
    "slug": "sanatorium-busko-zdroj",
    "code": null,
    "short": "Busko-Zdrój",
-   "price": 620,
+   "price": 600,
    "lat": 50.4705,
    "lng": 20.7186,
    "matchKm": 5

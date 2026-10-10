@@ -68,27 +68,28 @@ VILLAGES = [
 ]
 
 # Trasy dalekie. kind: airport | spa | clinic | station | city
+# Ceny lotnisk i sanatoriów: stałe ceny od Adama (WhatsApp, 10.10.2026), na stronie jako "od".
 DESTINATIONS = [
     # --- Lotniska ---
     dict(slug="lotnisko-pyrzowice", kind="airport", name="Lotnisko Katowice-Pyrzowice", short="Pyrzowice", code="KTW",
-         price=150, confirmed=True, region="woj. śląskie"),
+         price=170, confirmed=True, region="woj. śląskie"),
     dict(slug="lotnisko-balice", kind="airport", name="Lotnisko Kraków-Balice", short="Balice", code="KRK",
-         price=320, confirmed=True, region="woj. małopolskie"),
+         price=340, confirmed=True, region="woj. małopolskie"),
     dict(slug="lotnisko-wroclaw", kind="airport", name="Lotnisko Wrocław", short="Wrocław", code="WRO",
-         price=420, confirmed=True, region="woj. dolnośląskie"),
+         price=460, confirmed=True, region="woj. dolnośląskie"),
     dict(slug="lotnisko-ostrava", kind="airport", name="Lotnisko Ostrava", short="Ostrava", code="OSR",
-         price=260, confirmed=False, region="Czechy"),
+         price=260, confirmed=True, region="Czechy"),
     dict(slug="lotnisko-okecie", kind="airport", name="Lotnisko Warszawa-Okęcie (Chopina)", short="Okęcie", code="WAW",
-         price=800, confirmed=True, region="woj. mazowieckie"),
+         price=850, confirmed=True, region="woj. mazowieckie"),
     dict(slug="lotnisko-modlin", kind="airport", name="Lotnisko Warszawa-Modlin", short="Modlin", code="WMI",
-         price=850, confirmed=False, region="woj. mazowieckie"),
+         price=900, confirmed=True, region="woj. mazowieckie"),
     # --- Sanatoria ---
     dict(slug="sanatorium-busko-zdroj", gen="Buska-Zdroju", loc="w Busku-Zdroju", kind="spa", name="Busko-Zdrój", short="Busko-Zdrój",
-         price=620, confirmed=False, region="woj. świętokrzyskie"),
+         price=600, confirmed=True, region="woj. świętokrzyskie"),
     dict(slug="sanatorium-szczyrk", gen="Szczyrku", loc="w Szczyrku", kind="spa", name="Szczyrk", short="Szczyrk",
-         price=280, confirmed=False, region="Beskid Śląski"),
+         price=280, confirmed=True, region="Beskid Śląski"),
     dict(slug="sanatorium-ustron", gen="Ustronia", loc="w Ustroniu", kind="spa", name="Ustroń", short="Ustroń",
-         price=260, confirmed=False, region="Beskid Śląski"),
+         price=260, confirmed=True, region="Beskid Śląski"),
     dict(slug="sanatorium-goczalkowice-zdroj", gen="Goczałkowic-Zdroju", loc="w Goczałkowicach-Zdroju", kind="spa", name="Goczałkowice-Zdrój", short="Goczałkowice",
          price=180, confirmed=False, region="powiat pszczyński"),
     # --- Kliniki / szpitale (miasta) ---

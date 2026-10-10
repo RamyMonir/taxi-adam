@@ -310,7 +310,7 @@ def org():
             "telephone": B["phone_e164"], "email": B["email"],
             "department": [{"@type": "TaxiService", "name": l["name"], "telephone": l["phone_e164"],
                             "address": {"@type": "PostalAddress", "streetAddress": l["street"].replace("ul. ", ""), "postalCode": l["postal"],
-                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [B["facebook"]], "alternateName": [B["aka"], "Taxi Gierałtowice"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": "15–850 zł",
+                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [B["facebook"]], "alternateName": [B["aka"], "Taxi Gierałtowice"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": "15–900 zł",
             "address": {"@type": "PostalAddress", "streetAddress": B["street"].replace("ul. ", ""), "postalCode": B["postal"],
                         "addressLocality": B["city"], "addressCountry": "PL"},
             "geo": {"@type": "GeoCoordinates", "latitude": B["lat"], "longitude": B["lng"]},

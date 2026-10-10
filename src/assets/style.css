@@ -426,7 +426,9 @@ footer li{margin:4px 0}
 }
 @media print{.top,.actionbar,.hero-road,.streaks,footer,.ride-banner{display:none}.hero{background:none;color:#000}}
 .hero .wrap>*,.cols>*,.row2>*{min-width:0}
-html,body{overflow-x:hidden}
+/* no sideways scroll – "clip" (not "hidden") so iPhone Safari keeps the bottom bar fixed while its toolbar shrinks/grows */
+body{overflow-x:clip}
+@supports not (overflow-x:clip){body{overflow-x:hidden}}
 
 /* ---------- flight lookup in the booking form ---------- */
 .flight-wrap{margin-top:12px}
