@@ -49,6 +49,7 @@ def client_config(lang):
     return json.dumps(dict(
         lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
+        places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES],
         chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS],
         airports=[dict(code=d["code"], lat=d["lat"], lng=d["lng"]) for d in DESTINATIONS if d["kind"] == "airport"]), ensure_ascii=False)
 
@@ -423,7 +424,7 @@ def reviews_block():
             f'<div class="rv-foot"><div class="rv-nav" id="rv-nav" hidden><button type="button" data-dir="-1" aria-label="Poprzednie opinie">←</button>'
             f'<button type="button" data-dir="1" aria-label="Następne opinie">→</button></div>'
             f'<p><a class="btn btn-ink" id="rv-all" href="{B["google_maps"]}" target="_blank" rel="noopener">Wszystkie opinie w Google</a> '
-            f'<a class="btn btn-line" href="{B["google_review"]}" target="_blank" rel="noopener">Dodaj swoją opinię</a></p></div>'
+            f'<a class="btn btn-line" id="rv-add" href="{B["google_review"]}" target="_blank" rel="noopener">Dodaj swoją opinię</a></p></div>'
             f'</div></section>')
 
 VIP_DIR = os.path.join(HERE, "assets", "img", "vip")

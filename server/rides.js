@@ -145,10 +145,31 @@ export function publicView(r, car, drv) {
     flightInfo: d.flightInfo || null, flight: d.flight || null,
     waitMin: CONFIG.waitMin, tel: (showDriver(r) && drv && drv.phone) ? drv.phone : CONFIG.phone,
     // which driver and which car is coming (once a driver has taken the ride)
+    reviewUrl: r.status === "done" && reviewPlace(r) ? `https://search.google.com/local/writereview?placeid=${reviewPlace(r).id}` : null,
+    reviewName: r.status === "done" && reviewPlace(r) ? reviewPlace(r).name : null,
     driver: showDriver(r) && d.driver ? { name: d.driver.name, car: d.driver.car, color: d.driver.color, plate: d.driver.plate } : null,
   };
 }
 
+// Review link after the ride: the listing of the driver who drove it (Adam sets it with /wizytowka),
+// otherwise the three listings in turn (same ride -> always the same one), so all three get reviews.
+export function reviewPlace(r) {
+  const places = CONFIG.places || [];
+  if (!places.length) return null;
+  const k = r.data.listing != null && places[r.data.listing] ? r.data.listing
+    : [...String(r.id)].reduce((s, c) => s + c.charCodeAt(0), 0) % places.length;
+  return places[k];
+}
+// strict turn-taking for rides whose driver has no listing set: 1, 2, 3, 1, 2, 3, …
+export async function nextListing(env) {
+  const n = (CONFIG.places || []).length;
+  if (!n) return null;
+  const d = await db(env);
+  await d.prepare("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)").run();
+  const row = await d.prepare(
+    "INSERT INTO meta (k, v) VALUES ('review_turn', '1') ON CONFLICT(k) DO UPDATE SET v = CAST(v AS INTEGER) + 1 RETURNING v").first();
+  return ((parseInt(row?.v, 10) || 1) - 1) % n;
+}
 const showDriver = (r) => ["scheduled", "enroute", "arrived", "ontrip", "done"].includes(r.status) && !!r.data.driverId;
 
 /* ---------------- Telegram ---------------- */

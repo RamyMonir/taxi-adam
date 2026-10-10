@@ -8,7 +8,7 @@ import { lookupCustomer, recordOrder, recordDone } from "../../server/customers.
 import { METHODS, setPayMsg, setPaid, tripByPayMsg, parsePaid, parsePeriod, buildReport, REPORT_HELP } from "../../server/report.js";
 import { CONFIG } from "../../server/config.js";
 import { db, notifyDriver, tgFile, load, save, saveIfUnchanged, tg, syncDriverMessage, closeOtherOffers, activeRides, navUrl, isLive,
-         refreshEta, driverText, keyboard, SET_OFF_MS } from "../../server/rides.js";
+         refreshEta, driverText, keyboard, SET_OFF_MS, nextListing } from "../../server/rides.js";
 import { driverByChat, listDrivers, saveDriverPos, markHint, addDriver, bindDriver, updateDriver, deactivateDriver, newInviteCode,
          busyDriverIds, botUsername, escalate, ensureOwner } from "../../server/fleet.js";
 
@@ -28,6 +28,7 @@ function assign(r, drv) {
   const d = r.data;
   d.driverId = drv.id; d.chat = drv.chat_id;
   d.driver = { name: drv.name || "", car: drv.car || "", color: drv.color || "", plate: drv.plate || "", phone: drv.phone || "" };
+  d.listing = drv.listing ?? null;   // his Google listing for the review link after the ride
   const o = d.offers && d.offers[drv.id];
   if (o && o.msg) r.tg_msg = o.msg;
 }
@@ -165,9 +166,11 @@ async function driversList(env, owner) {
     else if (busy.has(x.id)) st = "🚕 w kursie";
     else if (isLive(x)) st = `🟢 na zmianie (lokalizacja ${Math.max(0, Math.round((Date.now() - x.ts) / 60000))} min temu)`;
     else st = x.ts ? `⚪ poza zmianą (ostatnio ${new Date(x.ts).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})` : "⚪ poza zmianą";
-    L.push(`${i + 1}. <b>${esc(x.name || "?")}</b>${x.id === owner.id ? " (Ty)" : ""} – ${st}${car ? "\n    " + esc(car) : ""}`);
+    const lst = x.listing != null && CONFIG.places?.[x.listing] ? `\n    ⭐ opinie → ${esc(CONFIG.places[x.listing].name)}` : "";
+    L.push(`${i + 1}. <b>${esc(x.name || "?")}</b>${x.id === owner.id ? " (Ty)" : ""} – ${st}${car ? "\n    " + esc(car) : ""}${lst}`);
   });
-  L.push("", "Dodaj: <code>/dodaj Imię 600100200</code> · usuń: <code>/usun 3</code> · nowy link: <code>/link 3</code>");
+  L.push("", "Dodaj: <code>/dodaj Imię 600100200</code> · usuń: <code>/usun 3</code> · nowy link: <code>/link 3</code>",
+         "Opinie po kursie: <code>/wizytowka 2 3</code> (kierowca 2 → wizytówka 3; bez ustawienia – wszystkie po kolei)");
   return L.join("\n");
 }
 
@@ -205,6 +208,7 @@ async function command(env, request, drv, text) {
       `☎️ Telefon dla klientów: ${drv.phone ? esc(drv.phone) : "<i>nie ustawiony</i> – /telefon (klient dzwoni wtedy na numer firmy)"}`,
       `📡 ${shift}`,
       `🏁 Dziś zakończone kursy: ${doneToday}`,
+      `⭐ Opinie Twoich klientów idą do: ${drv.listing != null && CONFIG.places?.[drv.listing] ? esc(CONFIG.places[drv.listing].name) : "wszystkich wizytówek po kolei"}`,
       "",
       "Zmień: /auto Model; kolor; rejestracja; miejsca · /telefon 600100200 · /imie Imię",
     ].join("\n"));
@@ -215,7 +219,17 @@ async function command(env, request, drv, text) {
     return say(env, chat, `✅ Klient zobaczy imię: <b>${esc(arg.slice(0, 30))}</b>`);
   }
   // Adam only
-  if (["kierowcy", "dodaj", "usun", "usuń", "link"].includes(cmd) && !drv.owner) return say(env, chat, "Tę komendę może użyć tylko Adam.");
+  if (["kierowcy", "dodaj", "usun", "usuń", "link", "wizytowka", "wizytówka"].includes(cmd) && !drv.owner) return say(env, chat, "Tę komendę może użyć tylko Adam.");
+  if (cmd === "wizytowka" || cmd === "wizytówka") {
+    // "/wizytowka 2 3" = driver no. 2 (from /kierowcy) -> listing no. 3; "/wizytowka 2 0" = in turn
+    const places = CONFIG.places || [], all = await listDrivers(env);
+    const [n, k] = arg.split(/\s+/).map((x) => parseInt(x, 10));
+    const x = all[n - 1];
+    const listTxt = places.map((p, i) => `${i + 1}. ${esc(p.name)}`).join("\n");
+    if (!x || !(k >= 0 && k <= places.length)) return say(env, chat, `Napisz: <code>/wizytowka NR_KIEROWCY NR_WIZYTÓWKI</code> (0 = po kolei wszystkie)\n\nWizytówki Google:\n${listTxt}\n\nNumery kierowców: /kierowcy`);
+    await updateDriver(env, x.id, { listing: k ? k - 1 : null });
+    return say(env, chat, `✅ Klienci kierowcy <b>${esc(x.name)}</b> będą proszeni o opinię dla: <b>${k ? esc(places[k - 1].name) : "wszystkich wizytówek po kolei"}</b>`);
+  }
   if (cmd === "kierowcy") return say(env, chat, await driversList(env, drv));
   if (cmd === "dodaj") {
     const phone = (arg.match(/\+?\d[\d \-]{7,}\d/) || [""])[0].trim();
@@ -239,7 +253,7 @@ async function command(env, request, drv, text) {
     return say(env, chat, `🗑 Usunięto kierowcę: ${esc(x.name)}`);
   }
   return say(env, chat, drv.owner
-    ? "Komendy: /ja, /kierowcy, /dodaj, /usun, /link, /kurs, /raport, /auto, /telefon"
+    ? "Komendy: /ja, /kierowcy, /dodaj, /usun, /link, /wizytowka, /kurs, /raport, /auto, /telefon"
     : "Komendy: /ja, /kurs, /raport, /auto, /telefon, /imie");
 }
 
@@ -440,6 +454,7 @@ export async function onRequestPost({ request, env }) {
     r.status = "noshow"; toast = "Zapisano: klient nie przyszedł";
   } else if (act === "d" && (st === "ontrip" || st === "arrived")) {
     r.status = "done"; toast = "Kurs zakończony 👍"; follow = "pay";
+    if (d.listing == null) d.listing = await nextListing(env).catch(() => null);   // review link: the listings take turns
     await recordDone(env, r).catch(() => {});
   } else if (act === "x" && ["pending", "scheduled", "enroute"].includes(st)) {
     r.status = "declined"; toast = "Kurs odrzucony – klient dostał informację";

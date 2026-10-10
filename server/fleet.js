@@ -20,6 +20,8 @@ async function fdb(env) {
       code TEXT, active INTEGER NOT NULL DEFAULT 1, owner INTEGER NOT NULL DEFAULT 0,
       lat REAL, lng REAL, ts INTEGER, until INTEGER, hint_ts INTEGER, reminded INTEGER, created INTEGER)`).run();
     await d.prepare("CREATE INDEX IF NOT EXISTS drivers_chat ON drivers (chat_id)").run();
+    // which Google listing (0..2 in GOOGLE_PLACES) his customers are asked to review; NULL = in turn
+    try { await d.prepare("ALTER TABLE drivers ADD COLUMN listing INTEGER").run(); } catch (e) { /* there */ }
     ready = true;
   }
   return d;
@@ -84,7 +86,7 @@ export async function bindDriver(env, code, chatId) {
   return { ...drv, chat_id: String(chatId), code: null };
 }
 export async function updateDriver(env, id, f) {
-  const cols = ["name", "phone", "car", "color", "plate", "seats"].filter((k) => f[k] !== undefined);
+  const cols = ["name", "phone", "car", "color", "plate", "seats", "listing"].filter((k) => f[k] !== undefined);
   if (!cols.length) return;
   await (await fdb(env)).prepare(`UPDATE drivers SET ${cols.map((k, i) => `${k} = ?${i + 1}`).join(", ")} WHERE id = ?${cols.length + 1}`)
     .bind(...cols.map((k) => f[k]), id).run();

@@ -729,7 +729,7 @@
       if (map.car) map.car(r.car);
       $("t-new").hidden = open;
       if (r.status === "done") {
-        $("t-new").hidden = false; $("t-new").href = C.review || C.maps; $("t-new").textContent = T.review; $("t-new").target = "_blank";
+        $("t-new").hidden = false; $("t-new").href = r.reviewUrl || C.review || C.maps; $("t-new").textContent = T.review; $("t-new").target = "_blank";
       }
       if (!open) Rides.close(r.id);
 
@@ -950,6 +950,15 @@
     });
     lb.addEventListener("click", function (e) { if (e.target === lb || e.target.classList.contains("lb-x")) lb.close(); });
   }
+
+  /* ---------- "Dodaj swoją opinię": the three Google listings share the reviews fairly (random pick per visit) ---------- */
+  (function () {
+    var a = $("rv-add"), pl = C.places || [];
+    if (!a || pl.length < 2) return;
+    var p = pl[Math.floor(Math.random() * pl.length)];
+    a.href = "https://search.google.com/local/writereview?placeid=" + encodeURIComponent(p.id);
+    a.title = p.name;
+  })();
 
   /* ---------- Google reviews ---------- */
   var rvTrack = $("rv-track");
