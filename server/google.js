@@ -44,7 +44,8 @@ async function googleError(r) {
 
 export async function reviews(env) {
   if (!env.GOOGLE_SERVER_KEY || !env.GOOGLE_PLACE_ID) throw new Error("GOOGLE_SERVER_KEY or GOOGLE_PLACE_ID not set");
-  const r = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(env.GOOGLE_PLACE_ID.trim())}?languageCode=pl`, {
+  const placeId = (env.GOOGLE_PLACE_ID.match(/ChIJ[\w-]+/) || [env.GOOGLE_PLACE_ID.trim()])[0];
+  const r = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=pl`, {
     headers: { "X-Goog-Api-Key": env.GOOGLE_SERVER_KEY, "X-Goog-FieldMask": "displayName,rating,userRatingCount,reviews,googleMapsUri" },
   });
   if (!r.ok) throw new Error("Places API: " + (await googleError(r)));
@@ -104,16 +105,20 @@ export async function reverseGeocode(env, lat, lng) {
   const g = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=pl&result_type=street_address|premise|route&key=${env.GOOGLE_SERVER_KEY}`);
   const j = await g.json().catch(() => ({}));
   if (j.status === "OK" && j.results?.[0]) return tidy(j.results[0].formatted_address);
-  if (j.status && j.status !== "ZERO_RESULTS") console.log("geocoding", j.status, j.error_message);
-  const r = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
-    method: "POST",
-    headers: { "content-type": "application/json", "X-Goog-Api-Key": env.GOOGLE_SERVER_KEY, "X-Goog-FieldMask": "places.formattedAddress" },
-    body: JSON.stringify({ maxResultCount: 1, rankPreference: "DISTANCE", languageCode: "pl",
-                           locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: 80 } } }),
-  });
-  if (!r.ok) throw new Error("Reverse geocode: " + (await googleError(r)));
-  const n = await r.json();
-  return n.places?.[0]?.formattedAddress ? tidy(n.places[0].formattedAddress) : null;
+  if (j.status && j.status !== "ZERO_RESULTS") { console.log("geocoding", j.status, j.error_message); reverseGeocode.lastStatus = j.status; }
+  // nearest known place, searching wider until something is found (outskirts, fields, motorway)
+  for (const radius of [80, 400, 2000]) {
+    const r = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+      method: "POST",
+      headers: { "content-type": "application/json", "X-Goog-Api-Key": env.GOOGLE_SERVER_KEY, "X-Goog-FieldMask": "places.formattedAddress" },
+      body: JSON.stringify({ maxResultCount: 1, rankPreference: "DISTANCE", languageCode: "pl",
+                             locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } } }),
+    });
+    if (!r.ok) throw new Error("Reverse geocode: " + (await googleError(r)));
+    const a = (await r.json()).places?.[0]?.formattedAddress;
+    if (a) return (radius > 80 ? "okolice: " : "") + tidy(a);
+  }
+  return null;
 }
 
 // typed text that wasn't picked from the suggestions -> coordinates
