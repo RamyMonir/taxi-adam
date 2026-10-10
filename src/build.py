@@ -24,7 +24,7 @@ ICON = {
 }
 # Logo z pliku od klienta (czarne tło zamienione na przezroczyste, do ciemnych teł)
 LOGO_HEAD = ('<img class="brand-logo" src="/assets/img/logo-emblem.webp" alt="" width="480" height="377">'
-             '<span class="brand-text"><b>TAXI ADAM MĄCZKA</b><small>GIERAŁTOWICE · KNURÓW</small></span>')
+             '<span class="brand-text"><b>TAXI ADAM MĄCZKA</b><small>GIERAŁTOWICE · KNURÓW · OKOLICE</small></span>')
 # Taxi z boku (animacje: droga w hero i taksometr)
 CAR = ('<svg width="64" height="28" viewBox="0 0 64 28" aria-hidden="true"><rect x="25" y="1" width="13" height="5" rx="1.5" fill="#FFC72C" stroke="#1C2430" stroke-width=".8"/>'
        '<path d="M6 18 12 10Q14 8 18 8H42Q46 8 49 11L54 16Q60 17 61 20V23H3V20Q3 18 6 18Z" fill="#FFC72C"/>'
@@ -161,8 +161,10 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
 <footer><div class="wrap">
   <img class="foot-logo" src="/assets/img/logo-wide.webp" alt="{{ B.name }}" width="900" height="298" loading="lazy">
   <div class="cols">
-    <div><h3>{{ B.name }}</h3><p>{{ B.street }}<br>{{ B.postal }} {{ B.city }}</p>
-      <p><a href="tel:{{ B.phone_e164 }}"><strong>{{ B.phone }}</strong></a><br><a href="https://wa.me/{{ B.whatsapp }}">WhatsApp</a><br>
+    <div><h3>{{ B.name }}</h3>
+      {% for l in B.locations %}<p class="foot-loc"><b>{{ l.name }}</b><br>{{ l.street }}, {{ l.postal }} {{ l.city }}<br><a href="tel:{{ l.phone_e164 }}">{{ l.phone }}</a></p>{% endfor %}
+      {% for n, ph, e164 in B.extra_phones %}<p class="foot-loc"><b>{{ n }}</b><br><a href="tel:{{ e164 }}">{{ ph }}</a></p>{% endfor %}
+      <p><a href="https://wa.me/{{ B.whatsapp }}">WhatsApp</a><br>
       <a href="mailto:{{ B.email }}">{{ B.email }}</a><br><a href="{{ B.facebook }}" target="_blank" rel="noopener">Facebook</a></p></div>
     <div><h3>Trasy</h3><ul>{% for k in kinds %}<li><a href="/{{ k.hub }}/">{{ k.hub_name }}</a></li>{% endfor %}<li><a href="/cennik/">Cennik</a></li></ul></div>
     <div><h3>Rejon odbioru</h3><ul>{% for v in villages[1:8] %}<li><a href="/taxi-{{ v[0] }}/">Taxi {{ v[1] }}</a></li>{% endfor %}<li><a href="/#rejon">Wszystkie miejscowości</a></li></ul></div>
@@ -271,7 +273,7 @@ T_BOOK = {
             gps="Użyj mojej lokalizacji", gps_s="Tu jestem", swap="Zamień kierunek", popular="Popularne cele",
             date="Data", time="Godzina odbioru", distance="Trasa", duration="Czas jazdy", price="Cena",
             name="Imię", phone="Telefon", phone_ph="np. 600 100 200", pax="Osoby", luggage="Bagaż",
-            lug_opts=["bez dużego bagażu", "1–2 walizki", "3–4 walizki", "więcej niż 4"],
+            lug_opts=["bez walizek", "1–2 walizki", "3–4 walizki", "więcej niż 4"],
             more="Szczegóły: powrót, uwagi", flight="Numer lotu (sprawdzimy godzinę)", flight_ph="np. FR 1234",
             back="Kurs powrotny (data, godzina)", back_ph="np. 24.10, przylot 21:40",
             notes="Uwagi dla kierowcy", notes_ph="np. fotelik dla dziecka, pomoc z bagażem, brama od podwórza",
@@ -305,7 +307,10 @@ def ld(obj): return json.dumps(obj, ensure_ascii=False)
 
 def org():
     return {"@context": "https://schema.org", "@type": "LocalBusiness", "@id": SITE_URL + "/#firma", "name": B["name"],
-            "telephone": B["phone_e164"], "email": B["email"], "sameAs": [B["facebook"]], "alternateName": [B["aka"], "Taxi Gierałtowice"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": "15–850 zł",
+            "telephone": B["phone_e164"], "email": B["email"],
+            "department": [{"@type": "TaxiService", "name": l["name"], "telephone": l["phone_e164"],
+                            "address": {"@type": "PostalAddress", "streetAddress": l["street"].replace("ul. ", ""), "postalCode": l["postal"],
+                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [B["facebook"]], "alternateName": [B["aka"], "Taxi Gierałtowice"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": "15–850 zł",
             "address": {"@type": "PostalAddress", "streetAddress": B["street"].replace("ul. ", ""), "postalCode": B["postal"],
                         "addressLocality": B["city"], "addressCountry": "PL"},
             "geo": {"@type": "GeoCoordinates", "latitude": B["lat"], "longitude": B["lng"]},
@@ -392,7 +397,7 @@ def services_block():
         f'<span class="svc-more"><span>{more}</span><b>Zobacz ceny <span aria-hidden="true">→</span></b></span></a></li>'
         for i, (img, href, title, sub, more, alt) in enumerate(SERVICES))
     return (f'<section class="services"><div class="wrap"><div class="sec-head"><h2>Nasze usługi</h2>'
-            f'<p class="muted">Jeździmy wszędzie, gdzie potrzebujesz – nie tylko na trasy z listy. Jeden numer: {B["phone"]}</p></div><ul class="svc-grid">{cards}</ul></div></section>')
+            f'<p class="muted">Jeździmy wszędzie, gdzie potrzebujesz – nie tylko na trasy z listy. Zadzwoń: {B["phone"]}</p></div><ul class="svc-grid">{cards}</ul></div></section>')
 
 STEPS = ('<ol class="steps"><li><h3>Wskaż trasę</h3><p>Kliknij „Tu jestem” albo wpisz adres. Od razu widzisz trasę, czas jazdy i cenę.</p></li>'
          '<li><h3>Zamów teraz lub na później</h3><p>Kurs teraz trafia od razu do telefonu kierowcy. Lotnisko czy sanatorium rezerwujesz na wybrany dzień i godzinę.</p></li>'
@@ -443,7 +448,7 @@ def vip_block():
 
 # Auta Adama (zdjęcia z jego Facebooka) – kliknięcie powiększa zdjęcie
 FLEET = [
-    dict(name="SUV 7-osobowy", tag="do 7 osób", main=("suv-7", "Granatowy 7-osobowy SUV – Taxi Adam Mączka"),
+    dict(name="Jetour X70 Plus", tag="do 7 osób", main=("suv-7", "Jetour X70 Plus – 7-osobowe taxi Adam Mączka"),
          feats=["3 rzędy siedzeń – 7 miejsc", "skórzana tapicerka", "panoramiczny dach", "duży bagażnik na walizki"],
          more=[("suv-7-przod", "Przednie fotele i panoramiczny dach"), ("suv-7-tyl", "Wygodna kanapa w drugim rzędzie"),
                ("suv-7-trzeci-rzad", "Trzeci rząd siedzeń"), ("suv-7-bagaznik", "Bagażnik")]),
@@ -587,7 +592,9 @@ page("/dla-firm/", f"Taxi dla firm Knurów – faktura, przelew, transfery gośc
 # ================= KONTAKT =================
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs_html([("Strona główna","/"),("Kontakt","/kontakt/")])}'
         f'<h1>Kontakt</h1><p class="lead"><a href="tel:{B["phone_e164"]}" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;text-decoration:none">{B["phone"]}</a></p>'
-        f'<p>{B["name"]}<br>{B["street"]}, {B["postal"]} {B["city"]}<br>Jeździmy z Gierałtowic, Knurowa i okolic – po całym Śląsku i całej Polsce.</p>'
+        f'<p>Jeździmy z Gierałtowic, Knurowa i okolic – po całym Śląsku i całej Polsce.</p>'
+        + '<ul class="locs">' + "".join(f'<li><b>{l["name"]}</b><span>{l["street"]}, {l["postal"]} {l["city"]}</span><a href="tel:{l["phone_e164"]}">{ICON["phone"]} {l["phone"]}</a></li>' for l in B["locations"])
+        + "".join(f'<li><b>{n}</b><a href="tel:{e}">{ICON["phone"]} {ph}</a></li>' for n, ph, e in B["extra_phones"]) + '</ul>'
         f'<p>E-mail: <a href="mailto:{B["email"]}">{B["email"]}</a><br>Facebook: <a href="{B["facebook"]}" target="_blank" rel="noopener">Taxi Adam Mączka</a></p><p>Kursy przyjmujemy 7 dni w tygodniu: online, telefonicznie, przez WhatsApp lub SMS. Kursy nocne (22:00–5:00) tylko z wcześniejszą rezerwacją.</p>'
         f'<p><a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Pokaż w Mapach Google</a></p></div>{book()}</div></section>')
 page("/kontakt/", f"Kontakt – {B['name']}, tel. {B['phone']}", f"Zamów taxi w Knurowie: tel. {B['phone']}, WhatsApp, SMS. {B['street']}, {B['city']}.", body, [org()])

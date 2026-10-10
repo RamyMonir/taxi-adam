@@ -23,6 +23,17 @@ BUSINESS = {
     "email": "jo.pako@o2.pl",
     "facebook": "https://www.facebook.com/profile.php?id=61569049205468",
     "aka": "Taxi Fest Knurów",
+    # wszystkie punkty i numery (z taxifest.pl/kontakt i z facebooka). Pierwszy = główny.
+    "locations": [
+        {"name": "Taxi Gierałtowice", "street": "ul. Powstańców Śląskich 116", "postal": "44-186", "city": "Gierałtowice",
+         "phone": "570 762 777", "phone_e164": "+48570762777"},
+        {"name": "Taxi Knurów", "street": "ul. Kosmonautów 18", "postal": "44-194", "city": "Knurów",
+         "phone": "570 762 777", "phone_e164": "+48570762777"},
+        {"name": "Fest Taxi Knurów", "street": "ul. Szpitalna 25", "postal": "44-190", "city": "Knurów",
+         "phone": "515 650 750", "phone_e164": "+48515650750"},
+    ],
+    # TODO: trzeci numer z wizytówki Google "Taxi Gierałtowice" – dopisz tutaj, np. ("Taxi Gierałtowice", "600 000 000", "+48600000000")
+    "extra_phones": [],
     "google_maps": "https://www.google.com/maps/search/?api=1&query=Taxi+Knur%C3%B3w+Adam+M%C4%85czka",
     "google_review": "https://www.google.com/maps/search/?api=1&query=Taxi+Knur%C3%B3w+Adam+M%C4%85czka",  # TODO: link "Poproś o opinię" z panelu wizytówki
     "rating": "4,9",
