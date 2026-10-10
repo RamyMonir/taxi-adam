@@ -4,7 +4,7 @@ import { reviews } from "../../server/google.js";
 
 export async function onRequestGet({ request, env, waitUntil }) {
   const cache = caches.default;
-  const key = new Request(new URL("/api/reviews?v=1", request.url).toString());
+  const key = new Request(new URL("/api/reviews?v=2", request.url).toString());
   const hit = await cache.match(key);
   if (hit) return hit;
   let data;

@@ -685,3 +685,15 @@ html,body{overflow-x:hidden}
   .brand-text b{font-size:.92rem}
   .brand-text small{font-size:.5rem;letter-spacing:.06em}
 }
+
+/* reviews: the three Google listings */
+.g-places{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g-places li{display:grid;gap:4px;padding:14px 16px;border-radius:16px;border:1px solid var(--card-line);background:var(--card);color:#EEF2FB}
+.g-places b{font-size:1rem}
+.gp-score{display:inline-flex;align-items:center;gap:6px;color:var(--yellow);font-weight:800}
+.gp-score svg{width:16px;height:16px}
+.gp-num{color:#fff}
+.gp-links{display:flex;gap:14px;font-size:.92rem}
+.gp-links a{color:#CFE0FF}
+.gp-links a:last-child{color:var(--yellow);font-weight:700}
+@media (max-width:760px){.g-places{grid-template-columns:1fr}}

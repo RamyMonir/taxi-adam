@@ -34,8 +34,9 @@ BUSINESS = {
     ],
     # TODO: trzeci numer z wizytówki Google "Taxi Gierałtowice" – dopisz tutaj, np. ("Taxi Gierałtowice", "600 000 000", "+48600000000")
     "extra_phones": [],
-    "google_maps": "https://www.google.com/maps/search/?api=1&query=Taxi+Knur%C3%B3w+Adam+M%C4%85czka",
-    "google_review": "https://www.google.com/maps/search/?api=1&query=Taxi+Knur%C3%B3w+Adam+M%C4%85czka",  # TODO: link "Poproś o opinię" z panelu wizytówki
+    "google_maps": "https://www.google.com/maps/place/?q=place_id:ChIJCVqphGI1EUcRyoJoD4bKXYg",
+    # otwiera od razu okno "Napisz opinię" w Google
+    "google_review": "https://search.google.com/local/writereview?placeid=ChIJCVqphGI1EUcRyoJoD4bKXYg",
     "rating": "4,9",
     "reviews": 274,
     "seats": 7,
@@ -157,6 +158,12 @@ GOOGLE_OAUTH_CLIENT_ID = "33873511500-i7snf730jquenheagpdku5j7l6dfkrld.apps.goog
 # Kursy nocne (od Adama): od 22:00 do 5:00 tylko z wcześniejszą rezerwacją, bez rezerwacji w nocy nie jeździmy.
 # W tych godzinach nie da się zamówić kursu "teraz"; rezerwacja na noc najpóźniej ahead_min minut przed odbiorem.
 NIGHT = {"from": "22:00", "to": "05:00", "ahead_min": 60}   # TODO: ahead_min potwierdzić z Adamem
+# Wizytówki Google Adama – opinie z wszystkich trzech są pokazywane razem (pierwsza = główna)
+GOOGLE_PLACES = [
+    {"name": "Taxi Knurów Adam Mączka", "id": "ChIJCVqphGI1EUcRyoJoD4bKXYg"},
+    {"name": "Taxi Gierałtowice", "id": "ChIJ92CbSAA1EUcRbEW2Me1Sww8"},
+    {"name": "Taxi Fest Knurów", "id": "ChIJGfOL1rg3EUcRot_Kp3g-XCE"},
+]
 # Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
 NOW_WAIT_MIN = 3
 

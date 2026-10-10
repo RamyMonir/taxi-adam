@@ -948,6 +948,13 @@
       if (d.rating) $("g-num").textContent = String(d.rating.toFixed(1)).replace(".", lang === "pl" ? "," : ".");
       if (d.count) $("g-count").textContent = d.count + (lang === "pl" ? " opinii w Google" : " Google reviews");
       if (d.url) $("rv-all").href = d.url;
+      // each listing: its own score and links
+      (d.places || []).forEach(function (pl, k) {
+        var li = document.querySelector('#g-places [data-place="' + k + '"]'); if (!li) return;
+        if (pl.rating) li.querySelector(".gp-num").textContent = String(pl.rating.toFixed(1)).replace(".", lang === "pl" ? "," : ".") + " (" + pl.count + ")";
+        else li.querySelector(".gp-num").textContent = lang === "pl" ? "brak ocen" : "no reviews yet";
+        if (pl.url) li.querySelector("a").href = pl.url;
+      });
       var star = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"/></svg>';
       rvTrack.innerHTML = d.reviews.map(function (v, i) {
         var initial = escH((v.author || "?").trim().charAt(0).toUpperCase());
@@ -957,7 +964,7 @@
         return '<figure class="rv" style="--i:' + i + '"><div class="rv-stars" aria-label="' + v.rating + '/5">' + new Array(v.rating + 1).join(star) + "</div>" +
           '<blockquote class="' + (long ? "clamp" : "") + '">' + escH(v.text) + "</blockquote>" +
           (long ? '<button type="button" class="rv-more">' + T.rvMore + "</button>" : "") +
-          '<figcaption><span class="rv-av">' + av + "</span><span><b>" + name + "</b><small>" + escH(v.when) + " · " + T.rvFrom + "</small></span></figcaption></figure>";
+          '<figcaption><span class="rv-av">' + av + "</span><span><b>" + name + "</b><small>" + escH(v.when) + " · " + (v.place ? escH(v.place) : T.rvFrom) + "</small></span></figcaption></figure>";
       }).join("");
       Array.prototype.forEach.call(rvTrack.querySelectorAll(".rv-more"), function (b) {
         b.addEventListener("click", function () { var q = b.previousSibling; var c = q.classList.toggle("clamp"); b.textContent = c ? T.rvMore : T.rvLess; });

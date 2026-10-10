@@ -9,6 +9,20 @@ export const CONFIG = {
   "to": "05:00",
   "ahead_min": 60
  },
+ "places": [
+  {
+   "name": "Taxi Knurów Adam Mączka",
+   "id": "ChIJCVqphGI1EUcRyoJoD4bKXYg"
+  },
+  {
+   "name": "Taxi Gierałtowice",
+   "id": "ChIJ92CbSAA1EUcRbEW2Me1Sww8"
+  },
+  {
+   "name": "Taxi Fest Knurów",
+   "id": "ChIJGfOL1rg3EUcRot_Kp3g-XCE"
+  }
+ ],
  "base": {
   "lat": 50.2218,
   "lng": 18.7142

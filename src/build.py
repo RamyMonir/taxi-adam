@@ -3,7 +3,7 @@
 import json, os, shutil, datetime, hashlib
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM)
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -55,7 +55,7 @@ def client_config(lang):
 def write_server_config():
     """server/config.js – te same ceny i strefy dla funkcji Cloudflare (liczą cenę po stronie serwera)."""
     cfg = dict(
-        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN, googleClientId=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT,
+        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN, googleClientId=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, places=GOOGLE_PLACES,
         base=dict(lat=B["lat"], lng=B["lng"]), center=dict(lat=KNUROW_CENTER[0], lng=KNUROW_CENTER[1]),
         center2=dict(lat=GIERALTOWICE_CENTER[0], lng=GIERALTOWICE_CENTER[1]), center2Km=GIERALTOWICE_KM,
         zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
@@ -411,9 +411,14 @@ def reviews_block():
     """Opinie z Google – karty ładuje app.js z /api/reviews; bez backendu zostaje sama ocena i link."""
     stars = ICON["star"] * 5
     return (f'<section class="reviews" id="opinie"><div class="wrap">'
-            f'<div class="rv-head"><div><h2>Co mówią klienci</h2><p class="muted">Najlepsze opinie z naszej wizytówki Google.</p></div>'
+            f'<div class="rv-head"><div><h2>Co mówią klienci</h2><p class="muted">Opinie z trzech naszych wizytówek Google – razem.</p></div>'
             f'<div class="g-score"><span class="g-num" id="g-num">{B["rating"]}</span><span><span class="g-stars">{stars}</span>'
             f'<small id="g-count">{B["reviews"]} opinii w Google</small></span></div></div>'
+            + '<ul class="g-places" id="g-places">' + "".join(
+                f'<li data-place="{k}"><b>{pl["name"]}</b><span class="gp-score">{ICON["star"]}<span class="gp-num">–</span></span>'
+                f'<span class="gp-links"><a href="https://www.google.com/maps/place/?q=place_id:{pl["id"]}" target="_blank" rel="noopener">Opinie</a>'
+                f'<a href="https://search.google.com/local/writereview?placeid={pl["id"]}" target="_blank" rel="noopener">Oceń ★</a></span></li>'
+                for k, pl in enumerate(GOOGLE_PLACES)) + '</ul>'
             f'<div class="rv-track" id="rv-track" tabindex="0" aria-label="Opinie klientów"></div>'
             f'<div class="rv-foot"><div class="rv-nav" id="rv-nav" hidden><button type="button" data-dir="-1" aria-label="Poprzednie opinie">←</button>'
             f'<button type="button" data-dir="1" aria-label="Następne opinie">→</button></div>'

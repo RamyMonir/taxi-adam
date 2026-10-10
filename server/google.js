@@ -1,6 +1,7 @@
 // Google Routes API (server key). Falls back to a straight-line estimate when no key is set
 // or Google fails, so booking still works.
 import { kmBetween, hasXY } from "./util.js";
+import { CONFIG } from "./config.js";
 
 const ll = (p) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
 
@@ -43,16 +44,28 @@ async function googleError(r) {
   try { const j = JSON.parse(t); return `${r.status} ${j.error?.status || ""}: ${j.error?.message || t}`.slice(0, 300); } catch { return `${r.status}: ${t.slice(0, 200)}`; }
 }
 
+
 export async function reviews(env) {
-  if (!env.GOOGLE_SERVER_KEY || !env.GOOGLE_PLACE_ID) throw new Error("GOOGLE_SERVER_KEY or GOOGLE_PLACE_ID not set");
-  const placeId = (env.GOOGLE_PLACE_ID.match(/ChIJ[\w-]+/) || [env.GOOGLE_PLACE_ID.trim()])[0];
-  const r = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=pl`, {
-    headers: { "X-Goog-Api-Key": env.GOOGLE_SERVER_KEY, "X-Goog-FieldMask": "displayName,rating,userRatingCount,reviews,googleMapsUri" },
-  });
-  if (!r.ok) throw new Error("Places API: " + (await googleError(r)));
-  const j = await r.json();
-  const list = (j.reviews || [])
-    .map((v) => ({
+  // all of Adam's Google listings (src/data.py GOOGLE_PLACES); GOOGLE_PLACE_ID only as an old fallback
+  let places = (CONFIG.places || []).map((p) => ({ name: p.name, id: p.id }));
+  if (!places.length && env.GOOGLE_PLACE_ID) places = [{ name: "", id: (env.GOOGLE_PLACE_ID.match(/ChIJ[\w-]+/) || [env.GOOGLE_PLACE_ID.trim()])[0] }];
+  if (!env.GOOGLE_SERVER_KEY || !places.length) throw new Error("GOOGLE_SERVER_KEY or places not set");
+  const got = await Promise.allSettled(places.map(async (p) => {
+    const r = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(p.id)}?languageCode=pl`, {
+      headers: { "X-Goog-Api-Key": env.GOOGLE_SERVER_KEY,
+                 "X-Goog-FieldMask": "displayName,rating,userRatingCount,reviews,googleMapsUri,nationalPhoneNumber,formattedAddress" },
+    });
+    if (!r.ok) throw new Error("Places API: " + (await googleError(r)));
+    return { p, j: await r.json() };
+  }));
+  const ok = got.filter((g) => g.status === "fulfilled").map((g) => g.value);
+  if (!ok.length) throw new Error(got[0].reason?.message || "Places API failed");
+  const out = ok.map(({ p, j }) => ({
+    name: p.name || j.displayName?.text || "", rating: j.rating || null, count: j.userRatingCount || 0, url: j.googleMapsUri || null,
+    write: `https://search.google.com/local/writereview?placeid=${p.id}`, phone: j.nationalPhoneNumber || null, address: tidy(j.formattedAddress),
+  }));
+  const seen = new Set();
+  const list = ok.flatMap(({ p, j }) => (j.reviews || []).map((v) => ({
       author: v.authorAttribution?.displayName || "Klient Google",
       authorUri: v.authorAttribution?.uri || null,
       photo: v.authorAttribution?.photoUri || null,
@@ -60,12 +73,15 @@ export async function reviews(env) {
       text: (v.originalText?.text || v.text?.text || "").trim(),
       when: v.relativePublishTimeDescription || "",
       uri: v.googleMapsUri || null,
-    }))
+      place: p.name || j.displayName?.text || "",
+    })))
     .filter((v) => v.rating >= 4 && v.text.length >= 10)
+    .filter((v) => { const k = v.author + "|" + v.text.slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; })
     // best first: 5 stars, then reviews with more to say (but not walls of text)
     .sort((a, b) => b.rating - a.rating || Math.min(b.text.length, 400) - Math.min(a.text.length, 400));
-  return { place: j.displayName?.text || null, rating: j.rating || null, count: j.userRatingCount || null, url: j.googleMapsUri || null,
-           fetched: (j.reviews || []).length, reviews: list };
+  const count = out.reduce((s, x) => s + (x.rating ? x.count : 0), 0);
+  const rating = count ? Math.round(out.reduce((s, x) => s + (x.rating || 0) * x.count, 0) / count * 10) / 10 : null;
+  return { rating, count, url: out[0].url, write: out[0].write, places: out, fetched: list.length, reviews: list };
 }
 
 /* ---------- addresses: Places API (New) + Geocoding, called from our own /api so no key sits in the page ---------- */
