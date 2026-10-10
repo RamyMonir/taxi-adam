@@ -7,8 +7,9 @@ export async function onRequestGet({ request, env, waitUntil }) {
   const key = new Request(new URL("/api/reviews?v=1", request.url).toString());
   const hit = await cache.match(key);
   if (hit) return hit;
-  const data = await reviews(env).catch(() => null);
-  if (!data) return json({ reviews: [] }, 200, { "cache-control": "public, max-age=300" });
+  let data;
+  try { data = await reviews(env); }
+  catch (e) { return json({ reviews: [], error: e.message }, 200, { "cache-control": "public, max-age=120" }); }
   const res = json(data, 200, { "cache-control": "public, max-age=43200" });
   waitUntil(cache.put(key, res.clone()));
   return res;

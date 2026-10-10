@@ -6,7 +6,7 @@
   var lang = C.lang === "en" || /[?&]lang=en\b/.test(location.search) ? "en" : "pl";
   var T = {
     pl: {
-      myLoc: "Moja lokalizacja", locating: "Szukam…", gpsDenied: "Zezwól przeglądarce na dostęp do lokalizacji albo wpisz adres.",
+      myLoc: "Moja lokalizacja", locating: "Szukam Twojej lokalizacji…", fromPh: "", gpsDenied: "Zezwól przeglądarce na dostęp do lokalizacji albo wpisz adres.",
       gpsFail: "Nie udało się ustalić lokalizacji. Wpisz adres.", gpsRough: "Lokalizacja przybliżona (±{m} m) – sprawdź adres.",
       errFrom: "Podaj, skąd mamy Cię odebrać.", errTo: "Podaj, dokąd jedziesz.", errPhone: "Podaj numer telefonu – kierowca może potrzebować zadzwonić.",
       errWhen: "Wybierz datę i godzinę odbioru (najwcześniej za 15 minut).", errMany: "Za dużo zamówień z tego urządzenia. Zadzwoń, proszę.",
@@ -32,13 +32,15 @@
         notfound: ["Nie znaleziono kursu", "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń."],
       },
       steps: { sent: "Zgłoszenie wysłane", confirmed: "Kierowca potwierdził", scheduled: "Rezerwacja potwierdzona", enroute: "Kierowca w drodze", arrived: "Kierowca na miejscu", done: "Kurs zakończony" },
+      flLooking: "Sprawdzam lot…", flNone: "Nie znaleźliśmy lotu {no} w dniu {date}. Sprawdź numer i datę.", flDep: "Wylot", flArr: "Przylot",
+      flSugDep: "Proponowany odbiór: {t} (2 h przed wylotem + czas dojazdu).", flSugArr: "Kierowca będzie czekał od {t} (20 min po lądowaniu).", flUse: "Ustaw tę godzinę",
       anyMoment: "lada chwila", etaLbl: "min do przyjazdu", at: "ok. {clock}", cancel: "Anuluj kurs", cancelQ: "Na pewno anulować kurs?",
       review: "Dodaj opinię w Google", offline: "Brak połączenia – próbuję ponownie…",
       d: { from: "Skąd", to: "Dokąd", when: "Termin", now: "teraz", pax: "Osoby", dist: "Trasa", price: "Cena" },
       call: "Zadzwoń do kierowcy", newRide: "Zamów nowy kurs",
     },
     en: {
-      myLoc: "My location", locating: "Locating…", gpsDenied: "Allow location access in your browser or type the address.",
+      myLoc: "My location", locating: "Finding your location…", fromPh: "", gpsDenied: "Allow location access in your browser or type the address.",
       gpsFail: "Couldn't get your location. Please type the address.", gpsRough: "Approximate location (±{m} m) – please check the address.",
       errFrom: "Enter your pickup address.", errTo: "Enter your destination.", errPhone: "Enter your phone number so the driver can call you.",
       errWhen: "Choose a pickup date and time (at least 15 minutes from now).", errMany: "Too many bookings from this device. Please call us.",
@@ -63,6 +65,8 @@
         notfound: ["Ride not found", "The link may have expired. Book a new ride or call us."],
       },
       steps: { sent: "Request sent", confirmed: "Driver confirmed", scheduled: "Booking confirmed", enroute: "Driver on the way", arrived: "Driver arrived", done: "Ride finished" },
+      flLooking: "Checking the flight…", flNone: "We couldn't find flight {no} on {date}. Check the number and date.", flDep: "Departs", flArr: "Arrives",
+      flSugDep: "Suggested pickup: {t} (2 h before departure + drive).", flSugArr: "The driver will wait from {t} (20 min after landing).", flUse: "Use this time",
       anyMoment: "any moment", etaLbl: "min away", at: "around {clock}", cancel: "Cancel ride", cancelQ: "Cancel this ride?",
       review: "Leave a Google review", offline: "Connection lost – retrying…",
       d: { from: "From", to: "To", when: "When", now: "now", pax: "Passengers", dist: "Route", price: "Price" },
@@ -190,7 +194,10 @@
     };
   }
 
-  /* ---------- address search (Places API New) ---------- */
+  /* ---------- address search: our /api asks Google (Places API New), so no key sits in the page ---------- */
+  function uuid() {
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  }
   function Autocomplete(input, list, onPick) {
     var token = null, timer = null, items = [], active = -1, seq = 0;
     function close() { list.hidden = true; list.innerHTML = ""; items = []; active = -1; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); }
@@ -200,53 +207,42 @@
       if (i >= 0) input.setAttribute("aria-activedescendant", list.id + "-" + i);
     }
     function render() {
-      if (!items.length) { close(); return; }
+      if (!items.length || document.activeElement !== input) { close(); return; }
       list.innerHTML = items.map(function (p, i) {
-        return '<li role="option" id="' + list.id + "-" + i + '" data-i="' + i + '"><b>' + escH(p.mainText ? p.mainText.text : p.text.text) + "</b><small>" +
-          escH(p.secondaryText ? shortAddr(p.secondaryText.text) : "") + "</small></li>";
+        return '<li role="option" id="' + list.id + "-" + i + '" data-i="' + i + '"><b>' + escH(p.main) + "</b><small>" + escH(p.sub) + "</small></li>";
       }).join("");
       list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
     }
     function search(q) {
-      loadMaps().then(function (G) {
-        if (!G) return null;
-        return G.maps.importLibrary("places").then(function (lib) {
-          if (!token) token = new lib.AutocompleteSessionToken();
-          var my = ++seq;
-          return lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-            input: q, sessionToken: token, language: lang, region: "pl", includedRegionCodes: ["pl", "cz", "sk", "de"],
-            locationBias: { center: C.base, radius: 50000 },
-          }).then(function (r) {
-            if (my !== seq) return;
-            items = (r.suggestions || []).filter(function (s) { return s.placePrediction; }).slice(0, 5).map(function (s) { return s.placePrediction; });
-            render();
-          });
-        });
-      }).catch(function (e) { console.warn("autocomplete", e); close(); });
+      if (!token) token = uuid();
+      var my = ++seq;
+      api("/api/places?q=" + encodeURIComponent(q) + "&s=" + token, null, 8000).then(function (r) {
+        if (my !== seq) return;
+        items = r.suggestions || []; render();
+      }).catch(function () { close(); });
     }
     function pick(i) {
-      var pred = items[i]; if (!pred) return;
-      var label = (pred.mainText ? pred.mainText.text : "") + (pred.secondaryText ? ", " + shortAddr(pred.secondaryText.text) : "");
+      var it = items[i]; if (!it) return;
+      var label = it.main + (it.sub ? ", " + it.sub : "");
       input.value = label; close();
-      var place = pred.toPlace(); token = null;
-      place.fetchFields({ fields: ["location", "formattedAddress", "displayName"] }).then(function () {
-        var fa = shortAddr(place.formattedAddress || label), dn = place.displayName || "";
-        var addr = dn && fa.indexOf(dn) !== 0 ? dn + ", " + fa : fa;
-        input.value = addr;
-        onPick({ address: addr, lat: place.location.lat(), lng: place.location.lng() });
+      var s = token; token = null;
+      onPick({ address: label, lat: null, lng: null, pending: true });
+      api("/api/place?id=" + encodeURIComponent(it.id) + "&s=" + (s || ""), null, 8000).then(function (p) {
+        if (p._ok && p.lat != null) { input.value = p.address || label; onPick({ address: p.address || label, lat: p.lat, lng: p.lng }); }
+        else onPick({ address: label, lat: null, lng: null });
       }).catch(function () { onPick({ address: label, lat: null, lng: null }); });
     }
     input.addEventListener("input", function () {
       clearTimeout(timer);
       var q = input.value.trim();
-      if (q.length < 3 || !C.key) { close(); return; }
-      timer = setTimeout(function () { search(q); }, 220);
+      if (q.length < 3) { close(); return; }
+      timer = setTimeout(function () { search(q); }, 250);
     });
     input.addEventListener("keydown", function (e) {
       if (list.hidden) return;
       if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(items.length - 1, active + 1)); }
       else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(0, active - 1)); }
-      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(active); }
+      else if (e.key === "Enter") { e.preventDefault(); pick(active >= 0 ? active : 0); }
       else if (e.key === "Escape") { close(); }
     });
     list.addEventListener("mousedown", function (e) {
@@ -256,24 +252,15 @@
     input.addEventListener("blur", function () { setTimeout(close, 150); });
   }
 
-  // typed address without picking a suggestion -> try to find it
+  // typed address without picking a suggestion -> coordinates
   function geocode(text) {
-    return loadMaps().then(function (G) {
-      if (!G || !text) return null;
-      return G.maps.importLibrary("geocoding").then(function (lib) {
-        return new lib.Geocoder().geocode({ address: text, region: "pl", bounds: { north: C.base.lat + 0.5, south: C.base.lat - 0.5, east: C.base.lng + 0.8, west: C.base.lng - 0.8 } });
-      }).then(function (r) {
-        var x = r && r.results && r.results[0];
-        return x ? { address: shortAddr(x.formatted_address), lat: x.geometry.location.lat(), lng: x.geometry.location.lng() } : null;
-      });
-    }).catch(function () { return null; });
+    if (!text) return Promise.resolve(null);
+    return api("/api/geocode?q=" + encodeURIComponent(text), null, 8000).then(function (r) { return r._ok ? r.place : null; }).catch(function () { return null; });
   }
+  // GPS position -> street address
   function reverse(p) {
-    return loadMaps().then(function (G) {
-      if (!G) return null;
-      return G.maps.importLibrary("geocoding").then(function (lib) { return new lib.Geocoder().geocode({ location: p }); })
-        .then(function (r) { var x = r && r.results && r.results[0]; return x ? shortAddr(x.formatted_address) : null; });
-    }).catch(function () { return null; });
+    return api("/api/geocode?lat=" + p.lat.toFixed(6) + "&lng=" + p.lng.toFixed(6), null, 8000)
+      .then(function (r) { return r._ok ? r.address : null; }).catch(function () { return null; });
   }
 
   /* ---------- booking form ---------- */
@@ -283,6 +270,7 @@
   function initBooking(form) {
     var S = { pickup: null, dest: null, quote: null, mode: form.getAttribute("data-mode") || "now" };
     var pIn = $("pickup"), dIn = $("dest"), err = $("form-error"), btn = $("book-btn"), gps = $("gps");
+    T.fromPh = pIn.placeholder;
     var map = $("map") ? TripMap($("map")) : null, qSeq = 0, warmed = false;
 
     // load Google only once the visitor starts using the form
@@ -318,25 +306,50 @@
       el.addEventListener("input", function () { S[which] = el.value.trim() ? { address: el.value.trim(), lat: null, lng: null } : null; S.quote = null; showQuote(); });
       el.addEventListener("change", function () {
         var p = S[which];
-        if (p && !hasXY(p) && C.key) geocode(p.address).then(function (g) { if (g && S[which] === p) { S[which] = g; el.value = g.address; quote(); } });
+        if (p && !hasXY(p) && !p.pending) geocode(p.address).then(function (g) { if (g && S[which] === p) { S[which] = g; el.value = g.address; quote(); } });
       });
     });
 
+    // "Tu jestem": show a quick (cached / wifi) position at once, then sharpen it with GPS for a few seconds
+    var watchId = null, gpsTimer = null;
+    function stopGps() {
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+      watchId = null; clearTimeout(gpsTimer);
+      gps.classList.remove("busy"); gps.disabled = false; pIn.classList.remove("locating");
+    }
     if (gps) gps.addEventListener("click", function () {
       if (!navigator.geolocation) { err.textContent = T.gpsFail; return; }
-      gps.classList.add("busy"); gps.disabled = true; err.textContent = "";
-      var prevPh = pIn.placeholder; pIn.placeholder = T.locating;
-      navigator.geolocation.getCurrentPosition(function (pos) {
-        var p = { address: T.myLoc, lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setPoint("pickup", p);
-        if (pos.coords.accuracy > 150) err.textContent = fmt(T.gpsRough, { m: Math.round(pos.coords.accuracy) });
-        reverse(p).then(function (a) { if (a && S.pickup === p) { p.address = a; pIn.value = a; } });
-        gps.classList.remove("busy"); gps.disabled = false; pIn.placeholder = prevPh;
-      }, function (e) {
+      stopGps(); err.textContent = "";
+      gps.classList.add("busy"); gps.disabled = true; pIn.classList.add("locating");
+      pIn.value = ""; pIn.placeholder = T.locating;
+      var best = null, named = null, got = false, p = null;
+      function use(pos) {
+        var c = pos.coords;
+        if (best && c.accuracy >= best.accuracy) return;
+        best = { lat: c.latitude, lng: c.longitude, accuracy: c.accuracy };
+        got = true;
+        p = { address: p ? p.address : T.myLoc, lat: best.lat, lng: best.lng, gps: true };
+        S.pickup = p; pIn.value = p.address; pIn.placeholder = T.fromPh;
+        err.textContent = c.accuracy > 150 ? fmt(T.gpsRough, { m: Math.round(c.accuracy) }) : "";
+        quote();
+        // ask for the street name only when the position moved noticeably
+        if (!named || Math.abs(named.lat - best.lat) + Math.abs(named.lng - best.lng) > 0.0005) {
+          named = { lat: best.lat, lng: best.lng };
+          var mine = p;
+          reverse(mine).then(function (a) { if (a && S.pickup === mine) { mine.address = a; pIn.value = a; } });
+        }
+        if (c.accuracy <= 40) stopGps();
+      }
+      function fail(e) {
+        if (got) return;
+        stopGps(); pIn.placeholder = T.fromPh;
         err.textContent = e && e.code === 1 ? T.gpsDenied : T.gpsFail;
-        gps.classList.remove("busy"); gps.disabled = false; pIn.placeholder = prevPh;
-      }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+      }
+      navigator.geolocation.getCurrentPosition(use, function () {}, { enableHighAccuracy: false, maximumAge: 300000, timeout: 4000 });
+      watchId = navigator.geolocation.watchPosition(use, fail, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+      gpsTimer = setTimeout(function () { if (!got) fail(null); stopGps(); }, 15000);
     });
+    pIn.addEventListener("input", function () { if (watchId != null) stopGps(); });
 
     var sw = $("swap");
     if (sw) sw.addEventListener("click", function () {
@@ -378,6 +391,7 @@
     }
     function quote() {
       if (map) map.show(S.pickup, S.dest, null);
+      updateFlightBox();
       if (!hasXY(S.pickup) || !hasXY(S.dest)) { S.quote = null; showQuote(); return; }
       var my = ++qSeq;
       api("/api/quote", { pickup: S.pickup, dest: S.dest, mode: S.mode }, 12000).then(function (q) {
@@ -385,6 +399,70 @@
         S.quote = q._ok ? q : localQuote(); showQuote();
         if (map) map.show(S.pickup, S.dest, S.quote.polyline);
       }).catch(function () { if (my === qSeq) { S.quote = localQuote(); showQuote(); } });
+    }
+
+
+    /* ---------- flight number -> flight times (AeroDataBox via /api/flight) ---------- */
+    var fWrap = $("flight-wrap"), fIn = $("flight"), fInfo = $("flight-info"), fTimer = null, fSeq = 0, fLast = null;
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+    function nearAirport(p) {
+      return hasXY(p) && (C.airports || []).some(function (a) { return Math.abs(a.lat - p.lat) + Math.abs(a.lng - p.lng) < 0.06; });
+    }
+    function updateFlightBox() { if (fWrap) fWrap.hidden = !(nearAirport(S.pickup) || nearAirport(S.dest) || fIn.value.trim()); }
+    function flightDate() { return S.mode === "later" && $("date").value ? $("date").value : ymd(new Date()); }
+    // flight time +/- minutes, rounded to 5 min, as {date, time}
+    function shift(date, time, mins, up) {
+      var d = new Date(date + "T" + time + ":00"); d.setMinutes(d.getMinutes() + mins);
+      var m = d.getMinutes(), r = up ? Math.ceil(m / 5) * 5 : Math.floor(m / 5) * 5; d.setMinutes(r);
+      return { date: ymd(d), time: pad(d.getHours()) + ":" + pad(d.getMinutes()) };
+    }
+    function suggestion(f) {
+      if (f.kind === "dep" && f.dep.time && f.dep.date) {
+        var drive = S.quote && S.quote.durationS ? Math.round(S.quote.durationS / 60) + 10 : 70;
+        return { at: shift(f.dep.date, f.dep.time, -(120 + drive), false), text: T.flSugDep };
+      }
+      if (f.kind === "arr" && f.arr.time && f.arr.date) return { at: shift(f.arr.date, f.arr.time, 20, true), text: T.flSugArr };
+      return null;
+    }
+    function applyPickup(at) {
+      if (S.mode !== "later") setMode("later");
+      $("date").value = at.date; $("time").value = at.time;
+    }
+    function renderFlight(f) {
+      var sug = suggestion(f);
+      var end = function (e, lbl) {
+        var late = e.time && e.scheduled && e.time !== e.scheduled;
+        return "<span><small>" + lbl + "</small><b>" + escH(e.time || "–") + "</b>" + (late ? '<s>' + escH(e.scheduled) + "</s>" : "") +
+          "<em>" + escH(e.iata ? e.iata + " · " + e.name : e.name) + "</em></span>";
+      };
+      fInfo.className = "flight-info";
+      fInfo.innerHTML = '<div class="fl-head"><b>' + escH(f.number) + "</b> " + escH(f.airline) + (f.status ? ' <span class="fl-st">' + escH(f.status) + "</span>" : "") + "</div>" +
+        '<div class="fl-route">' + end(f.dep, T.flDep) + '<i aria-hidden="true">✈</i>' + end(f.arr, T.flArr) + "</div>" +
+        (sug ? '<p class="fl-sug">' + escH(fmt(sug.text, { t: sug.at.time })) + ' <button type="button" class="fl-use">' + escH(T.flUse) + "</button></p>" : "");
+      if (sug) {
+        fInfo.querySelector(".fl-use").addEventListener("click", function () { applyPickup(sug.at); this.textContent = "✓"; });
+        // nothing chosen yet -> fill the pickup time for the customer
+        if (S.mode === "later" && !$("time").value) { applyPickup(sug.at); fInfo.querySelector(".fl-use").textContent = "✓"; }
+      }
+    }
+    function lookupFlight() {
+      var no = fIn.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!/^[A-Z0-9]{2}[0-9]{1,4}[A-Z]?$/.test(no)) { fInfo.hidden = true; fLast = null; return; }
+      var key = no + "|" + flightDate(); if (key === fLast) return; fLast = key;
+      var my = ++fSeq;
+      fInfo.hidden = false; fInfo.className = "flight-info loading"; fInfo.textContent = T.flLooking;
+      api("/api/flight?no=" + no + "&date=" + flightDate(), null, 15000).then(function (f) {
+        if (my !== fSeq) return;
+        if (f._status === 503 || f._status === 403) { fInfo.hidden = true; return; }   // lookup not set up: plain text field
+        if (!f._ok || !f.found) { fInfo.className = "flight-info warn"; fInfo.textContent = fmt(T.flNone, { no: no, date: flightDate() }); return; }
+        renderFlight(f);
+      }).catch(function () { if (my === fSeq) fInfo.hidden = true; });
+    }
+    if (fIn) {
+      fIn.addEventListener("input", function () { clearTimeout(fTimer); fTimer = setTimeout(lookupFlight, 700); });
+      fIn.addEventListener("change", lookupFlight);
+      $("date").addEventListener("change", function () { if (fIn.value) lookupFlight(); });
     }
 
     function payload() {
@@ -432,7 +510,7 @@
       var old = btn.innerHTML; btn.innerHTML = '<span class="spin" aria-hidden="true"></span>' + escH(T.sending);
       var fix = [];
       ["pickup", "dest"].forEach(function (w) {
-        if (!hasXY(S[w]) && C.key) fix.push(geocode(S[w].address).then(function (g) { if (g) S[w] = { address: S[w].address, lat: g.lat, lng: g.lng }; }));
+        if (!hasXY(S[w])) fix.push(geocode(S[w].address).then(function (g) { if (g) S[w] = { address: S[w].address, lat: g.lat, lng: g.lng }; }));
       });
       Promise.all(fix).then(function () {
         var p = payload();

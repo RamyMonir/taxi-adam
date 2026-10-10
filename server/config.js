@@ -30,6 +30,7 @@ export const CONFIG = {
  "destinations": [
   {
    "slug": "lotnisko-pyrzowice",
+   "code": "KTW",
    "short": "Pyrzowice",
    "price": 150,
    "lat": 50.4743,
@@ -38,6 +39,7 @@ export const CONFIG = {
   },
   {
    "slug": "lotnisko-balice",
+   "code": "KRK",
    "short": "Balice",
    "price": 320,
    "lat": 50.0777,
@@ -46,6 +48,7 @@ export const CONFIG = {
   },
   {
    "slug": "lotnisko-wroclaw",
+   "code": "WRO",
    "short": "Wrocław",
    "price": 420,
    "lat": 51.1027,
@@ -54,6 +57,7 @@ export const CONFIG = {
   },
   {
    "slug": "lotnisko-ostrava",
+   "code": "OSR",
    "short": "Ostrava",
    "price": 260,
    "lat": 49.6963,
@@ -62,6 +66,7 @@ export const CONFIG = {
   },
   {
    "slug": "lotnisko-okecie",
+   "code": "WAW",
    "short": "Okęcie",
    "price": 800,
    "lat": 52.1657,
@@ -70,6 +75,7 @@ export const CONFIG = {
   },
   {
    "slug": "lotnisko-modlin",
+   "code": "WMI",
    "short": "Modlin",
    "price": 850,
    "lat": 52.4511,
@@ -78,6 +84,7 @@ export const CONFIG = {
   },
   {
    "slug": "sanatorium-busko-zdroj",
+   "code": null,
    "short": "Busko-Zdrój",
    "price": 620,
    "lat": 50.4705,
@@ -86,6 +93,7 @@ export const CONFIG = {
   },
   {
    "slug": "sanatorium-szczyrk",
+   "code": null,
    "short": "Szczyrk",
    "price": 280,
    "lat": 49.7185,
@@ -94,6 +102,7 @@ export const CONFIG = {
   },
   {
    "slug": "sanatorium-ustron",
+   "code": null,
    "short": "Ustroń",
    "price": 260,
    "lat": 49.7197,
@@ -102,6 +111,7 @@ export const CONFIG = {
   },
   {
    "slug": "sanatorium-goczalkowice-zdroj",
+   "code": null,
    "short": "Goczałkowice",
    "price": 180,
    "lat": 49.937,
@@ -110,6 +120,7 @@ export const CONFIG = {
   },
   {
    "slug": "kliniki-katowice",
+   "code": null,
    "short": "Katowice",
    "price": 110,
    "lat": 50.2591,
@@ -118,6 +129,7 @@ export const CONFIG = {
   },
   {
    "slug": "kliniki-gliwice",
+   "code": null,
    "short": "Gliwice",
    "price": 50,
    "lat": 50.2945,
@@ -126,6 +138,7 @@ export const CONFIG = {
   },
   {
    "slug": "kliniki-zabrze",
+   "code": null,
    "short": "Zabrze",
    "price": 70,
    "lat": 50.3249,
@@ -134,6 +147,7 @@ export const CONFIG = {
   },
   {
    "slug": "kliniki-sosnowiec",
+   "code": null,
    "short": "Sosnowiec",
    "price": 140,
    "lat": 50.2863,
@@ -142,6 +156,7 @@ export const CONFIG = {
   },
   {
    "slug": "kliniki-czeladz",
+   "code": null,
    "short": "Czeladź",
    "price": 140,
    "lat": 50.316,
@@ -150,6 +165,7 @@ export const CONFIG = {
   },
   {
    "slug": "kliniki-wroclaw",
+   "code": null,
    "short": "Wrocław (kliniki)",
    "price": 420,
    "lat": 51.1079,
@@ -158,6 +174,7 @@ export const CONFIG = {
   },
   {
    "slug": "dworzec-gliwice",
+   "code": null,
    "short": "Dworzec Gliwice",
    "price": 50,
    "lat": 50.3008,
@@ -166,6 +183,7 @@ export const CONFIG = {
   },
   {
    "slug": "dworzec-zabrze",
+   "code": null,
    "short": "Dworzec Zabrze",
    "price": 70,
    "lat": 50.3029,
@@ -174,6 +192,7 @@ export const CONFIG = {
   },
   {
    "slug": "dworzec-katowice",
+   "code": null,
    "short": "Dworzec Katowice",
    "price": 110,
    "lat": 50.2575,
@@ -182,6 +201,7 @@ export const CONFIG = {
   },
   {
    "slug": "dworzec-ostrava",
+   "code": null,
    "short": "Dworzec Ostrava",
    "price": 260,
    "lat": 49.8546,
@@ -190,6 +210,7 @@ export const CONFIG = {
   },
   {
    "slug": "taxi-gliwice",
+   "code": null,
    "short": "Gliwice rynek",
    "price": 50,
    "lat": 50.2945,
@@ -198,6 +219,7 @@ export const CONFIG = {
   },
   {
    "slug": "taxi-katowice",
+   "code": null,
    "short": "Katowice rynek",
    "price": 110,
    "lat": 50.2591,
@@ -206,6 +228,7 @@ export const CONFIG = {
   },
   {
    "slug": "taxi-rybnik",
+   "code": null,
    "short": "Rybnik rynek",
    "price": 80,
    "lat": 50.0971,
@@ -214,6 +237,7 @@ export const CONFIG = {
   },
   {
    "slug": "taxi-zabrze",
+   "code": null,
    "short": "Zabrze",
    "price": 70,
    "lat": 50.3249,
@@ -222,6 +246,7 @@ export const CONFIG = {
   },
   {
    "slug": "taxi-sosnowiec",
+   "code": null,
    "short": "Sosnowiec",
    "price": 140,
    "lat": 50.2863,

@@ -425,3 +425,25 @@ footer li{margin:4px 0}
 @media print{.top,.actionbar,.hero-road,.streaks,footer,.ride-banner{display:none}.hero{background:none;color:#000}}
 .hero .wrap>*,.cols>*,.row2>*{min-width:0}
 html,body{overflow-x:hidden}
+
+/* ---------- flight lookup in the booking form ---------- */
+.flight-wrap{margin-top:12px}
+.flight-wrap .field{margin-top:0}
+.flight-wrap input{text-transform:uppercase;letter-spacing:.04em}
+.flight-info{margin-top:8px;border-radius:14px;padding:12px 14px;background:rgba(77,134,255,.12);border:1px solid rgba(77,134,255,.35);font-size:.95rem;color:#DCE6FA}
+.flight-info.loading{color:#9FB0D3}
+.flight-info.warn{background:rgba(255,180,168,.08);border-color:rgba(255,180,168,.35);color:#FFD2CB}
+.fl-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+.fl-head b{font-family:var(--font-display);font-size:1.05rem;color:#fff}
+.fl-st{font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(51,209,122,.15);color:#9BEBC0}
+.fl-route{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.fl-route span{display:flex;flex-direction:column;line-height:1.25}
+.fl-route span:last-child{text-align:right}
+.fl-route small{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#9FB0D3}
+.fl-route b{font-family:var(--font-display);font-size:1.5rem;color:var(--yellow)}
+.fl-route s{font-size:.8rem;color:#9FB0D3}
+.fl-route em{font-style:normal;font-size:.85rem;color:#C5D0E8}
+.fl-route i{font-style:normal;color:var(--blue-2);font-size:1.2rem}
+.fl-sug{margin:10px 0 0;padding-top:10px;border-top:1px solid rgba(77,134,255,.25);font-size:.9rem;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.fl-use{background:var(--blue);color:#fff;border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.loc input.locating::placeholder{color:var(--yellow)}

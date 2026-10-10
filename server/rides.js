@@ -129,14 +129,15 @@ export function driverText(r) {
   const L = [];
   L.push(r.mode === "now" ? "🚖 <b>KURS TERAZ</b>" : `📅 <b>REZERWACJA: ${esc(whenLabel(d.when))}</b>`);
   L.push("");
-  L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>`);
+  L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>${d.pickup.gps ? " (GPS klienta)" : ""}`);
   L.push(`🏁 <b>Dokąd:</b> <a href="${mapLink(d.dest)}">${esc(d.dest.address)}</a>`);
   L.push("");
   L.push(`👤 ${esc(d.name || "—")}   ☎️ ${esc(d.phone)}`);
   const extra = [`👥 ${d.pax} os.`];
   if (d.luggage) extra.push(`🧳 ${esc(d.luggage)}`);
-  if (d.flight) extra.push(`✈️ ${esc(d.flight)}`);
+  if (d.flight && !d.flightInfo) extra.push(`✈️ ${esc(d.flight)}`);
   L.push(extra.join("   "));
+  if (d.flightInfo) L.push(`✈️ ${esc(d.flightInfo)}`);
   L.push(`📏 ${[km, min].filter(Boolean).join(" · ") || "trasa nieznana"}   💰 ${price}`);
   if (r.mode === "now" && d.approachS) L.push(`🚗 Dojazd z bazy: ok. ${Math.max(1, Math.round(d.approachS / 60))} min`);
   if (d.returnTrip) L.push(`🔁 Powrót: ${esc(d.returnTrip)}`);
