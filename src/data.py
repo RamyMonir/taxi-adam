@@ -133,6 +133,9 @@ TARIFF = {"start": 9, "per_km": 3.0, "min": 15, "confirmed": False}
 # Pusty = strona działa bez mapy i podpowiedzi adresów (wpisywanie ręczne + GPS).
 GOOGLE_MAPS_BROWSER_KEY = ""   # TODO
 GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Management)
+# Logowanie klientów przez Google (opcjonalne). Client ID typu "Web application" z Google Cloud
+# (APIs & Services -> Credentials -> OAuth client ID). Publiczny z założenia. Pusty = brak logowania.
+GOOGLE_OAUTH_CLIENT_ID = ""   # TODO
 # Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
 NOW_WAIT_MIN = 3
 

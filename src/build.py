@@ -3,7 +3,7 @@
 import json, os, shutil, datetime, hashlib
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN)
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -47,7 +47,7 @@ CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balic
 def client_config(lang):
     """window.TAXI – ustawienia dla app.js (formularz rezerwacji, status, opinie)."""
     return json.dumps(dict(
-        lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
+        lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
         chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS],
         airports=[dict(code=d["code"], lat=d["lat"], lng=d["lng"]) for d in DESTINATIONS if d["kind"] == "airport"]), ensure_ascii=False)
@@ -55,7 +55,7 @@ def client_config(lang):
 def write_server_config():
     """server/config.js – te same ceny i strefy dla funkcji Cloudflare (liczą cenę po stronie serwera)."""
     cfg = dict(
-        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN,
+        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN, googleClientId=GOOGLE_OAUTH_CLIENT_ID,
         base=dict(lat=B["lat"], lng=B["lng"]), center=dict(lat=KNUROW_CENTER[0], lng=KNUROW_CENTER[1]),
         zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
         destinations=[dict(slug=d["slug"], code=d.get("code"), short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
@@ -149,6 +149,7 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
   <button class="menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
   <nav class="nav" id="nav" aria-label="Menu główne">
     {% for href, label in nav %}<a href="{{ href }}"{% if href == path %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    <a class="acct-top" id="acct-top" href="/konto/{{ '?lang=en' if lang=='en' else '' }}" hidden><span class="acct-ava" aria-hidden="true"></span><span class="acct-lbl">{{ 'Account' if lang=='en' else 'Konto' }}</span></a>
     <a class="call-top" href="tel:{{ B.phone_e164 }}">{{ icon.phone }} {{ B.phone }}</a>
   </nav>
 </div></header>
@@ -569,7 +570,11 @@ body = ('<section><div class="wrap"><h1>Polityka prywatności</h1>'
         '<p>Gdy zamawiasz kurs przez stronę, zapisujemy podane dane (adres odbioru i cel, termin, imię, telefon, liczba osób, uwagi) i wysyłamy je kierowcy '
         'w komunikatorze Telegram, żeby mógł potwierdzić kurs. Dane przetwarzamy w celu wykonania przewozu (art. 6 ust. 1 lit. b RODO). '
         'Zgłoszenia są przechowywane na serwerach Cloudflare i automatycznie usuwane po 30 dniach; dane potrzebne do rozliczenia przechowujemy przez czas wymagany przepisami podatkowymi (art. 6 ust. 1 lit. c RODO).</p>'
-        '<p>Twoja przeglądarka zapamiętuje numer Twojego ostatniego kursu, żeby można było wrócić do strony statusu. Nie używamy plików cookies, reklam ani narzędzi analitycznych.</p>'
+        '<p>Twoja przeglądarka zapamiętuje numer Twojego ostatniego kursu, żeby można było wrócić do strony statusu. Status kursu widać tylko na urządzeniu, z którego go zamówiono (albo na koncie klienta). Nie używamy reklam ani narzędzi analitycznych.</p>'
+        '<h2>Konto klienta (logowanie przez Google)</h2>'
+        '<p>Konto jest dobrowolne – kurs można zamówić bez logowania. Gdy zalogujesz się przez Google, otrzymujemy od Google Twoje imię, adres e-mail i zdjęcie profilowe, '
+        'a na koncie zapisujemy Twoje imię, telefon i przejazdy z ostatnich 30 dni, żeby były widoczne na każdym Twoim urządzeniu (art. 6 ust. 1 lit. b RODO). '
+        'Do utrzymania logowania używamy jednego niezbędnego pliku cookie (sesja, 60 dni). Wylogowanie usuwa sesję; usunięcie konta – na prośbę, telefonicznie.</p>'
         '<h2>Mapa, adresy i lokalizacja</h2>'
         '<p>Mapa, podpowiedzi adresów i wyliczanie trasy działają dzięki usłudze Google Maps (Google Ireland Ltd.). Gdy korzystasz z formularza, '
         'Twoja przeglądarka łączy się z serwerami Google i przekazuje wpisywany adres. Zasady Google: <a href="https://policies.google.com/privacy" rel="noopener">policies.google.com/privacy</a>. '
@@ -578,7 +583,7 @@ body = ('<section><div class="wrap"><h1>Polityka prywatności</h1>'
         '<h2>Twoje prawa</h2>'
         '<p>Przysługuje Ci prawo dostępu do danych, ich sprostowania, usunięcia, ograniczenia przetwarzania oraz skargi do Prezesa UODO.</p>'
         f'<p>Kontakt w sprawie danych: tel. {B["phone"]}.</p></div></section>')
-page("/polityka-prywatnosci/", f"Polityka prywatności – {B['name']}", "Polityka prywatności strony: zamówienia online, Google Maps, brak cookies i śledzenia.", body)
+page("/polityka-prywatnosci/", f"Polityka prywatności – {B['name']}", "Polityka prywatności strony: zamówienia online, konto klienta, Google Maps, brak reklam i śledzenia.", body)
 
 # ================= ENGLISH =================
 air = by_kind("airport")
@@ -614,11 +619,33 @@ body = ('<section class="hero track-hero" style="padding:0"><div class="wrap tra
         f'<div class="track-actions"><a class="btn btn-call" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zadzwoń do kierowcy</a>'
         '<button type="button" class="btn btn-line" id="t-cancel" hidden>Anuluj kurs</button>'
         '<a class="btn btn-ink" id="t-later" href="/rezerwacja/#again" hidden>Zarezerwuj na później</a>'
-        '<a class="btn btn-line" id="t-new" href="/rezerwacja/" hidden>Zamów nowy kurs</a></div>'
+        '<a class="btn btn-line" id="t-new" href="/rezerwacja/" hidden>Zamów nowy kurs</a>'
+        '<a class="btn btn-ink" id="t-login" href="/konto/" hidden>Zaloguj się przez Google</a></div>'
         '</div>'
         '<div class="track-side"><div class="map map-lg" id="t-map" hidden></div><dl class="t-details" id="t-details"></dl></div>'
         '</div></section>')
 page("/przejazd/", f"Status kursu | {B['name']}", "Status Twojego kursu na żywo.", body, noindex=True)
+
+# ================= KONTO KLIENTA =================
+body = ('<section class="hero acct-hero" style="padding:0"><div class="wrap"><div class="acct-card" id="acct">'
+        '<div id="acct-out" hidden>'
+        '<p class="track-kicker">Konto klienta</p><h1>Twoje przejazdy w jednym miejscu</h1>'
+        '<p class="lead">Zaloguj się przez Google: zobaczysz swoje kursy na każdym telefonie i komputerze, a imię i telefon wpiszą się same.</p>'
+        '<div class="g-btn" id="g-btn"></div><p class="small" id="acct-err" hidden></p>'
+        '<p class="small muted acct-free">Konto nie jest wymagane – możesz zamawiać bez logowania. <a href="/rezerwacja/">Zamów taxi</a></p>'
+        '</div>'
+        '<div id="acct-off" hidden><h1>Konto klienta</h1><p class="lead">Logowanie nie jest jeszcze włączone. Możesz zamawiać bez konta.</p>'
+        '<p><a class="btn btn-call" href="/rezerwacja/">Zamów taxi</a></p></div>'
+        '<div id="acct-in" hidden>'
+        '<div class="acct-head"><img id="acct-pic" alt="" width="56" height="56" referrerpolicy="no-referrer" hidden><span class="acct-ava big" id="acct-ini" aria-hidden="true"></span>'
+        '<div><p class="track-kicker">Konto klienta</p><h1 id="acct-hello">Cześć!</h1><p class="muted small" id="acct-email"></p></div></div>'
+        '<form class="acct-form" id="acct-form"><div class="field"><label for="acct-n">Imię</label><input id="acct-n" maxlength="60" autocomplete="given-name"></div>'
+        '<div class="field"><label for="acct-t">Telefon</label><input id="acct-t" type="tel" inputmode="tel" maxlength="30" autocomplete="tel"></div>'
+        '<button class="btn btn-ink" type="submit">Zapisz</button><span class="acct-saved" id="acct-saved" hidden>Zapisano ✓</span></form>'
+        '<h2>Twoje przejazdy</h2><ul class="acct-rides" id="acct-rides"></ul>'
+        '<p class="acct-actions"><a class="btn btn-call" href="/rezerwacja/">Zamów taxi</a> <button class="btn btn-line" id="acct-logout" type="button">Wyloguj</button></p>'
+        '</div></div></div></section>')
+page("/konto/", f"Konto klienta | {B['name']}", "Twoje przejazdy, imię i telefon w jednym miejscu.", body, noindex=True)
 
 # ================= static files =================
 write_server_config()

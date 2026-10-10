@@ -39,6 +39,14 @@ Without the backend (for example on GitHub Pages or a plain local preview), the 
 5. **Place ID** of the business (for reviews): find "Taxi Knurów Adam Mączka" in the [Place ID Finder](https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder). This becomes `GOOGLE_PLACE_ID`.
 6. Recommended: **Billing → Budgets & alerts**, set an alert at e.g. 10 €.
 
+### Customer accounts: "Sign in with Google" (optional)
+
+Booking works without an account. With sign-in enabled, customers see their rides on every device, and their name and phone fill in automatically.
+
+1. **APIs & Services → OAuth consent screen**: User type *External*. App name "Taxi Knurów", support email, your domain under *Authorized domains* (e.g. `taxi-adam.pages.dev`, later `taxi-knurow-adam.pl`). Scopes: only the defaults (email, profile, openid). Then **Publish app** (no Google review is needed for these scopes).
+2. **Credentials → Create credentials → OAuth client ID**, type **Web application**. Under *Authorized JavaScript origins* add `https://taxi-adam.pages.dev` (and later `https://taxi-knurow-adam.pl` and `https://www.taxi-knurow-adam.pl`). No redirect URIs are needed.
+3. Copy the **Client ID** (`…apps.googleusercontent.com`; it's public) into `src/data.py` → `GOOGLE_OAUTH_CLIENT_ID`, rebuild and push. Empty = the sign-in is hidden. The client secret isn't used.
+
 Note: Google returns at most **5 reviews** and chooses them itself. The site keeps those with 4–5 stars and enough text, best first. Reviews are cached for 12 hours.
 
 ## 3. Cloudflare Pages

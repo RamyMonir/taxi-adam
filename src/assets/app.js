@@ -149,6 +149,62 @@
       })[0] || null;
     },
   };
+  /* ---------- customer account (optional "Sign in with Google") ---------- */
+  var Account = {
+    on: !!C.gid,
+    get: function () { try { return JSON.parse(localStorage.getItem("taxi.user") || "null"); } catch (e) { return null; } },
+    set: function (u) { try { if (u) localStorage.setItem("taxi.user", JSON.stringify(u)); else localStorage.removeItem("taxi.user"); } catch (e) {} },
+    // server list -> this device, so the status page and the ride banner work here too
+    sync: function () {
+      return api("/api/me", null, 10000).then(function (j) {
+        if (!j._ok) throw 0;
+        Account.set(j.user);
+        if (j.user && j.rides) {
+          var final = ["done", "declined", "cancelled", "expired", "noshow"];
+          j.rides.slice().reverse().forEach(function (x) {
+            if (!Rides.get(x.id)) Rides.add({ id: x.id, token: x.token, created: x.created, mode: x.mode, when: x.when, closed: final.indexOf(x.status) >= 0 });
+          });
+        }
+        accountLink();
+        return j;
+      });
+    },
+  };
+  function accountLink() {
+    var a = $("acct-top"); if (!a || !Account.on) return;
+    var u = Account.get();
+    a.hidden = false;
+    a.querySelector(".acct-lbl").textContent = u ? (u.name || (lang === "en" ? "Account" : "Konto")) : (lang === "en" ? "Sign in" : "Zaloguj");
+    a.querySelector(".acct-ava").textContent = u ? (u.name || u.email || "?").charAt(0).toUpperCase() : "";
+    a.classList.toggle("in", !!u);
+  }
+  accountLink();
+  if (Account.on && Account.get() && !$("acct")) {
+    var lastSync = 0; try { lastSync = +sessionStorage.getItem("taxi.sync") || 0; } catch (e) {}
+    if (Date.now() - lastSync > 60000) {
+      try { sessionStorage.setItem("taxi.sync", String(Date.now())); } catch (e) {}
+      Account.sync().catch(function () {});
+    }
+  }
+  function googleButton(el, onDone, onFail) {
+    function go() {
+      google.accounts.id.initialize({
+        client_id: C.gid, ux_mode: "popup",
+        callback: function (resp) {
+          var mine = Rides.all().map(function (x) { return { id: x.id, token: x.token }; });
+          api("/api/auth/google", { credential: resp.credential, rides: mine }).then(function (j) {
+            if (!j._ok) throw 0;
+            return Account.sync().then(onDone);
+          }).catch(onFail);
+        },
+      });
+      google.accounts.id.renderButton(el, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: lang, width: 300 });
+    }
+    if (window.google && google.accounts && google.accounts.id) { go(); return; }
+    var sc = document.createElement("script");
+    sc.src = "https://accounts.google.com/gsi/client"; sc.async = true; sc.onload = go; sc.onerror = onFail;
+    document.head.appendChild(sc);
+  }
   var banner = $("ride-banner"), act = Rides.active();
   if (banner && act && !$("track")) {
     banner.href = "/przejazd/?id=" + act.id + (lang === "en" ? "&lang=en" : "");
@@ -293,6 +349,8 @@
     var S = { pickup: null, dest: null, quote: null, mode: form.getAttribute("data-mode") || "now" };
     var pIn = $("pickup"), dIn = $("dest"), err = $("form-error"), btn = $("book-btn"), gps = $("gps");
     T.fromPh = pIn.placeholder;
+    var me = Account.on && Account.get();
+    if (me) { if (me.name && !$("name").value) $("name").value = me.name; if (me.phone && !$("tel").value) $("tel").value = me.phone; }
     var map = $("map") ? TripMap($("map")) : null, qSeq = 0, warmed = false;
 
     // load Google only once the visitor starts using the form
@@ -723,6 +781,10 @@
     if (!mine || !mine.token) {   // someone else's link: the ride stays private
       $("t-title").textContent = T.st.private[0]; $("t-sub").textContent = T.st.private[1];
       $("t-visual").setAttribute("data-state", "declined"); $("t-new").hidden = false; $("t-steps").innerHTML = "";
+      if (Account.on && !Account.get()) {
+        $("t-login").hidden = false;
+        $("t-login").href = "/konto/?next=" + encodeURIComponent(location.pathname + location.search);
+      }
       return;
     }
     poll();
@@ -730,6 +792,72 @@
       countdown();
       if (last && last.status === "pending") render(last);   // switches to "call us" after a few minutes
     }, 1000);
+  }
+
+  /* ---------- account page ---------- */
+  if ($("acct")) initAccount();
+  function initAccount() {
+    var ST = { pending: "czeka na kierowcę", scheduled: "potwierdzony", enroute: "kierowca jedzie", arrived: "kierowca czeka", ontrip: "w trasie",
+               done: "zakończony", declined: "kierowca zajęty", cancelled: "anulowany", expired: "bez odpowiedzi", noshow: "nieodebrany" };
+    var LIVE = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
+    var next = new URLSearchParams(location.search).get("next");
+    if (next && !/^\/[a-z0-9\-\/]*\/?(\?[a-z0-9=&\-]*)?$/i.test(next)) next = null;   // only our own pages
+    function show(id) { ["acct-out", "acct-in", "acct-off"].forEach(function (x) { $(x).hidden = x !== id; }); }
+    function when(x) {
+      var d = new Date(x.when || x.created);
+      return d.toLocaleString("pl-PL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    }
+    function signedIn(j) {
+      var u = j.user; show("acct-in");
+      $("acct-hello").textContent = "Cześć" + (u.name ? ", " + u.name : "") + "!";
+      $("acct-email").textContent = u.email || "";
+      if (u.picture) { $("acct-pic").src = u.picture; $("acct-pic").hidden = false; $("acct-ini").hidden = true; }
+      else $("acct-ini").textContent = (u.name || u.email || "?").charAt(0).toUpperCase();
+      $("acct-n").value = u.name || ""; $("acct-t").value = u.phone || "";
+      var rides = j.rides || [];
+      $("acct-rides").innerHTML = rides.length ? rides.map(function (x) {
+        var live = LIVE.indexOf(x.status) >= 0;
+        var st = x.status === "cancelled" && x.cancelledBy === "driver" ? "anulowany przez kierowcę" : ST[x.status] || x.status;
+        return '<li><a href="/przejazd/?id=' + x.id + '"' + (live ? ' class="live-ride"' : "") + '>'
+          + '<span class="ar-when">' + escH(x.mode === "later" ? when(x) : when(x) + " · teraz") + '</span>'
+          + '<span class="ar-route"><b>' + escH(x.from) + '</b><i aria-hidden="true">→</i><b>' + escH(x.to) + '</b></span>'
+          + '<span class="ar-meta"><span class="ar-st st-' + escH(x.status) + '">' + escH(st) + '</span>'
+          + (x.price ? '<span>' + (x.priceKind === "fixed" ? "" : "~") + x.price + ' zł</span>' : "") + '</span></a></li>';
+      }).join("") : '<li class="ar-empty">Nie masz jeszcze przejazdów z ostatnich 30 dni.</li>';
+    }
+    function load() {
+      return Account.sync().then(function (j) {
+        if (j.user) { if (next) { location.replace(next); return; } signedIn(j); }
+        else signedOut();
+      });
+    }
+    function signedOut() {
+      show("acct-out");
+      googleButton($("g-btn"), function () { load(); }, function () {
+        $("acct-err").hidden = false; $("acct-err").textContent = "Nie udało się zalogować. Spróbuj ponownie.";
+      });
+    }
+    if (!Account.on) { show("acct-off"); return; }
+    load().catch(function () { if (Account.get()) { $("acct-err").hidden = false; $("acct-err").textContent = "Brak połączenia. Spróbuj za chwilę."; } signedOut(); });
+
+    $("acct-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var saved = $("acct-saved");
+      api("/api/me", { name: $("acct-n").value, phone: $("acct-t").value }).then(function (j) {
+        saved.hidden = false; saved.textContent = j._ok ? "Zapisano ✓" : (j.error === "phone" ? "Sprawdź numer telefonu" : "Nie zapisano – spróbuj ponownie");
+        if (j._ok) { var u = Account.get() || {}; u.name = $("acct-n").value.trim(); u.phone = $("acct-t").value.trim(); Account.set(u); accountLink(); }
+        setTimeout(function () { saved.hidden = true; }, 3000);
+      });
+    });
+    $("acct-logout").addEventListener("click", function () {
+      api("/api/auth/logout", {}).finally(function () {
+        Account.set(null);
+        // a shared phone: the account's rides leave with the account
+        try { localStorage.removeItem("taxi.rides"); localStorage.removeItem("taxi.last"); } catch (e) {}
+        try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
+        location.reload();
+      });
+    });
   }
 
   /* ---------- "add to home screen" panel (PWA) ---------- */

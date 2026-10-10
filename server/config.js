@@ -3,6 +3,7 @@ export const CONFIG = {
  "phone": "+48570762777",
  "seats": 7,
  "waitMin": 3,
+ "googleClientId": "",
  "base": {
   "lat": 50.2316,
   "lng": 18.661
