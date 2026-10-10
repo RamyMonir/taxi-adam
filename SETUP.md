@@ -98,10 +98,10 @@ Telegram can't reach `localhost`, so button taps don't work locally unless you s
 
 Każde zamówienie przychodzi jako wiadomość z adresami (kliknij adres → nawigacja w Mapach Google), telefonem klienta, ceną, lotem i przyciskami:
 
-- **Kurs TERAZ**: wybierz, za ile minut będziesz (**✅ 5 / 10 / 15 / 20 / 30 min**) albo **❌ Odrzuć**. Klient widzi taksówkę jadącą po drodze i odliczanie.
-- **REZERWACJA**: **✅ Potwierdź rezerwację** albo **❌ Odrzuć**. W dniu kursu kliknij **🚕 Wyjeżdżam – 10/20/30 min**.
-- W drodze: **⏱ +5 min**, jeśli się spóźnisz; **📍 Jestem na miejscu**, gdy czekasz pod adresem.
-- Na miejscu bot wysyła nową wiadomość: **▶️ Klient wsiadł – rozpocznij kurs** (albo **❌ Klient nie przyszedł**).
+- **Kurs TERAZ**: wiadomość pokazuje adres klienta, ile km i minut masz do niego (Google Maps, z korkami, liczone od Twojej lokalizacji na żywo). Kliknij **✅ Przyjmuję** albo **❌ Odrzuć** – czas dojazdu liczy się sam.
+- **REZERWACJA**: **✅ Potwierdź rezerwację** albo **❌ Odrzuć**. W dniu kursu kliknij **🚕 Wyjeżdżam do klienta** – czas dojazdu też liczy się sam.
+- Po przyjęciu: **🧭 Nawiguj do klienta** otwiera nawigację Google Maps.
+- Gdy dojedziesz pod adres, bot **sam** oznaczy, że jesteś na miejscu, powiadomi klienta i wyśle wiadomość **▶️ Klient wsiadł – rozpocznij kurs** (albo **❌ Klient nie przyszedł**). Bez lokalizacji na żywo kliknij **📍 Jestem na miejscu**.
 - W trasie: **🏁 Zakończ kurs**. Klient dostaje prośbę o opinię w Google.
 - Jeśli klient anuluje, przychodzi osobna wiadomość **🚫 Klient anulował**.
 

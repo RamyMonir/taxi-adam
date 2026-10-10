@@ -164,7 +164,9 @@ BASE = r"""<!doctype html>
     <div><h3>Rejon odbioru</h3><ul>{% for v in villages[1:8] %}<li><a href="/taxi-{{ v[0] }}/">Taxi {{ v[1] }}</a></li>{% endfor %}<li><a href="/#rejon">Wszystkie miejscowości</a></li></ul></div>
     <div><h3>Informacje</h3><ul><li><a href="/dla-firm/">Dla firm</a></li><li><a href="/kontakt/">Kontakt</a></li><li><a href="/en/">English</a></li><li><a href="/polityka-prywatnosci/">Polityka prywatności</a></li></ul></div>
   </div>
-  <div class="foot-bottom"><span>© {{ year }} {{ B.name }}. Bez reklam i śledzenia.</span><button class="theme-toggle" type="button">Jasny / ciemny motyw</button></div>
+  <div class="foot-bottom"><span>© {{ year }} {{ B.name }}. Bez reklam i śledzenia.</span>
+    <span class="credit">{{ 'Website & booking system:' if lang=='en' else 'Strona i system rezerwacji:' }} <a href="https://okredo.com/pl-pl/firma/kemet-poland-spolka-z-ograniczona-odpowiedzialnoscia-krs-0001270297" target="_blank" rel="noopener">Kemet Poland sp. z o.o.</a></span>
+    <button class="theme-toggle" type="button">Jasny / ciemny motyw</button></div>
 </div></footer>
 <nav class="actionbar" aria-label="Szybki kontakt">
   <a class="a-call" href="tel:{{ B.phone_e164 }}">{{ icon.phone }}{{ 'Call' if lang=='en' else 'Zadzwoń' }}</a>

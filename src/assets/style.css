@@ -571,3 +571,5 @@ html,body{overflow-x:hidden}
   .eta-note::before{animation:live 2s ease-out infinite}
   .track-visual[data-state="ontrip"] img{animation:drive 1.6s ease-in-out infinite}
 }
+.credit a{color:var(--yellow);font-weight:700;text-decoration:none}
+.credit a:hover{text-decoration:underline}

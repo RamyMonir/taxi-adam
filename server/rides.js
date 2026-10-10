@@ -128,17 +128,13 @@ export function keyboard(r) {
   switch (r.status) {
     case "pending":
       return r.mode === "now"
-        ? [...(sm ? [[btn(`✅ Przyjmij – będę za ~${sm} min`, `e|${id}|${sm}`)]] : []),
-           [btn("✅ 5 min", `e|${id}|5`), btn("✅ 10 min", `e|${id}|10`), btn("✅ 15 min", `e|${id}|15`)],
-           [btn("✅ 20 min", `e|${id}|20`), btn("✅ 30 min", `e|${id}|30`)],
-           [btn("❌ Odrzuć", `x|${id}`)]]
+        ? [[btn(sm ? `✅ Przyjmuję – dojazd ~${sm} min` : "✅ Przyjmuję kurs", `e|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]]
         : [[btn("✅ Potwierdź rezerwację", `s|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]];
     case "scheduled":
-      return [[btn("🚕 Wyjeżdżam – 10 min", `e|${id}|10`), btn("20 min", `e|${id}|20`), btn("30 min", `e|${id}|30`)],
-              [btn("❌ Anuluj kurs", `x|${id}`)]];
+      return [[btn("🚕 Wyjeżdżam do klienta", `e|${id}`)], [btn("❌ Anuluj kurs", `x|${id}`)]];
     case "enroute":
       return [[{ text: "🧭 Nawiguj do klienta", url: navUrl(r.data.pickup) }],
-              [btn("📍 Jestem na miejscu", `a|${id}`)], [btn("⏱ +5 min", `p|${id}|5`), btn("❌ Anuluj", `x|${id}`)]];
+              [btn("📍 Jestem na miejscu", `a|${id}`)], [btn("❌ Anuluj", `x|${id}`)]];
     case "arrived":
       return [[btn("▶️ Klient wsiadł – rozpocznij kurs", `t|${id}`)], [btn("❌ Klient nie przyszedł", `n|${id}`)]];
     case "ontrip":
