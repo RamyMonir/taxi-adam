@@ -27,7 +27,13 @@ export async function onRequestGet({ request, env }) {
       allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: true,
     });
     report.webhook = hook && hook.ok ? `${site}/api/telegram` : hook;
-    report.code_version = "2026-10-10 live-window";
+    report.code_version = "2026-10-10 phone-rides";
+    // the "/" menu in Telegram
+    const cmds = await tg(env, "setMyCommands", { commands: [
+      { command: "kurs", description: "Dodaj kurs przyjęty przez telefon" },
+      { command: "start", description: "Sprawdź, czy bot działa" },
+    ] });
+    report.bot_menu = !!(cmds && cmds.ok);
     const me = await tg(env, "getMe", {});
     report.bot = me && me.ok ? "@" + me.result.username : null;
     if (env.TELEGRAM_CHAT_ID) {
