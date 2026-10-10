@@ -31,6 +31,7 @@ export async function onRequestGet({ request, env }) {
     report.code_version = "2026-10-10 fleet";
     // the "/" menu in Telegram
     const cmds = await tg(env, "setMyCommands", { commands: [
+      { command: "ja", description: "Moje dane: auto, rejestracja, telefon, zmiana" },
       { command: "kurs", description: "Dodaj kurs przyjęty przez telefon" },
       { command: "raport", description: "Raport: kursy, km, godziny, pieniądze (np. /raport miesiąc)" },
       { command: "auto", description: "Twoje auto: model; kolor; rejestracja; miejsca" },

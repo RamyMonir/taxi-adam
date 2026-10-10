@@ -191,6 +191,24 @@ async function command(env, request, drv, text) {
     await updateDriver(env, drv.id, { phone: n });
     return say(env, chat, `✅ Klient może dzwonić do Ciebie pod: <b>${esc(n)}</b>`);
   }
+  if (cmd === "ja" || cmd === "info" || cmd === "profil") {
+    // the driver's own data: what customers see, shift status, today's work
+    const busy = await busyDriverIds(env);
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Warsaw" });
+    const rep = await buildReport(env, today, today, drv.owner ? null : drv.id).catch(() => null);
+    const doneToday = rep ? rep.rows.filter((x) => x.status === "done" && (drv.owner ? (x.driver_id || "owner") === "owner" : true)).length : 0;
+    const shift = busy.has(drv.id) ? "🚕 w kursie" : isLive(drv) ? `🟢 na zmianie (lokalizacja ${Math.max(0, Math.round((Date.now() - drv.ts) / 60000))} min temu${drv.until && drv.until - Date.now() < 30 * 864e5 ? ", do " + new Date(drv.until).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" }) : ""})` : "⚪ poza zmianą – udostępnij lokalizację na żywo, żeby dostawać kursy";
+    return say(env, chat, [
+      `👤 <b>${esc(drv.name || "—")}</b>${drv.owner ? " (właściciel)" : ""}`,
+      `🚗 Auto: ${drv.car ? esc([drv.car, drv.color].filter(Boolean).join(", ")) : "<i>nie ustawione</i> – /auto"}`,
+      `🔢 Rejestracja: ${drv.plate ? esc(drv.plate) : "<i>brak</i>"}${drv.seats ? ` · ${drv.seats} miejsc` : ""}`,
+      `☎️ Telefon dla klientów: ${drv.phone ? esc(drv.phone) : "<i>nie ustawiony</i> – /telefon (klient dzwoni wtedy na numer firmy)"}`,
+      `📡 ${shift}`,
+      `🏁 Dziś zakończone kursy: ${doneToday}`,
+      "",
+      "Zmień: /auto Model; kolor; rejestracja; miejsca · /telefon 600100200 · /imie Imię",
+    ].join("\n"));
+  }
   if (cmd === "imie" || cmd === "imię") {
     if (!arg) return say(env, chat, "Napisz: <code>/imie Marek</code>");
     await updateDriver(env, drv.id, { name: arg.slice(0, 30) });
@@ -221,8 +239,8 @@ async function command(env, request, drv, text) {
     return say(env, chat, `🗑 Usunięto kierowcę: ${esc(x.name)}`);
   }
   return say(env, chat, drv.owner
-    ? "Komendy: /kierowcy, /dodaj, /usun, /link, /kurs, /raport, /auto, /telefon"
-    : "Komendy: /kurs, /raport, /auto, /telefon, /imie");
+    ? "Komendy: /ja, /kierowcy, /dodaj, /usun, /link, /kurs, /raport, /auto, /telefon"
+    : "Komendy: /ja, /kurs, /raport, /auto, /telefon, /imie");
 }
 
 export async function onRequestPost({ request, env }) {

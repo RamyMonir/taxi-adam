@@ -150,6 +150,7 @@ Potem kurs działa jak zamówienie ze strony, a przycisk **📲 Wyślij klientow
 - **Zmiana = lokalizacja na żywo** w czacie z botem. Kurs „teraz” dostaje najpierw **najbliższy wolny kierowca**; jeśli nie przyjmie w ciągu minuty (albo odrzuci) – wszyscy wolni kierowcy na zmianie; kto pierwszy kliknie „Przyjmuję”, ten jedzie. Nikt nie jest na zmianie → kurs idzie do Adama.
 - Kierowca, który przyjął, ale nie może dojechać: **❌ Anuluj** oddaje kurs pozostałym (klient widzi znowu „szukamy kierowcy”).
 - **Rezerwacje** idą do Adama: „✅ Potwierdź – jadę sam” albo „👤 Przydziel: Marek”. Kierowca może oddać rezerwację Adamowi.
+- `/ja` – Twoje dane: auto, rejestracja, telefon dla klientów, czy jesteś na zmianie, dzisiejsze kursy.
 - `/kierowcy` – kto jest na zmianie, kto w kursie, kto jeszcze nie dołączył. `/usun 3` – usuwa kierowcę.
 - `/raport` – kierowca widzi swoje kursy, Adam całą firmę + podział na kierowców. O 23:00 każdy dostaje swój dzień, Adam całość z plikiem CSV.
 - Telefon kierowcy: iPhone → Ustawienia → Telegram → Lokalizacja → **Zawsze**; Android → lokalizacja „zawsze” i bez oszczędzania baterii dla Telegrama.
