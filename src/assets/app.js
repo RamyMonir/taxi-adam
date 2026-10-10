@@ -30,6 +30,8 @@
         done: ["Dziękujemy za wspólną trasę!", "Jeśli było dobrze, zostaw opinię w Google – bardzo nam to pomaga."],
         declined: ["Kierowca jest teraz zajęty", "Adam wiezie innego pasażera i nie zdąży do Ciebie na czas. Przepraszamy! Zarezerwuj kurs na późniejszą godzinę albo zadzwoń – podpowiemy najbliższy wolny termin."],
         cancelled: ["Kurs anulowany", "Kierowca dostał informację o anulowaniu."],
+        cancelled_driver: ["Kierowca anulował kurs", "Przepraszamy. Zadzwoń, jeśli potrzebujesz pomocy albo zamów nowy kurs."],
+        private: ["Ten kurs jest prywatny", "Status kursu widać tylko na telefonie, z którego go zamówiono."],
         expired: ["Kierowca jest teraz w trasie", "Nie zdążył odpowiedzieć na zgłoszenie. Zadzwoń – ustalimy kurs od ręki – albo zarezerwuj na później."],
         notfound: ["Nie znaleziono kursu", "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń."],
       },
@@ -39,7 +41,7 @@
       flDep: "Wylot", flArr: "Przylot", flOther: "Inne dni:", flSet: "ustawiliśmy datę i godzinę odbioru",
       flSugDep: "Odbiór: {d}, {t} (2 h przed wylotem + dojazd).", flSugArr: "Kierowca czeka od {t}, {d} (20 min po lądowaniu).", flUse: "Ustaw tę godzinę",
       flStatus: { Expected: "planowo", Scheduled: "planowo", Delayed: "opóźniony", Departed: "wystartował", EnRoute: "w powietrzu", Approaching: "podchodzi do lądowania", Arrived: "wylądował", Canceled: "ODWOŁANY", Cancelled: "ODWOŁANY", Diverted: "przekierowany", CheckIn: "odprawa", Boarding: "boarding", GateClosed: "bramka zamknięta", Unknown: "brak danych" },
-      anyMoment: "lada chwila", etaLbl: "min do przyjazdu", at: "ok. {clock}", cancel: "Anuluj kurs", cancelQ: "Na pewno anulować kurs?",
+      anyMoment: "lada chwila", etaLbl: "min do przyjazdu", at: "ok. {clock}", cancel: "Anuluj kurs", cancelQ: "Na pewno anulować kurs?", stop: "Przerwij kurs", stopQ: "Na pewno przerwać kurs w trakcie jazdy? Kierowca dostanie informację.",
       review: "Dodaj opinię w Google", offline: "Brak połączenia – próbuję ponownie…",
       d: { from: "Skąd", to: "Dokąd", when: "Termin", now: "teraz", pax: "Osoby", dist: "Trasa", price: "Cena", flight: "Lot" },
       call: "Zadzwoń do kierowcy", newRide: "Zamów nowy kurs",
@@ -68,6 +70,8 @@
         done: ["Thanks for riding with us!", "If you enjoyed it, please leave a Google review – it helps a lot."],
         declined: ["The driver is busy right now", "Adam is driving another passenger and can't reach you in time. Sorry! Book for a later time or call us for the next free slot."],
         cancelled: ["Ride cancelled", "The driver has been notified."],
+        cancelled_driver: ["The driver cancelled the ride", "We're sorry. Call us if you need help, or book a new ride."],
+        private: ["This ride is private", "Its status is visible only on the phone it was booked from."],
         expired: ["The driver is on the road", "He couldn't answer your request in time. Call us or book for later."],
         notfound: ["Ride not found", "The link may have expired. Book a new ride or call us."],
       },
@@ -77,7 +81,7 @@
       flDep: "Departs", flArr: "Arrives", flOther: "Other days:", flSet: "pickup date and time filled in",
       flSugDep: "Pickup: {d}, {t} (2 h before departure + drive).", flSugArr: "The driver waits from {t}, {d} (20 min after landing).", flUse: "Use this time",
       flStatus: {},
-      anyMoment: "any moment", etaLbl: "min away", at: "around {clock}", cancel: "Cancel ride", cancelQ: "Cancel this ride?",
+      anyMoment: "any moment", etaLbl: "min away", at: "around {clock}", cancel: "Cancel ride", cancelQ: "Cancel this ride?", stop: "Stop the ride", stopQ: "Stop the ride now? The driver will be notified.",
       review: "Leave a Google review", offline: "Connection lost – retrying…",
       d: { from: "From", to: "To", when: "When", now: "now", pax: "Passengers", dist: "Route", price: "Price", flight: "Flight" },
       call: "Call the driver", newRide: "Book a new ride",
@@ -91,11 +95,12 @@
   var hasXY = function (p) { return p && p.lat != null && p.lng != null; };
   var shortAddr = function (a) { return String(a || "").replace(/,\s*(Polska|Poland|Czechy|Česko)$/i, ""); };
 
-  function api(url, body, timeoutMs) {
+  function api(url, body, timeoutMs, headers) {
     var ctl = "AbortController" in window ? new AbortController() : null;
     var t = ctl && setTimeout(function () { ctl.abort(); }, timeoutMs || 15000);
+    var h = headers || {}; if (body) h["content-type"] = "application/json";
     return fetch(url, {
-      method: body ? "POST" : "GET", headers: body ? { "content-type": "application/json" } : {},
+      method: body ? "POST" : "GET", headers: h,
       body: body ? JSON.stringify(body) : undefined, signal: ctl ? ctl.signal : undefined, cache: "no-store",
     }).then(function (r) {
       clearTimeout(t);
@@ -613,7 +618,8 @@
     }
 
     function render(r) {
-      var key = r.status === "pending" ? (r.mode === "now" ? "pending_now" : "pending_later") : r.status;
+      var key = r.status === "pending" ? (r.mode === "now" ? "pending_now" : "pending_later")
+        : r.status === "cancelled" && r.cancelledBy === "driver" ? "cancelled_driver" : r.status;
       var waiting = r.status === "pending" && r.mode === "now" && Date.now() + skew - r.created > (r.waitMin || 3) * 60000;
       var txt = T.st[waiting ? "waiting" : key] || T.st.notfound;
       var o = { when: whenTxt(r), clock: r.etaAt ? clock(r.etaAt - skew) : "", dclock: destAt(r) ? clock(destAt(r) - skew) : "–" };
@@ -626,11 +632,12 @@
       document.title = $("t-title").textContent + " | Taxi Knurów";
       steps(r);
       var open = ["pending", "scheduled", "enroute", "arrived", "ontrip"].indexOf(r.status) >= 0;
-      var busy = r.status === "declined" || r.status === "expired" || r.status === "noshow";
+      var busy = r.status === "declined" || r.status === "expired" || r.status === "noshow" || (r.status === "cancelled" && r.cancelledBy === "driver");
       track.classList.toggle("busy", busy);
       $("t-steps").hidden = busy;
       $("t-later").hidden = !busy;
-      $("t-cancel").hidden = !(open && mine && mine.token && r.status !== "arrived" && r.status !== "ontrip");
+      $("t-cancel").hidden = !(open && mine && mine.token);
+      $("t-cancel").textContent = r.status === "ontrip" ? T.stop : T.cancel;
       if (map.car) map.car(r.car);
       $("t-new").hidden = open;
       if (r.status === "done") {
@@ -685,7 +692,7 @@
 
     function poll() {
       clearTimeout(timer);
-      api("/api/rides/" + encodeURIComponent(id), null, 10000).then(function (r) {
+      api("/api/rides/" + encodeURIComponent(id), null, 10000, { "X-Ride-Token": mine.token }).then(function (r) {
         if (r._status === 404) { notFound(); return; }
         if (!r._ok) throw 0;
         fails = 0; $("t-sub").classList.remove("muted");
@@ -706,13 +713,18 @@
     }
 
     $("t-cancel").addEventListener("click", function () {
-      if (!mine || !window.confirm(T.cancelQ)) return;
+      if (!mine || !window.confirm(last && last.status === "ontrip" ? T.stopQ : T.cancelQ)) return;
       this.disabled = true;
       api("/api/rides/" + id + "/cancel", { token: mine.token }).then(function (r) { if (r._ok) render(r); }).finally(function () { $("t-cancel").disabled = false; });
     });
     document.addEventListener("visibilitychange", function () { if (!document.hidden && last) poll(); });
 
     if (!id) { notFound(); return; }
+    if (!mine || !mine.token) {   // someone else's link: the ride stays private
+      $("t-title").textContent = T.st.private[0]; $("t-sub").textContent = T.st.private[1];
+      $("t-visual").setAttribute("data-state", "declined"); $("t-new").hidden = false; $("t-steps").innerHTML = "";
+      return;
+    }
     poll();
     tick = setInterval(function () {
       countdown();

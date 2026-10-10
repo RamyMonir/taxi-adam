@@ -2,10 +2,11 @@
 import { json, bad } from "../../../server/util.js";
 import { load, expireIfStale, publicView, driverPos, refreshEta, syncDriverMessage } from "../../../server/rides.js";
 
-export async function onRequestGet({ params, env, waitUntil }) {
+export async function onRequestGet({ params, request, env, waitUntil }) {
   if (!/^[a-z0-9]{12}$/.test(params.id)) return bad("not found", 404);
   let r = await load(env, params.id);
-  if (!r) return bad("not found", 404);
+  // the ride is private: without the secret token (kept only on the device that booked it) it doesn't exist
+  if (!r || request.headers.get("X-Ride-Token") !== r.token) return bad("not found", 404);
   r = await expireIfStale(env, r);
   const car = r.status === "enroute" || r.status === "ontrip" ? await driverPos(env).catch(() => null) : null;
   // keep distance and arrival time current even when the driver's phone sends no new point (car standing / in traffic)

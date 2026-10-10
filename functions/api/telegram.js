@@ -134,6 +134,18 @@ export async function onRequestPost({ request, env }) {
     r.status = "done"; toast = "Kurs zakończony 👍";
   } else if (act === "x" && ["pending", "scheduled", "enroute"].includes(st)) {
     r.status = "declined"; toast = "Kurs odrzucony – klient dostał informację";
+  } else if (act === "c" && (st === "arrived" || st === "ontrip")) {
+    // cancelling a started ride: ask once more, a tap by mistake must not end it
+    await answer("Potwierdź poniżej");
+    await ask(env, r, st === "ontrip" ? "🚫 Na pewno <b>przerwać kurs</b> w trakcie jazdy? Klient dostanie informację." : "🚫 Na pewno <b>anulować kurs</b>? Klient dostanie informację.",
+              [[btn(st === "ontrip" ? "Tak, przerwij kurs" : "Tak, anuluj kurs", `X|${r.id}`)], [btn("Nie", `k|${r.id}`)]]);
+    return json({ ok: true });
+  } else if (act === "X" && (st === "arrived" || st === "ontrip")) {
+    r.status = "cancelled"; d.cancelledBy = "driver"; d.cancelledIn = st; toast = "Kurs anulowany – klient dostał informację";
+  } else if (act === "k") {
+    await answer("OK, kurs trwa dalej");
+    if (q.message?.message_id) await tg(env, "editMessageReplyMarkup", { chat_id: env.TELEGRAM_CHAT_ID, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } });
+    return json({ ok: true });
   } else {
     const why = { cancelled: "Klient już anulował ten kurs", expired: "Zgłoszenie wygasło – klient mógł zadzwonić" }[st];
     await answer(why || "Ten przycisk jest już nieaktualny", true);

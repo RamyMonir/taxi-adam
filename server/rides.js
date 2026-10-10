@@ -142,6 +142,7 @@ export function publicView(r, car) {
     destEtaAt: r.status === "ontrip" && d.liveEtaAt ? d.liveEtaAt : null, etaSource: d.etaSource || null,
     roadKm: live && d.liveKm != null && d.liveAt && Date.now() - d.liveAt < 3 * ETA_EVERY_MS ? d.liveKm : null,
     id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated,
+    cancelledBy: d.cancelledBy || null, cancelledIn: d.cancelledIn || null,
     etaAt: r.status === "ontrip" ? null : r.eta_at || null, now: Date.now(),
     when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
     approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
@@ -185,9 +186,9 @@ export function keyboard(r) {
       return [[{ text: "🧭 Nawiguj do klienta", url: navUrl(r.data.pickup) }],
               [btn("📍 Jestem na miejscu", `a|${id}`)], [btn("❌ Anuluj", `x|${id}`)]];
     case "arrived":
-      return [[btn("▶️ Klient wsiadł – rozpocznij kurs", `t|${id}`)], [btn("❌ Klient nie przyszedł", `n|${id}`)]];
+      return [[btn("▶️ Klient wsiadł – rozpocznij kurs", `t|${id}`)], [btn("❌ Klient nie przyszedł", `n|${id}`)], [btn("🚫 Anuluj kurs", `c|${id}`)]];
     case "ontrip":
-      return [[{ text: "🧭 Nawiguj do celu", url: navUrl(r.data.dest) }], [btn("🏁 Zakończ kurs", `d|${id}`)]];
+      return [[{ text: "🧭 Nawiguj do celu", url: navUrl(r.data.dest) }], [btn("🏁 Zakończ kurs", `d|${id}`)], [btn("🚫 Przerwij kurs", `c|${id}`)]];
     default:
       return [];
   }
@@ -203,6 +204,7 @@ const STATUS_PL = {
   done: "🏁 zakończony",
   declined: "❌ odrzucony",
   cancelled: "🚫 klient anulował",
+  cancelled_driver: "🚫 anulowałeś kurs",
   expired: "⌛ wygasł (brak odpowiedzi)",
 };
 
@@ -238,7 +240,7 @@ export function driverText(r) {
   if (d.returnTrip) L.push(`🔁 Powrót: ${esc(d.returnTrip)}`);
   if (d.notes) L.push(`📝 ${esc(d.notes)}`);
   L.push("");
-  let st = `<b>Status:</b> ${STATUS_PL[r.status] || r.status}`;
+  let st = `<b>Status:</b> ${(STATUS_PL[r.status === "cancelled" && d.cancelledBy === "driver" ? "cancelled_driver" : r.status]) || r.status}`;
   if (r.status === "enroute" && r.eta_at) st += ` – u klienta ok. ${clockWarsaw(r.eta_at)}`;
   L.push(st);
   return L.join("\n");
