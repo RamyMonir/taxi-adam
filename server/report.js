@@ -18,6 +18,8 @@ async function ldb(env) {
       pickup TEXT, dest TEXT, km REAL, approach_km REAL, enroute_at INTEGER, started_at INTEGER, ended_at INTEGER,
       price REAL, price_kind TEXT, paid REAL, method TEXT, pax INTEGER, pay_msg INTEGER)`).run();
     await d.prepare("CREATE INDEX IF NOT EXISTS trips_day ON trips (day)").run();
+    // which driver drove it (added with several drivers)
+    for (const col of ["driver_id TEXT", "driver_name TEXT"]) { try { await d.prepare(`ALTER TABLE trips ADD COLUMN ${col}`).run(); } catch (e) { /* there */ } }
     ready = true;
   }
   return d;
@@ -34,14 +36,16 @@ export async function recordTrip(env, r) {
   const day = dayWarsaw(r.status === "done" ? d.startedAt || d.arrivedAt || now : r.created);
   const key = phoneKey(d.phone);
   await (await ldb(env)).prepare(
-    `INSERT INTO trips (id, day, status, mode, source, cust, cust_hash, pickup, dest, km, approach_km, enroute_at, started_at, ended_at, price, price_kind, pax)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
-     ON CONFLICT(id) DO UPDATE SET day = ?2, status = ?3, km = ?10, approach_km = ?11, enroute_at = ?12, started_at = ?13, ended_at = ?14, price = ?15`
+    `INSERT INTO trips (id, day, status, mode, source, cust, cust_hash, pickup, dest, km, approach_km, enroute_at, started_at, ended_at, price, price_kind, pax, driver_id, driver_name)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
+     ON CONFLICT(id) DO UPDATE SET day = ?2, status = ?3, km = ?10, approach_km = ?11, enroute_at = ?12, started_at = ?13, ended_at = ?14, price = ?15,
+       driver_id = ?18, driver_name = ?19`
   ).bind(r.id, day, r.status, r.mode, d.source === "phone" ? "telefon" : "online",
          d.cust ? (d.cust.orders ? "stały" : "nowy") : "", key ? await sha("cust:" + key) : null,
          shortAddr(d.pickup && d.pickup.address), shortAddr(d.dest && d.dest.address),
          d.distanceM ? Math.round(d.distanceM / 100) / 10 : null, d.acceptKm ?? (d.approachM ? Math.round(d.approachM / 100) / 10 : null),
-         d.enrouteAt || null, d.startedAt || null, now, d.price ?? null, d.priceKind || null, d.pax || 1).run();
+         d.enrouteAt || null, d.startedAt || null, now, d.price ?? null, d.priceKind || null, d.pax || 1,
+         d.driverId || (d.offers ? null : "owner"), d.driver?.name || (d.driverId || d.offers ? null : "Adam")).run();
   await (await ldb(env)).prepare("DELETE FROM trips WHERE ended_at < ?").bind(now - KEEP_MS).run();
 }
 
@@ -111,9 +115,11 @@ const hm = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.
 const sane = (a, b, maxH) => (a && b && b > a && b - a < maxH * 3600e3 ? b - a : 0);
 const plural = (n, one, few, many) => (n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
 
-export async function buildReport(env, from, to) {
+// driverId: only this driver's rides (a driver's own report); null = everyone (Adam), with a part per driver
+export async function buildReport(env, from, to, driverId = null) {
   const rs = await (await ldb(env)).prepare("SELECT * FROM trips WHERE day >= ? AND day <= ? ORDER BY day, COALESCE(started_at, ended_at)").bind(from, to).all();
-  const rows = rs.results || [];
+  let rows = rs.results || [];
+  if (driverId) rows = rows.filter((t) => (t.driver_id || "owner") === driverId);
   const done = rows.filter((t) => t.status === "done");
   const count = (st) => rows.filter((t) => t.status === st).length;
 
@@ -139,7 +145,8 @@ export async function buildReport(env, from, to) {
 
   const L = [];
   const title = from === to ? fmtDay(from) : `${fmtDay(from)} – ${fmtDay(to)}`;
-  L.push(`📊 <b>RAPORT: ${title}</b>`, "");
+  const who = driverId ? (rows.find((t) => t.driver_name)?.driver_name || "") : "";
+  L.push(`📊 <b>RAPORT${who ? " – " + esc(who) : driverId ? "" : " – CAŁA FIRMA"}: ${title}</b>`, "");
   L.push(`🚕 <b>Kursy zrealizowane: ${done.length}</b>`);
   if (done.length) {
     const c = (f) => done.filter(f).length;
@@ -164,6 +171,23 @@ export async function buildReport(env, from, to) {
   L.push(`   z klientem ${hm(tClient)} · dojazd i czekanie ${hm(tApproach)}`);
   if (custs.size) L.push(`👥 Klienci: ${custs.size} (nowi ${newC} · stali ${custs.size - newC})`);
   if (top.length) L.push(`🏆 Najczęstsze cele: ${top.map(([k, v]) => `${esc(k)} ×${v}`).join(", ")}`);
+
+  // Adam's report: one line per driver
+  if (!driverId && done.length) {
+    const by = {};
+    for (const t of done) {
+      const k = t.driver_name || (t.driver_id === "owner" ? "Adam" : "bez kierowcy");
+      const g = by[k] || (by[k] = { n: 0, money: 0, km: 0, ms: 0 });
+      g.n++; g.money += money(t); g.km += (t.km || 0) + (t.approach_km || 0);
+      g.ms += sane(t.started_at, t.ended_at, 12) + sane(t.enroute_at, t.started_at, 6);
+    }
+    if (Object.keys(by).length > 1 || !by.Adam) {
+      L.push("", "🚖 <b>Kierowcy:</b>");
+      for (const [k, g] of Object.entries(by).sort((a, b) => b[1].money - a[1].money)) {
+        L.push(`   ${esc(k)}: ${g.n} ${plural(g.n, "kurs", "kursy", "kursów")} · ${zl(g.money)} · ${km1(g.km)} · ${hm(g.ms)}`);
+      }
+    }
+  }
 
   if (from !== to && done.length) {
     const long = (new Date(to) - new Date(from)) / 864e5 > 62;   // long periods: per month
@@ -190,11 +214,11 @@ const STATUS = { done: "zrealizowany", cancelled: "anulowany", declined: "odrzuc
 
 // semicolons + decimal commas + BOM: opens correctly in Polish Excel and in Google Sheets
 function toCsv(rows) {
-  const head = ["Dzień", "ID", "Status", "Tryb", "Źródło", "Klient", "Skąd", "Dokąd", "Km z klientem", "Km dojazdu",
+  const head = ["Dzień", "ID", "Kierowca", "Status", "Tryb", "Źródło", "Klient", "Skąd", "Dokąd", "Km z klientem", "Km dojazdu",
     "Wyjazd do klienta", "Start kursu", "Koniec", "Min z klientem", "Min dojazd + czekanie", "Cena (wycena)", "Zapłacono", "Płatność", "Osoby"];
   const q = (v) => { const s = String(v ?? ""); return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const lines = rows.map((t) => [
-    t.day, t.id, STATUS[t.status] || t.status, t.mode === "later" ? "rezerwacja" : "teraz", t.source, t.cust, t.pickup, t.dest,
+    t.day, t.id, t.driver_name || "", STATUS[t.status] || t.status, t.mode === "later" ? "rezerwacja" : "teraz", t.source, t.cust, t.pickup, t.dest,
     num(t.km), num(t.approach_km), clock(t.enroute_at), clock(t.started_at), clock(t.ended_at),
     t.status === "done" ? num(sane(t.started_at, t.ended_at, 12) / 60000) : "", t.status === "done" ? num(sane(t.enroute_at, t.started_at, 6) / 60000) : "",
     num(t.price), num(t.paid), t.method || "", t.pax,

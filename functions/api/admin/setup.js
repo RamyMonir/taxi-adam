@@ -1,7 +1,8 @@
 // GET /api/admin/setup?key=ADMIN_KEY – one-time setup check: connects the Telegram webhook
 // to this site and reports which settings are still missing.
 import { json, canonicalOrigin } from "../../../server/util.js";
-import { db, tg, driverPos, isLive } from "../../../server/rides.js";
+import { db, tg, isLive } from "../../../server/rides.js";
+import { listDrivers } from "../../../server/fleet.js";
 import { reviews, autocomplete, reverseGeocode } from "../../../server/google.js";
 import { lookupFlight } from "../../../server/flights.js";
 import { CONFIG } from "../../../server/config.js";
@@ -27,11 +28,14 @@ export async function onRequestGet({ request, env }) {
       allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: true,
     });
     report.webhook = hook && hook.ok ? `${site}/api/telegram` : hook;
-    report.code_version = "2026-10-10 reports";
+    report.code_version = "2026-10-10 fleet";
     // the "/" menu in Telegram
     const cmds = await tg(env, "setMyCommands", { commands: [
       { command: "kurs", description: "Dodaj kurs przyjęty przez telefon" },
       { command: "raport", description: "Raport: kursy, km, godziny, pieniądze (np. /raport miesiąc)" },
+      { command: "auto", description: "Twoje auto: model; kolor; rejestracja; miejsca" },
+      { command: "kierowcy", description: "Kierowcy: kto jest na zmianie (Adam)" },
+      { command: "dodaj", description: "Dodaj kierowcę: /dodaj Imię telefon (Adam)" },
       { command: "start", description: "Sprawdź, czy bot działa" },
     ] });
     report.bot_menu = !!(cmds && cmds.ok);
@@ -49,10 +53,10 @@ export async function onRequestGet({ request, env }) {
   await check("google_reverse_geocode", async () => { const r = await reverseGeocode(env, CONFIG.base.lat, CONFIG.base.lng); return r ? r.address + (r.near ? " (nearest place)" : "") : "no address"; });
   report.geocoding_api = reverseGeocode.lastStatus ? reverseGeocode.lastStatus + " – add Geocoding API to the server key for exact street addresses" : "OK";
   try {
-    const pos = await driverPos(env);
-    report.driver_location = !pos || pos.lat == null ? "brak – udostępnij lokalizację na żywo w czacie z botem"
+    report.drivers = (await listDrivers(env)).map((pos) => `${pos.name || pos.id}${pos.owner ? " (właściciel)" : ""}: ` + (!pos.chat_id ? "nie dołączył jeszcze do bota"
+      : pos.lat == null ? "brak lokalizacji"
       : `${isLive(pos) ? "NA ŻYWO" : "NIEAKTUALNA"}: ostatni punkt ${Math.round((Date.now() - pos.ts) / 60000)} min temu` +
-        (pos.until ? `, udostępnianie do ${new Date(pos.until).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw" })}` : " (bez okna na żywo)");
+        (pos.until ? `, udostępnianie do ${new Date(pos.until).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw" })}` : "")));
   } catch (e) { report.driver_location = "ERROR " + e.message; }
   report.AERODATABOX_KEY = !!env.AERODATABOX_KEY;
   if (env.AERODATABOX_KEY) await check("flight_lookup", async () => { const f = await lookupFlight(env, "FR3014", new Date().toISOString().slice(0, 10)); return f.error ? "ERROR " + f.error : f.found ? "OK" : "OK (test flight not found today)"; });

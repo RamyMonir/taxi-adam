@@ -81,6 +81,24 @@ Note: Google returns at most **5 reviews** and chooses them itself. The site kee
 4. Open the setup URL again. `"ready": true` means it's done, and Adam receives a test message.
 5. Make a test booking on the site and tap the buttons in Telegram.
 
+## 4b. Timer for dispatch and the 23:00 report (taxi-cron Worker)
+
+Cloudflare Pages has no timers, so a tiny Worker calls the site once a minute. It moves a ride on to the
+other drivers when the nearest one doesn't answer, reminds drivers before reservations and when their live
+location runs out, and sends the end-of-day reports at 23:00. Free plan is enough.
+
+1. Pages project → **Settings → Variables and Secrets** → add a **secret** `CRON_KEY` (a long random string).
+   Then **Deployments → … → Retry deployment** so the site picks it up.
+2. **Workers & Pages → Create → Worker** → name it `taxi-cron` → **Deploy** → **Edit code** → paste the
+   contents of `cron-worker/worker.js` → **Deploy**.
+3. The Worker → **Settings → Variables and Secrets**: `SITE_URL` = `https://taxi-adam.pages.dev` (text, later
+   your own domain) and `CRON_KEY` (secret, the same value as in step 1).
+4. The Worker → **Settings → Triggers → Cron Triggers → Add** → `* * * * *` (every minute).
+5. Check: the Worker's **Logs** show lines like `cron {"dispatched":0,…}` every minute.
+
+Without this Worker everything still works, except: the "nearest driver first" minute only moves on while
+the customer's status page is open, and there are no automatic 23:00 reports (use `/raport`).
+
 ## 5. Before going live (check with Adam)
 
 In `src/data.py`:
@@ -125,6 +143,16 @@ Historia kursów do raportów jest przechowywana 5 lat (dane do rozliczeń).
 (bez godziny = kurs teraz; dodatkowo: `2 os`, `uwagi: …`; samo `/kurs` pokazuje przykłady).
 Bot znajdzie adresy, policzy trasę i cenę i pokaże **podgląd** – sprawdź adresy i kliknij **✅ Zapisz** (albo **🗑 Usuń**).
 Potem kurs działa jak zamówienie ze strony, a przycisk **📲 Wyślij klientowi link (WhatsApp)** otwiera czat z klientem z gotową wiadomością – klient zobaczy na żywo, gdzie jesteś.
+
+**Kilku kierowców (jeden bot dla wszystkich):**
+- Adam dodaje kierowcę: `/dodaj Marek 600100200` → bot daje link zaproszenia. Kierowca klika link na swoim telefonie i jest połączony (link działa raz; nowy: `/link 2`).
+- Każdy kierowca ustawia swoje auto: `/auto Citroën C5 Aircross; szary; SG 979AW; 4` i numer dla klientów: `/telefon 600100200`. Klient na stronie statusu widzi imię, auto, kolor i rejestrację.
+- **Zmiana = lokalizacja na żywo** w czacie z botem. Kurs „teraz” dostaje najpierw **najbliższy wolny kierowca**; jeśli nie przyjmie w ciągu minuty (albo odrzuci) – wszyscy wolni kierowcy na zmianie; kto pierwszy kliknie „Przyjmuję”, ten jedzie. Nikt nie jest na zmianie → kurs idzie do Adama.
+- Kierowca, który przyjął, ale nie może dojechać: **❌ Anuluj** oddaje kurs pozostałym (klient widzi znowu „szukamy kierowcy”).
+- **Rezerwacje** idą do Adama: „✅ Potwierdź – jadę sam” albo „👤 Przydziel: Marek”. Kierowca może oddać rezerwację Adamowi.
+- `/kierowcy` – kto jest na zmianie, kto w kursie, kto jeszcze nie dołączył. `/usun 3` – usuwa kierowcę.
+- `/raport` – kierowca widzi swoje kursy, Adam całą firmę + podział na kierowców. O 23:00 każdy dostaje swój dzień, Adam całość z plikiem CSV.
+- Telefon kierowcy: iPhone → Ustawienia → Telegram → Lokalizacja → **Zawsze**; Android → lokalizacja „zawsze” i bez oszczędzania baterii dla Telegrama.
 
 **Lokalizacja na żywo (zalecane):** w czacie z botem: 📎 → Lokalizacja → **„Udostępniaj lokalizację na żywo”** (np. na 8 godzin).
 Wtedy klient widzi, ile km jesteś od niego, a gdy dojedziesz pod adres, bot **sam zapyta**, czy jesteś na miejscu – wystarczy potwierdzić.

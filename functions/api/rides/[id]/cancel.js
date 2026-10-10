@@ -11,8 +11,8 @@ export async function onRequestPost({ params, request, env }) {
   r.status = "cancelled"; r.data.cancelledBy = "client"; r.data.cancelledIn = was;
   await save(env, r);
   await syncDriverMessage(env, r);
-  await tg(env, "sendMessage", {
-    chat_id: env.TELEGRAM_CHAT_ID, reply_to_message_id: r.tg_msg || undefined,
+  if (r.data.driverId || !r.data.offers) await tg(env, "sendMessage", {
+    chat_id: r.data.chat || env.TELEGRAM_CHAT_ID, reply_to_message_id: r.tg_msg || undefined,
     text: was === "ontrip" ? "🚫 Klient PRZERWAŁ kurs w trakcie jazdy."
         : was === "arrived" ? "🚫 Klient ANULOWAŁ kurs – nie czekaj."
         : wasActive ? "🚫 Klient ANULOWAŁ potwierdzony kurs – nie jedź." : "🚫 Klient anulował zgłoszenie.",

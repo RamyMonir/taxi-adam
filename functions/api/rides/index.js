@@ -4,7 +4,8 @@ import { route, reverseGeocode, findPlace } from "../../../server/google.js";
 import { lookupFlight, flightLine, normFlight, validFlight } from "../../../server/flights.js";
 import { price } from "../../../server/pricing.js";
 import { CONFIG } from "../../../server/config.js";
-import { save, recentByIp, purgeOld, notifyDriver, publicView, driverPos, isLive } from "../../../server/rides.js";
+import { save, recentByIp, purgeOld, publicView } from "../../../server/rides.js";
+import { dispatchNew } from "../../../server/fleet.js";
 import { currentUser, updateProfile } from "../../../server/auth.js";
 import { lookupCustomer, recordOrder, purgeCustomers } from "../../../server/customers.js";
 
@@ -72,13 +73,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
   }
 
   // price and distances are always computed here, never taken from the browser.
-  // "now": drive time to the pickup from the driver's live position (Telegram), else from the base.
-  const car = mode === "now" ? await driverPos(env).catch(() => null) : null;
-  const carLive = isLive(car);
-  const [trip, approach] = await Promise.all([
-    hasXY(pickup) && hasXY(dest) ? route(env, pickup, dest) : null,
-    mode === "now" && hasXY(pickup) ? route(env, carLive ? { lat: car.lat, lng: car.lng } : CONFIG.base, pickup, true) : null,
-  ]);
+  // (the drive time to the pickup is worked out per driver when the ride is offered – server/fleet.js)
+  const trip = hasXY(pickup) && hasXY(dest) ? await route(env, pickup, dest) : null;
   const p = price(pickup, dest, trip && trip.distanceM);
   const user = await currentUser(request, env).catch(() => null);   // signed in: the ride goes to the account
   const cust = await lookupCustomer(env, phone).catch(() => null);  // new or returning customer (for the driver)
@@ -90,15 +86,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
       name: clean(b.name, 60), luggage: clean(b.luggage, 40), flight: clean(b.flight, 30), flightInfo,
       notes: clean(b.notes, 500), returnTrip: mode === "later" ? clean(b.returnTrip, 120) : "", lang: b.lang === "en" ? "en" : "pl",
       distanceM: trip?.distanceM ?? null, durationS: trip?.durationS ?? null, polyline: trip?.polyline ?? null,
-      approachS: approach?.durationS ?? null, approachM: approach?.distanceM ?? null, approachFrom: carLive ? "live" : "base", approachApprox: !!approach?.approx,
       price: p?.amount ?? null, priceKind: p?.kind ?? null,
       ...(user ? { uid: user.id } : {}),
       ...(cust ? { cust: { ...cust, uid: undefined } } : {}),
     },
   };
   await save(env, r);
-  r.tg_msg = await notifyDriver(env, r);
-  if (!r.tg_msg) return bad("driver could not be notified, please call", 502);
+  if (!(await dispatchNew(env, r))) return bad("driver could not be notified, please call", 502);
   await save(env, r);
   waitUntil(purgeOld(env));
   waitUntil(recordOrder(env, r).then(() => purgeCustomers(env)).catch((e) => console.log("customers", e.message)));

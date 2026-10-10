@@ -1,4 +1,4 @@
-// Rides: storage in Cloudflare D1 (binding "DB") and the driver's Telegram messages.
+// Rides: storage in Cloudflare D1 (binding "DB") and the drivers' Telegram messages (drivers: server/fleet.js).
 //
 // Status flow
 //   now:   pending -> enroute (driver picked ETA) -> arrived -> ontrip (customer on board) -> done
@@ -10,6 +10,7 @@ import { route } from "./google.js";
 import { customerWaUrl } from "./phone.js";
 import { customerLine } from "./customers.js";
 import { FINAL, recordTrip } from "./report.js";
+import { ownerInfoText } from "./fleet.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
 const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
@@ -62,10 +63,11 @@ export async function save(env, r) {
 export async function saveIfUnchanged(env, r, prevUpdated) {
   const now = Math.max(Date.now(), prevUpdated + 1);
   const res = await (await db(env)).prepare(
-    "UPDATE rides SET status = ?1, eta_at = ?2, data = ?3, updated = ?4 WHERE id = ?5 AND updated = ?6"
-  ).bind(r.status, r.eta_at ?? null, JSON.stringify(r.data), now, r.id, prevUpdated).run();
+    "UPDATE rides SET status = ?1, eta_at = ?2, data = ?3, updated = ?4, tg_msg = ?7 WHERE id = ?5 AND updated = ?6"
+  ).bind(r.status, r.eta_at ?? null, JSON.stringify(r.data), now, r.id, prevUpdated, r.tg_msg ?? null).run();
   const ok = !!(res && res.meta && res.meta.changes);
   if (ok) r.updated = now;
+  if (ok && FINAL.includes(r.status)) await recordTrip(env, r).catch((e) => console.log("trip log", e.message));
   return ok;
 }
 
@@ -80,7 +82,7 @@ export async function purgeOld(env) {
 
 // A "now" request nobody answered: close it so the driver can't confirm a ride the customer gave up on.
 export async function expireIfStale(env, r) {
-  if (r.status === "pending" && r.mode === "now" && Date.now() - r.created > EXPIRE_NOW_MIN * 60000) {
+  if (r.status === "pending" && r.mode === "now" && Date.now() - (r.data.pendingSince || r.created) > EXPIRE_NOW_MIN * 60000) {
     r.status = "expired";
     await save(env, r);
     await syncDriverMessage(env, r);
@@ -88,11 +90,7 @@ export async function expireIfStale(env, r) {
   return r;
 }
 
-/* ---------------- driver's live location ---------------- */
-export async function driverPos(env) {
-  const row = await (await db(env)).prepare("SELECT lat, lng, ts, hint_ts, until FROM driver WHERE id = 1").first();
-  return row || null;
-}
+/* ---------------- drivers' live location (rows live in server/fleet.js) ---------------- */
 // Telegram only sends a new point when the phone moves, so a driver standing still sends nothing.
 // While the live-location window ("share for 8 h") is open, the last point is still where he is.
 export function isLive(pos) {
@@ -100,12 +98,6 @@ export function isLive(pos) {
   if (pos.until) return Date.now() < pos.until;
   return Date.now() - pos.ts < POS_FRESH_MS;
 }
-export async function saveDriverPos(env, lat, lng, until) {
-  await (await db(env)).prepare(
-    "INSERT INTO driver (id, lat, lng, ts, until) VALUES (1, ?1, ?2, ?3, ?4) ON CONFLICT(id) DO UPDATE SET lat = ?1, lng = ?2, ts = ?3, until = ?4"
-  ).bind(lat, lng, Date.now(), until ?? null).run();
-}
-
 // Precise arrival: Google route (with traffic) from where the driver really is to the pickup / destination.
 // Called on each driver location update and when the customer's page asks for the status.
 export async function refreshEta(env, r, pos, force = false) {
@@ -124,17 +116,16 @@ export async function refreshEta(env, r, pos, force = false) {
   if (!ok) r.stale = true;   // someone else changed the ride meanwhile: the caller should reload it
   return ok;
 }
-export async function markHint(env) {
-  await (await db(env)).prepare("INSERT INTO driver (id, hint_ts) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET hint_ts = ?1").bind(Date.now()).run();
-}
-export async function activeRides(env) {
+// rides this driver is driving right now (older rides without a driver belong to Adam)
+export async function activeRides(env, driverId = "owner") {
   const { results } = await (await db(env)).prepare(
-    "SELECT * FROM rides WHERE status IN ('enroute','ontrip') ORDER BY updated DESC LIMIT 3").all();
+    `SELECT * FROM rides WHERE status IN ('enroute','ontrip')
+       AND COALESCE(json_extract(data, '$.driverId'), 'owner') = ? ORDER BY updated DESC LIMIT 3`).bind(driverId).all();
   return (results || []).map((row) => ({ ...row, data: JSON.parse(row.data) }));
 }
 
-// What the customer's status page may see (no name / phone).
-export function publicView(r, car) {
+// What the customer's status page may see (not the customer's name / phone). drv = the assigned driver.
+export function publicView(r, car, drv) {
   const d = r.data;
   const live = isLive(car) && (r.status === "enroute" || r.status === "ontrip");
   const target = r.status === "ontrip" ? d.dest : d.pickup;
@@ -152,9 +143,13 @@ export function publicView(r, car) {
     when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
     approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
     flightInfo: d.flightInfo || null, flight: d.flight || null,
-    waitMin: CONFIG.waitMin, tel: CONFIG.phone,
+    waitMin: CONFIG.waitMin, tel: (showDriver(r) && drv && drv.phone) ? drv.phone : CONFIG.phone,
+    // which driver and which car is coming (once a driver has taken the ride)
+    driver: showDriver(r) && d.driver ? { name: d.driver.name, car: d.driver.car, color: d.driver.color, plate: d.driver.plate } : null,
   };
 }
+
+const showDriver = (r) => ["scheduled", "enroute", "arrived", "ontrip", "done"].includes(r.status) && !!r.data.driverId;
 
 /* ---------------- Telegram ---------------- */
 
@@ -178,23 +173,25 @@ export const suggestMin = (d) => (d.approachS ? Math.max(3, Math.ceil(d.approach
 // driving time only (the straight-line fallback includes 2 min to set off)
 const driveMin = (d) => Math.max(1, Math.round((d.approachS - (d.approachApprox ? 120 : 0)) / 60));
 
-export function keyboard(r) {
-  const rows = baseKeyboard(r);
+export function keyboard(r, o) {
+  const rows = baseKeyboard(r, o);
   // ride taken over the phone: one tap opens WhatsApp with the customer's live-status link
   const wa = r.data.source === "phone" && ["scheduled", "enroute", "arrived"].includes(r.status) && r.data.origin && customerWaUrl(r, r.data.origin);
   if (wa) rows.push([{ text: "📲 Wyślij klientowi link (WhatsApp)", url: wa }]);
   return rows;
 }
 
-function baseKeyboard(r) {
-  const id = r.id, sm = suggestMin(r.data);
+function baseKeyboard(r, o) {
+  const id = r.id, sm = suggestMin(o || r.data);
   switch (r.status) {
     case "draft":
       return [[btn(r.mode === "now" ? "✅ Zapisz i jadę" : "✅ Zapisz rezerwację", `ok|${id}`)], [btn("🗑 Usuń", `del|${id}`)]];
     case "pending":
       return r.mode === "now"
         ? [[btn(sm ? `✅ Przyjmuję – dojazd ~${sm} min` : "✅ Przyjmuję kurs", `e|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]]
-        : [[btn("✅ Potwierdź rezerwację", `s|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]];
+        : [[btn("✅ Potwierdź – jadę sam", `s|${id}`)],
+           ...(r.data.assignable || []).map((x) => [btn(`👤 Przydziel: ${x.name}`, `g|${id}|${x.id}`)]),
+           [btn("❌ Odrzuć", `x|${id}`)]];
     case "scheduled":
       return [[btn("🚕 Wyjeżdżam do klienta", `e|${id}`)], [btn("❌ Anuluj kurs", `x|${id}`)]];
     case "enroute":
@@ -211,7 +208,7 @@ function baseKeyboard(r) {
 
 const STATUS_PL = {
   draft: "📝 podgląd – sprawdź adresy i zapisz",
-  pending: "⏳ czeka na Twoją decyzję",
+  pending: "⏳ czeka na decyzję",
   scheduled: "📅 rezerwacja potwierdzona",
   enroute: "🚕 jedziesz do klienta",
   arrived: "📍 czekasz na klienta",
@@ -226,8 +223,8 @@ const STATUS_PL = {
 
 const mapLink = (p) => (p.lat != null ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`);
 
-export function driverText(r) {
-  const d = r.data;
+export function driverText(r, o) {
+  const d = r.data, ap = o || d;
   const km = d.distanceM ? `${(d.distanceM / 1000).toFixed(1).replace(".", ",")} km` : null;
   const min = d.durationS ? `~${Math.round(d.durationS / 60)} min` : null;
   const price = d.price ? `${d.price} zł${d.priceKind === "fixed" ? " (cena z cennika)" : " (szacunek)"}` : "do ustalenia";
@@ -247,12 +244,13 @@ export function driverText(r) {
   L.push(extra.join("   "));
   if (d.flightInfo) L.push(`✈️ ${esc(d.flightInfo)}`);
   L.push(`📏 ${[km, min].filter(Boolean).join(" · ") || "trasa nieznana"}   💰 ${price}`);
-  if (r.mode === "now" && d.approachS && r.status === "pending") {
-    const km = d.approachM ? `${(d.approachM / 1000).toFixed(1).replace(".", ",")} km, ` : "";
-    L.push(d.approachFrom === "live"
-      ? `🚗 Od Ciebie do klienta: ${km}~${driveMin(d)} min ${d.approachApprox ? "(szacunek)" : "(Google, z korkami)"}`
-      : `⚠️ Nie widzę Twojej lokalizacji na żywo – liczę od bazy: ${km}~${driveMin(d)} min.\nUdostępnij lokalizację na żywo, a czas policzę od Ciebie.`);
+  if (r.mode === "now" && ap.approachS && r.status === "pending") {
+    const km = ap.approachM ? `${(ap.approachM / 1000).toFixed(1).replace(".", ",")} km, ` : "";
+    L.push(ap.approachFrom === "live"
+      ? `🚗 Od Ciebie do klienta: ${km}~${driveMin(ap)} min ${ap.approachApprox ? "(szacunek)" : "(Google, z korkami)"}`
+      : `⚠️ Nie widzę Twojej lokalizacji na żywo – liczę od bazy: ${km}~${driveMin(ap)} min.\nUdostępnij lokalizację na żywo, a czas policzę od Ciebie.`);
   }
+  if (d.driver && d.driverId && r.status !== "draft") L.push(`👤 Kierowca: <b>${esc(d.driver.name)}</b>${d.driver.car ? " · " + esc(d.driver.car) : ""}${d.driver.plate ? " · " + esc(d.driver.plate) : ""}`);
   if (d.liveEtaAt && (r.status === "enroute" || r.status === "ontrip")) {
     L.push(`📡 Google: ${d.liveKm != null ? String(d.liveKm).replace(".", ",") + " km, " : ""}na miejscu ok. ${clockWarsaw(d.liveEtaAt)}`);
   }
@@ -261,33 +259,60 @@ export function driverText(r) {
   L.push("");
   let st = `<b>Status:</b> ${(STATUS_PL[r.status === "cancelled" && d.cancelledBy === "driver" ? "cancelled_driver" : r.status]) || r.status}`;
   if (r.status === "enroute" && r.eta_at) st += ` – u klienta ok. ${clockWarsaw(r.eta_at)}`;
+  if (o && o.rejected && r.status === "pending") st = "<b>Status:</b> ❌ odrzuciłeś – kurs poszedł do innych kierowców";
   L.push(st);
   return L.join("\n");
 }
 
 // a file (e.g. the CSV report) to the driver's chat
-export async function tgFile(env, filename, content, caption) {
+export async function tgFile(env, filename, content, caption, chatId) {
   if (!env.TELEGRAM_BOT_TOKEN) return null;
   const fd = new FormData();
-  fd.append("chat_id", String(env.TELEGRAM_CHAT_ID));
+  fd.append("chat_id", String(chatId || env.TELEGRAM_CHAT_ID));
   if (caption) fd.append("caption", caption);
   fd.append("document", new Blob([content], { type: "text/csv" }), filename);
   const r = await fetch(`${env.TELEGRAM_API_BASE || "https://api.telegram.org"}/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: "POST", body: fd });
   return r.json().catch(() => null);
 }
 
-export async function notifyDriver(env, r) {
+// one message in one chat (a "now" ride before anyone took it is offered via server/fleet.js)
+export async function notifyDriver(env, r, chatId) {
   const j = await tg(env, "sendMessage", {
-    chat_id: env.TELEGRAM_CHAT_ID, text: driverText(r), parse_mode: "HTML",
+    chat_id: chatId || r.data.chat || env.TELEGRAM_CHAT_ID, text: driverText(r), parse_mode: "HTML",
     disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard(r) },
   });
   return j && j.ok ? j.result.message_id : null;
 }
 
+const takenText = (r, o) => {
+  const d = r.data;
+  const who = d.driverId ? `✅ Kurs przyjął: <b>${esc(d.driver?.name || "inny kierowca")}</b>`
+    : { cancelled: "🚫 Klient anulował", expired: "⌛ Zgłoszenie wygasło", declined: "❌ Nikt nie przyjął kursu" }[r.status] || "";
+  return `${r.mode === "now" ? "🚖 Kurs teraz" : "📅 Rezerwacja"}: ${esc(String(d.pickup.address).split(",")[0])} → ${esc(String(d.dest.address).split(",")[0])}\n${who}`;
+};
+
+// bring the drivers' messages up to date after any change
 export async function syncDriverMessage(env, r) {
-  if (!r.tg_msg) return;
-  await tg(env, "editMessageText", {
-    chat_id: env.TELEGRAM_CHAT_ID, message_id: r.tg_msg, text: driverText(r), parse_mode: "HTML",
-    disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard(r) },
-  });
+  const d = r.data, offers = d.offers || {}, jobs = [];
+  const edit = (chat, msg, text, kb) => tg(env, "editMessageText", { chat_id: chat, message_id: msg, text, parse_mode: "HTML",
+    disable_web_page_preview: true, reply_markup: { inline_keyboard: kb } });
+  if (d.driverId || !Object.keys(offers).length) {
+    if (r.tg_msg) jobs.push(edit(d.chat || env.TELEGRAM_CHAT_ID, r.tg_msg, driverText(r), keyboard(r)));
+  } else {
+    for (const o of Object.values(offers)) {
+      if (!o.msg) continue;
+      jobs.push(r.status === "pending" ? edit(o.chat, o.msg, driverText(r, o), o.rejected ? [] : keyboard(r, o)) : edit(o.chat, o.msg, takenText(r, o), []));
+    }
+  }
+  if (d.ownerInfo) {
+    jobs.push(tg(env, "editMessageText", { chat_id: env.TELEGRAM_CHAT_ID, message_id: d.ownerInfo, text: ownerInfoText(r), parse_mode: "HTML" }));
+  }
+  await Promise.all(jobs);
+}
+
+// after a driver took the ride: the others' copies say who has it
+export async function closeOtherOffers(env, r) {
+  const d = r.data;
+  await Promise.all(Object.entries(d.offers || {}).filter(([id, o]) => id !== d.driverId && o.msg).map(([, o]) =>
+    tg(env, "editMessageText", { chat_id: o.chat, message_id: o.msg, text: takenText(r, o), parse_mode: "HTML", reply_markup: { inline_keyboard: [] } })));
 }

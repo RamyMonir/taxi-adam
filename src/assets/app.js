@@ -737,6 +737,17 @@
       if (r.distanceM) dl.push([T.d.dist, (r.distanceM / 1000).toFixed(1).replace(".", lang === "pl" ? "," : ".") + " km · ~" + Math.round(r.durationS / 60) + " min"]);
       if (r.price) dl.push([T.d.price, (r.priceKind === "fixed" ? "" : "~") + r.price + " zł"]);
       if (r.flightInfo || r.flight) dl.push([T.d.flight, r.flightInfo || r.flight]);
+      // which driver and car is coming (+ the call button rings that driver)
+      var dc = $("t-driver"), dv = r.driver;
+      if (dc) {
+        dc.hidden = !dv;
+        if (dv) dc.innerHTML = '<span class="td-ava" aria-hidden="true">' + escH((dv.name || "?").charAt(0).toUpperCase()) + '</span>' +
+          '<span class="td-txt"><small>' + (lang === "en" ? "Your driver" : "Twój kierowca") + '</small><b>' + escH(dv.name || "") + '</b>' +
+          (dv.car ? '<span>' + escH([dv.car, dv.color].filter(Boolean).join(" · ")) + '</span>' : "") +
+          (dv.plate ? '<em class="td-plate" aria-label="' + (lang === "en" ? "Plate " : "Rejestracja ") + escH(dv.plate) + '"><i>PL</i>' + escH(dv.plate) + '</em>' : "") + '</span>';
+      }
+      var cb = document.querySelector(".track-actions .btn-call");
+      if (cb && r.tel) { var tn = String(r.tel).replace(/[^\d+]/g, ""); if (/^\d{9}$/.test(tn)) tn = "+48" + tn; cb.href = "tel:" + tn; }
       $("t-details").innerHTML = dl.map(function (x) { return "<div><dt>" + escH(x[0]) + "</dt><dd>" + escH(x[1]) + "</dd></div>"; }).join("");
       if (!mapDone) { mapDone = true; map.show(r.pickup, r.dest, r.polyline); }
 
@@ -892,7 +903,7 @@
 
   /* ---------- "add to home screen" panel (PWA) ---------- */
   (function () {
-    var box = $("install"); if (!box) return;
+    var box = $("install"); if (!box || $("track")) return;   // never over the live ride status
     var standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
     var later = 0; try { later = parseInt(localStorage.getItem("taxi.install") || "0", 10); } catch (e) {}
     if (standalone || Date.now() < later) return;
