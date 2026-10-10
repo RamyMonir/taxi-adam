@@ -465,7 +465,7 @@
       }).join("") + "</div>" : "";
       fInfo.className = "flight-info";
       fInfo.innerHTML = '<div class="fl-head"><b>' + escH(f.number) + "</b> " + escH(f.airline) +
-        (f.status ? ' <span class="fl-st">' + escH(T.flStatus[f.status] || f.status) + "</span>" : "") + "</div>" +
+        (f.status && f.status !== "Unknown" ? ' <span class="fl-st' + (/Delayed|Cancel|Diverted/.test(f.status) ? " bad" : "") + '">' + escH(T.flStatus[f.status] || f.status) + "</span>" : "") + "</div>" +
         '<div class="fl-route">' + end(f.dep, T.flDep) + '<i aria-hidden="true">✈</i>' + end(f.arr, T.flArr) + "</div>" +
         (sug ? '<p class="fl-sug"><span>' + escH(fmt(sug.text, { t: sug.at.time, d: dayLabel(sug.at.date) })) + "</span>" +
           (timeTouched ? '<button type="button" class="fl-use">' + escH(T.flUse) + "</button>" : '<span class="fl-ok">✓ ' + escH(T.flSet) + "</span>") + "</p>" : "") + days;

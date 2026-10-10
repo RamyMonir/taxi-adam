@@ -150,7 +150,7 @@ p{margin:0 0 1em;max-width:68ch}
 .swap-btn:hover{background:var(--blue)}
 .swap-btn.flip{transform:rotate(180deg)}
 .sugg{position:absolute;left:-42px;right:-54px;top:calc(100% + 8px);z-index:30;list-style:none;margin:0;padding:6px;background:#fff;color:#0B1530;
-  border-radius:14px;box-shadow:0 24px 50px -12px rgba(0,0,0,.55);max-height:320px;overflow:auto}
+  border-radius:14px;box-shadow:0 24px 50px -12px rgba(0,0,0,.55);max-height:420px;overflow:auto}
 .sugg li{padding:11px 12px 11px 40px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;line-height:1.3;position:relative}
 .sugg li::before{content:"";position:absolute;left:14px;top:50%;width:12px;height:12px;margin-top:-8px;border:2.5px solid #9AA6BF;border-radius:50% 50% 50% 0;transform:rotate(-45deg)}
 .sugg li+li{border-top:1px solid #EEF1F7}
@@ -542,3 +542,4 @@ html,body{overflow-x:hidden}
   .install.is-ios.open .ios-arrow{animation:point 1.2s ease-in-out infinite}
   @keyframes point{50%{transform:translateY(8px)}}
 }
+.fl-st.bad{background:rgba(229,56,75,.18);color:#FF9AA5}

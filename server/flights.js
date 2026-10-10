@@ -68,5 +68,5 @@ export async function lookupFlight(env, number, date) {
 export function flightLine(f) {
   if (!f || !f.found) return "";
   const t = (e) => `${e.iata || e.name} ${e.time || "?"}${e.time && e.scheduled && e.time !== e.scheduled ? ` (plan ${e.scheduled})` : ""}`;
-  return `${f.number}${f.airline ? " " + f.airline : ""}: ${t(f.dep)} → ${t(f.arr)}${f.status ? " · " + f.status : ""}`;
+  return `${f.number}${f.airline ? " " + f.airline : ""}: ${t(f.dep)} → ${t(f.arr)}${f.status && f.status !== "Unknown" ? " · " + f.status : ""}`;
 }
