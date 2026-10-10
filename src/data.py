@@ -26,19 +26,18 @@ BUSINESS = {
     # wszystkie punkty i numery (z taxifest.pl/kontakt i z facebooka). Pierwszy = główny.
     "locations": [
         {"name": "Taxi Gierałtowice", "street": "ul. Powstańców Śląskich 116", "postal": "44-186", "city": "Gierałtowice",
-         "phone": "570 762 777", "phone_e164": "+48570762777"},
+         "phone": "884 682 430", "phone_e164": "+48884682430"},   # z wizytówki Google "Taxi Gierałtowice"
         {"name": "Taxi Knurów", "street": "ul. Kosmonautów 18", "postal": "44-194", "city": "Knurów",
          "phone": "570 762 777", "phone_e164": "+48570762777"},
         {"name": "Fest Taxi Knurów", "street": "ul. Szpitalna 25", "postal": "44-190", "city": "Knurów",
          "phone": "515 650 750", "phone_e164": "+48515650750"},
     ],
-    # TODO: trzeci numer z wizytówki Google "Taxi Gierałtowice" – dopisz tutaj, np. ("Taxi Gierałtowice", "600 000 000", "+48600000000")
-    "extra_phones": [],
+    "extra_phones": [],   # dodatkowe numery bez adresu: ("Nazwa", "600 000 000", "+48600000000")
     "google_maps": "https://www.google.com/maps/place/?q=place_id:ChIJCVqphGI1EUcRyoJoD4bKXYg",
     # otwiera od razu okno "Napisz opinię" w Google
     "google_review": "https://search.google.com/local/writereview?placeid=ChIJCVqphGI1EUcRyoJoD4bKXYg",
-    "rating": "4,9",
-    "reviews": 274,
+    "rating": "4,8",      # razem z 3 wizytówek Google (strona aktualizuje to sama z /api/reviews)
+    "reviews": 372,
     "seats": 7,
     "payments": ["Gotówka", "Karta", "BLIK", "Przelew dla firm (faktura)"],
 }
