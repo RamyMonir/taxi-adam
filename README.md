@@ -1,18 +1,20 @@
 # Taxi Knurów Adam Mączka – strona www
 
-Statyczna strona (50 podstron) generowana z jednego pliku danych. Bez bazy danych, bez cookies, bez opłat za hosting.
+Strona (51 podstron) generowana z jednego pliku danych + zamawianie kursów online jak w Uber/Bolt: kurs teraz lub rezerwacja, powiadomienie kierowcy na Telegramie, status na żywo. Hosting: Cloudflare Pages (darmowy plan). **Konfiguracja krok po kroku: [SETUP.md](SETUP.md).**
 
 ## Co jest w środku
 
 | Funkcja | Opis |
 |---|---|
-| Kalkulator ceny | Skąd → dokąd → cena od, z dopłatą strefową i kursem powrotnym |
-| Rezerwacja | Gotowa wiadomość na WhatsApp lub SMS (trasa, termin, osoby, bagaż, lot, uwagi) – bez serwera |
+| Zamówienie online | Teraz / na później, adres z podpowiedziami Google lub GPS („Tu jestem”), mapa, trasa, czas i cena |
+| Kierowca | Zamówienie trafia na Telegram; przyciski: potwierdź (za ile minut), odrzuć, jestem na miejscu, zakończ |
+| Status na żywo | Strona /przejazd/ – odliczanie do przyjazdu, anulowanie; bez backendu: WhatsApp / SMS |
+| Opinie | Najlepsze opinie z wizytówki Google (Places API) |
 | 50 podstron SEO | 6 lotnisk, 4 sanatoria, 6 miast z klinikami, 4 dworce, 5 miast, 12 miejscowości, huby, cennik, dla firm, kontakt, EN |
 | Dane strukturalne | LocalBusiness, Service z ceną, FAQPage, BreadcrumbList |
 | PWA | Instalacja na telefonie, działa offline (cennik i kalkulator) |
 | Dostępność | Czcionka Atkinson Hyperlegible (czytelność dla seniorów), pełna obsługa klawiatury, tryb ciemny |
-| Prywatność | Czcionki hostowane lokalnie, zero zewnętrznych skryptów i trackerów |
+| Prywatność | Czcionki lokalnie, bez cookies i trackerów; Google Maps ładuje się dopiero przy użyciu formularza |
 
 ## Zmiana cen, telefonu, miejscowości
 

@@ -1,0 +1,57 @@
+// POST /api/rides – create a booking and notify the driver on Telegram.
+import { json, bad, point, hasXY, randomId, sha, nowWarsaw } from "../../../server/util.js";
+import { route } from "../../../server/google.js";
+import { price } from "../../../server/pricing.js";
+import { CONFIG } from "../../../server/config.js";
+import { save, recentByIp, purgeOld, notifyDriver, publicView } from "../../../server/rides.js";
+
+const MAX_PER_HOUR = 5;
+const clean = (v, n) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+
+export async function onRequestPost({ request, env, waitUntil }) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID || !env.DB) return bad("booking backend not configured", 503);
+  let b;
+  try { b = await request.json(); } catch { return bad("invalid json"); }
+  if (b.website) return bad("spam");   // honeypot field, invisible to people
+
+  const mode = b.mode === "later" ? "later" : "now";
+  const pickup = point(b.pickup), dest = point(b.dest);
+  if (!pickup || !dest) return bad("route");
+  const phone = clean(b.phone, 30);
+  if (phone.replace(/\D/g, "").length < 9) return bad("phone");
+  const pax = Math.min(CONFIG.seats, Math.max(1, parseInt(b.pax, 10) || 1));
+
+  let when = null;
+  if (mode === "later") {
+    when = clean(b.when, 16);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when)) return bad("when");
+    if (when < nowWarsaw(10) || when > nowWarsaw(120 * 24 * 60)) return bad("when");
+  }
+
+  const ip = await sha((request.headers.get("cf-connecting-ip") || "") + (env.TELEGRAM_WEBHOOK_SECRET || ""));
+  if ((await recentByIp(env, ip, Date.now() - 3600e3)) >= MAX_PER_HOUR) return bad("too many bookings, please call", 429);
+
+  // price and distances are always computed here, never taken from the browser
+  const [trip, approach] = await Promise.all([
+    hasXY(pickup) && hasXY(dest) ? route(env, pickup, dest) : null,
+    mode === "now" && hasXY(pickup) ? route(env, CONFIG.base, pickup, true) : null,
+  ]);
+  const p = price(pickup, dest, trip && trip.distanceM);
+
+  const r = {
+    id: randomId(12), token: randomId(24), status: "pending", mode, created: Date.now(), ip, eta_at: null, tg_msg: null,
+    data: {
+      pickup, dest, when, pax, phone,
+      name: clean(b.name, 60), luggage: clean(b.luggage, 40), flight: clean(b.flight, 30),
+      notes: clean(b.notes, 500), returnTrip: mode === "later" ? clean(b.returnTrip, 120) : "", lang: b.lang === "en" ? "en" : "pl",
+      distanceM: trip?.distanceM ?? null, durationS: trip?.durationS ?? null, polyline: trip?.polyline ?? null,
+      approachS: approach?.durationS ?? null, price: p?.amount ?? null, priceKind: p?.kind ?? null,
+    },
+  };
+  await save(env, r);
+  r.tg_msg = await notifyDriver(env, r);
+  if (!r.tg_msg) return bad("driver could not be notified, please call", 502);
+  await save(env, r);
+  waitUntil(purgeOld(env));
+  return json({ id: r.id, token: r.token, ride: publicView(r) }, 201);
+}

@@ -1,28 +1,93 @@
-/* Taxi Knurów Adam Mączka – kalkulator ceny i rezerwacja (bez serwera: WhatsApp / SMS / telefon) */
+/* Taxi Knurów Adam Mączka – zamawianie kursu (teraz / na później), status na żywo, opinie Google.
+   Backend: Cloudflare Pages Functions (/api/*). Bez backendu formularz proponuje WhatsApp / SMS. */
 (function () {
   "use strict";
-  var D = window.TAXI || {};
-  var lang = document.documentElement.lang === "en" ? "en" : "pl";
+  var C = window.TAXI || {};
+  var lang = C.lang === "en" || /[?&]lang=en\b/.test(location.search) ? "en" : "pl";
   var T = {
     pl: {
-      from: "Skąd", to: "Dokąd", none: "Zadzwoń po wycenę", sameplace: "Wybierz dwa różne miejsca",
-      note: "Cena orientacyjna od – potwierdzamy ją w odpowiedzi.", round: "w obie strony",
-      big: "Powyżej 4 osób podstawimy auto 7-osobowe.",
-      errWhen: "Podaj datę i godzinę odbioru.", errRoute: "Wybierz, skąd i dokąd jedziesz.",
-      msgHead: "Dzień dobry, chcę zarezerwować kurs:", route: "Trasa", date: "Termin", back: "Powrót",
-      pax: "Osób", lug: "Bagaż", flight: "Nr lotu", addr: "Adres odbioru", name: "Imię", phone: "Telefon",
-      notes: "Uwagi", est: "Cena z kalkulatora", ok: "Dziękuję!", yes: "tak"
+      myLoc: "Moja lokalizacja", locating: "Szukam…", gpsDenied: "Zezwól przeglądarce na dostęp do lokalizacji albo wpisz adres.",
+      gpsFail: "Nie udało się ustalić lokalizacji. Wpisz adres.", gpsRough: "Lokalizacja przybliżona (±{m} m) – sprawdź adres.",
+      errFrom: "Podaj, skąd mamy Cię odebrać.", errTo: "Podaj, dokąd jedziesz.", errPhone: "Podaj numer telefonu – kierowca może potrzebować zadzwonić.",
+      errWhen: "Wybierz datę i godzinę odbioru (najwcześniej za 15 minut).", errMany: "Za dużo zamówień z tego urządzenia. Zadzwoń, proszę.",
+      errSend: "Nie udało się wysłać zamówienia online. Wyślij je jednym kliknięciem:", sending: "Wysyłam do kierowcy…",
+      priceFixed: "Cena", priceEst: "Cena ok.", priceNone: "do ustalenia", etaNow: "Kierowca może być u Ciebie za ok. {m} min.",
+      km: "km", min: "min", h: "godz.", approx: "w przybliżeniu",
+      msgHead: "Dzień dobry, chcę zamówić kurs:", route: "Trasa", whenNow: "Termin: teraz", when: "Termin", pax: "Osób", lug: "Bagaż",
+      flight: "Nr lotu", name: "Imię", phone: "Telefon", notes: "Uwagi", back: "Powrót",
+      banner: "Masz aktywny kurs – zobacz status", rvMore: "Więcej", rvLess: "Mniej", rvFrom: "Opinia z Google",
+      // status page
+      kicker: { now: "Kurs teraz", later: "Rezerwacja" },
+      st: {
+        pending_now: ["Szukamy Twojego kierowcy…", "Zgłoszenie jest już na telefonie kierowcy. Zwykle potwierdza w 1–2 minuty."],
+        pending_later: ["Rezerwacja wysłana", "Kierowca potwierdzi termin: {when}. Możesz zamknąć stronę – ta przeglądarka zapamięta link do statusu."],
+        waiting: ["Kierowca jeszcze nie odpowiedział", "Może być w trasie. Zadzwoń, a potwierdzi kurs od ręki."],
+        scheduled: ["Rezerwacja potwierdzona", "Kierowca przyjedzie {when}. W dniu kursu zobaczysz tu, kiedy wyjedzie."],
+        enroute: ["Kierowca jedzie do Ciebie", "Będzie ok. {clock}. Przygotuj się do wyjścia."],
+        arrived: ["Kierowca czeka na Ciebie", "Auto stoi pod adresem odbioru."],
+        done: ["Dziękujemy za wspólną trasę!", "Jeśli było dobrze, zostaw opinię w Google – bardzo nam to pomaga."],
+        declined: ["Kierowca nie może przyjąć tego kursu", "Przepraszamy. Zadzwoń – poszukamy innego rozwiązania."],
+        cancelled: ["Kurs anulowany", "Kierowca dostał informację o anulowaniu."],
+        expired: ["Kierowca nie zdążył odpowiedzieć", "Zadzwoń, a ustalimy kurs od ręki."],
+        notfound: ["Nie znaleziono kursu", "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń."],
+      },
+      steps: { sent: "Zgłoszenie wysłane", confirmed: "Kierowca potwierdził", scheduled: "Rezerwacja potwierdzona", enroute: "Kierowca w drodze", arrived: "Kierowca na miejscu", done: "Kurs zakończony" },
+      anyMoment: "lada chwila", etaLbl: "min do przyjazdu", at: "ok. {clock}", cancel: "Anuluj kurs", cancelQ: "Na pewno anulować kurs?",
+      review: "Dodaj opinię w Google", offline: "Brak połączenia – próbuję ponownie…",
+      d: { from: "Skąd", to: "Dokąd", when: "Termin", now: "teraz", pax: "Osoby", dist: "Trasa", price: "Cena" },
+      call: "Zadzwoń do kierowcy", newRide: "Zamów nowy kurs",
     },
     en: {
-      from: "From", to: "To", none: "Call for a quote", sameplace: "Choose two different places",
-      note: "Estimated starting price – we confirm it in our reply.", round: "return",
-      big: "For 5–7 passengers we send a 7-seat car.",
-      errWhen: "Enter pickup date and time.", errRoute: "Choose where from and where to.",
-      msgHead: "Hello, I would like to book a ride:", route: "Route", date: "Pickup", back: "Return",
-      pax: "Passengers", lug: "Luggage", flight: "Flight no.", addr: "Pickup address", name: "Name", phone: "Phone",
-      notes: "Notes", est: "Calculator price", ok: "Thank you!", yes: "yes"
-    }
+      myLoc: "My location", locating: "Locating…", gpsDenied: "Allow location access in your browser or type the address.",
+      gpsFail: "Couldn't get your location. Please type the address.", gpsRough: "Approximate location (±{m} m) – please check the address.",
+      errFrom: "Enter your pickup address.", errTo: "Enter your destination.", errPhone: "Enter your phone number so the driver can call you.",
+      errWhen: "Choose a pickup date and time (at least 15 minutes from now).", errMany: "Too many bookings from this device. Please call us.",
+      errSend: "Online booking failed. Send it with one tap instead:", sending: "Sending to the driver…",
+      priceFixed: "Price", priceEst: "Price approx.", priceNone: "to be agreed", etaNow: "The driver can be with you in about {m} min.",
+      km: "km", min: "min", h: "h", approx: "approximately",
+      msgHead: "Hello, I'd like to book a ride:", route: "Route", whenNow: "When: now", when: "When", pax: "Passengers", lug: "Luggage",
+      flight: "Flight", name: "Name", phone: "Phone", notes: "Notes", back: "Return",
+      banner: "You have an active ride – see status", rvMore: "More", rvLess: "Less", rvFrom: "Google review",
+      kicker: { now: "Ride now", later: "Booking" },
+      st: {
+        pending_now: ["Finding your driver…", "Your request is on the driver's phone. He usually confirms within 1–2 minutes."],
+        pending_later: ["Booking sent", "The driver will confirm {when}. You can close this page – this browser remembers the status link."],
+        waiting: ["No answer from the driver yet", "He may be driving. Call and he'll confirm right away."],
+        scheduled: ["Booking confirmed", "The driver will pick you up {when}. On the day you'll see here when he sets off."],
+        enroute: ["Your driver is on the way", "Arriving around {clock}. Get ready to go."],
+        arrived: ["Your driver is waiting", "The car is at your pickup address."],
+        done: ["Thanks for riding with us!", "If you enjoyed it, please leave a Google review – it helps a lot."],
+        declined: ["The driver can't take this ride", "Sorry about that. Call us and we'll find another way."],
+        cancelled: ["Ride cancelled", "The driver has been notified."],
+        expired: ["The driver didn't answer in time", "Call us and we'll arrange the ride right away."],
+        notfound: ["Ride not found", "The link may have expired. Book a new ride or call us."],
+      },
+      steps: { sent: "Request sent", confirmed: "Driver confirmed", scheduled: "Booking confirmed", enroute: "Driver on the way", arrived: "Driver arrived", done: "Ride finished" },
+      anyMoment: "any moment", etaLbl: "min away", at: "around {clock}", cancel: "Cancel ride", cancelQ: "Cancel this ride?",
+      review: "Leave a Google review", offline: "Connection lost – retrying…",
+      d: { from: "From", to: "To", when: "When", now: "now", pax: "Passengers", dist: "Route", price: "Price" },
+      call: "Call the driver", newRide: "Book a new ride",
+    },
   }[lang];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var fmt = function (s, o) { return s.replace(/\{(\w+)\}/g, function (_, k) { return o[k] != null ? o[k] : ""; }); };
+  var escH = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var hasXY = function (p) { return p && p.lat != null && p.lng != null; };
+  var shortAddr = function (a) { return String(a || "").replace(/,\s*(Polska|Poland|Czechy|Česko)$/i, ""); };
+
+  function api(url, body, timeoutMs) {
+    var ctl = "AbortController" in window ? new AbortController() : null;
+    var t = ctl && setTimeout(function () { ctl.abort(); }, timeoutMs || 15000);
+    return fetch(url, {
+      method: body ? "POST" : "GET", headers: body ? { "content-type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined, signal: ctl ? ctl.signal : undefined, cache: "no-store",
+    }).then(function (r) {
+      clearTimeout(t);
+      return r.json().catch(function () { return {}; }).then(function (j) { j._status = r.status; j._ok = r.ok; return j; });
+    });
+  }
 
   /* ---------- menu & theme ---------- */
   var mb = document.querySelector(".menu-btn"), nav = document.querySelector(".nav");
@@ -39,8 +104,7 @@
     try { localStorage.setItem("theme", next); } catch (e) {}
   });
 
-  /* ---------- scroll reveal (service cards) ---------- */
-  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* ---------- scroll reveal ---------- */
   var rv = document.querySelectorAll("[data-reveal]");
   if (rv.length && !reduce && "IntersectionObserver" in window) {
     document.documentElement.classList.add("reveal-ready");
@@ -50,105 +114,502 @@
     Array.prototype.forEach.call(rv, function (el) { io.observe(el); });
   }
 
-  /* ---------- calculator ---------- */
-  var form = document.getElementById("booking");
-  if (!form || !D.places) return;
-  var $ = function (id) { return document.getElementById(id); };
-  var fromSel = $("from"), toSel = $("to"), val = $("price"), noteEl = $("price-note"), err = $("form-error");
-  var readout = form.querySelector(".readout"), tick = 0;
-
-  // taximeter: roll the number from the previous price to the new one
-  function countUp(el, from, to) {
-    var id = ++tick;
-    if (reduce || from === to) { el.textContent = to; return; }
-    var t0 = null, dur = 700;
-    function step(t) {
-      if (id !== tick) return;
-      if (!t0) t0 = t;
-      var k = Math.min(1, (t - t0) / dur); k = 1 - Math.pow(1 - k, 3);
-      el.textContent = Math.round(from + (to - from) * k);
-      if (k < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
+  /* ---------- my rides (this browser only) ---------- */
+  var Rides = {
+    all: function () { try { return JSON.parse(localStorage.getItem("taxi.rides") || "[]"); } catch (e) { return []; } },
+    put: function (list) { try { localStorage.setItem("taxi.rides", JSON.stringify(list.slice(0, 10))); } catch (e) {} },
+    add: function (r) { var l = Rides.all().filter(function (x) { return x.id !== r.id; }); l.unshift(r); Rides.put(l); },
+    get: function (id) { return Rides.all().filter(function (x) { return x.id === id; })[0] || null; },
+    close: function (id) { Rides.put(Rides.all().map(function (x) { if (x.id === id) x.closed = true; return x; })); },
+    active: function () {
+      var now = Date.now();
+      return Rides.all().filter(function (x) {
+        if (x.closed) return false;
+        if (x.mode === "later" && x.when) return new Date(x.when).getTime() + 3 * 3600e3 > now;
+        return now - x.created < 4 * 3600e3;
+      })[0] || null;
+    },
+  };
+  var banner = $("ride-banner"), act = Rides.active();
+  if (banner && act && !$("track")) {
+    banner.href = "/przejazd/?id=" + act.id + (lang === "en" ? "&lang=en" : "");
+    banner.innerHTML = '<span class="live" aria-hidden="true"></span>' + escH(T.banner) + " →";
+    banner.hidden = false;
   }
-  var places = {}; D.places.forEach(function (p) { places[p.id] = p; });
 
-  function fill(sel, def) {
-    var groups = {};
-    D.places.forEach(function (p) {
-      if (!groups[p.group]) { groups[p.group] = document.createElement("optgroup"); groups[p.group].label = p.group; sel.appendChild(groups[p.group]); }
-      var o = document.createElement("option"); o.value = p.id; o.textContent = p.label; groups[p.group].appendChild(o);
+  /* ---------- Google Maps (loaded only when needed) ---------- */
+  var mapsP = null, mapsBroken = false;
+  window.gm_authFailure = function () { mapsBroken = true; Array.prototype.forEach.call(document.querySelectorAll(".map-wrap,.map"), function (m) { m.hidden = true; }); };
+  function loadMaps() {
+    if (!C.key || mapsBroken) return Promise.resolve(null);
+    if (mapsP) return mapsP;
+    mapsP = new Promise(function (res) {
+      window.__gmReady = function () { res(window.google && window.google.maps ? window.google : null); };
+      var s = document.createElement("script");
+      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(C.key) + "&v=weekly&loading=async&libraries=places,marker,geometry&language=" + lang + "&region=PL&callback=__gmReady";
+      s.async = true; s.onerror = function () { res(null); };
+      document.head.appendChild(s);
     });
-    if (def) sel.value = def;
+    return mapsP;
   }
-  fill(fromSel, form.dataset.from || "v:knurow");
-  fill(toSel, form.dataset.to || "d:lotnisko-pyrzowice");
+  function pinEl(cls) { var d = document.createElement("div"); d.className = "mk " + cls; return d; }
 
-  function fare(a, b) {
-    if (!a || !b) return null;
-    if (a.id === b.id) return "same";
-    var av = a.type === "v", bv = b.type === "v";
-    if (av && bv) {
-      if (a.id === "v:knurow") return b.price;
-      if (b.id === "v:knurow") return a.price;
-      return Math.max(a.price, b.price) + 10;
-    }
-    if (av && !bv) return b.price + a.surcharge;
-    if (!av && bv) return a.price + b.surcharge;
-    return null; // two far destinations – individual quote
+  // one map instance per container: markers A/B + route line
+  function TripMap(el) {
+    var m = null, a = null, b = null, line = null, g = null;
+    var box = el.classList.contains("map-lg") ? el : el.parentNode;   // element to show/hide
+    return {
+      show: function (pick, dest, polyline) {
+        if (!hasXY(pick) && !hasXY(dest)) { box.hidden = true; return; }
+        loadMaps().then(function (G) {
+          if (!G || mapsBroken) return;
+          g = G.maps;
+          box.hidden = false;
+          if (!m) {
+            m = new g.Map(el, { mapId: C.mapId || "DEMO_MAP_ID", center: pick && hasXY(pick) ? pick : C.base, zoom: 13,
+              disableDefaultUI: true, zoomControl: true, gestureHandling: "cooperative", clickableIcons: false, colorScheme: "DARK" });
+          }
+          var Adv = g.marker && g.marker.AdvancedMarkerElement;
+          if (a) a.map = null;
+          if (b) b.map = null;
+          if (line) line.setMap(null);
+          a = b = line = null;
+          if (Adv && hasXY(pick)) a = new Adv({ map: m, position: { lat: pick.lat, lng: pick.lng }, content: pinEl("mk-a") });
+          if (Adv && hasXY(dest)) b = new Adv({ map: m, position: { lat: dest.lat, lng: dest.lng }, content: pinEl("mk-b") });
+          if (hasXY(pick) && hasXY(dest)) {
+            var path = polyline && g.geometry ? g.geometry.encoding.decodePath(polyline) : [pick, dest];
+            line = new g.Polyline({ map: m, path: path, strokeColor: "#4D86FF", strokeOpacity: polyline ? 0.95 : 0, strokeWeight: 5,
+              icons: polyline ? [] : [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: "#4D86FF", scale: 3 }, offset: "0", repeat: "14px" }] });
+            var bounds = new g.LatLngBounds(); path.forEach(function (p) { bounds.extend(p); });
+            m.fitBounds(bounds, 48);
+          } else {
+            m.setCenter(hasXY(pick) ? pick : dest); m.setZoom(15);
+          }
+        });
+      },
+    };
   }
 
-  var last = null;
-  function update() {
-    var a = places[fromSel.value], b = places[toSel.value];
-    var f = fare(a, b), round = $("round").checked, pax = parseInt($("pax").value || "1", 10);
-    var extra = pax > 4 ? " " + T.big : "";
-    if (f === "same") { val.innerHTML = "<small>" + T.sameplace + "</small>"; noteEl.textContent = ""; last = null; return; }
-    if (f === null) {
-      val.innerHTML = '<small>' + T.none + '</small>'; noteEl.textContent = extra.trim(); last = null; return;
+  /* ---------- address search (Places API New) ---------- */
+  function Autocomplete(input, list, onPick) {
+    var token = null, timer = null, items = [], active = -1, seq = 0;
+    function close() { list.hidden = true; list.innerHTML = ""; items = []; active = -1; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); }
+    function highlight(i) {
+      active = i;
+      Array.prototype.forEach.call(list.children, function (li, k) { li.setAttribute("aria-selected", k === i ? "true" : "false"); });
+      if (i >= 0) input.setAttribute("aria-activedescendant", list.id + "-" + i);
     }
-    var total = round ? f * 2 : f, prev = last;
-    if (total !== last) {
-      val.classList.remove("bump"); if (readout) readout.classList.remove("go");
-      void val.offsetWidth;
-      val.classList.add("bump"); if (readout) readout.classList.add("go");
+    function render() {
+      if (!items.length) { close(); return; }
+      list.innerHTML = items.map(function (p, i) {
+        return '<li role="option" id="' + list.id + "-" + i + '" data-i="' + i + '"><b>' + escH(p.mainText ? p.mainText.text : p.text.text) + "</b><small>" +
+          escH(p.secondaryText ? shortAddr(p.secondaryText.text) : "") + "</small></li>";
+      }).join("");
+      list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
     }
-    last = total;
-    val.innerHTML = '<span class="num"></span> <small>zł' + (round ? " · " + T.round : "") + "</small>";
-    countUp(val.firstChild, prev || 0, total);
-    noteEl.textContent = T.note + extra;
+    function search(q) {
+      loadMaps().then(function (G) {
+        if (!G) return null;
+        return G.maps.importLibrary("places").then(function (lib) {
+          if (!token) token = new lib.AutocompleteSessionToken();
+          var my = ++seq;
+          return lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: q, sessionToken: token, language: lang, region: "pl", includedRegionCodes: ["pl", "cz", "sk", "de"],
+            locationBias: { center: C.base, radius: 50000 },
+          }).then(function (r) {
+            if (my !== seq) return;
+            items = (r.suggestions || []).filter(function (s) { return s.placePrediction; }).slice(0, 5).map(function (s) { return s.placePrediction; });
+            render();
+          });
+        });
+      }).catch(function (e) { console.warn("autocomplete", e); close(); });
+    }
+    function pick(i) {
+      var pred = items[i]; if (!pred) return;
+      var label = (pred.mainText ? pred.mainText.text : "") + (pred.secondaryText ? ", " + shortAddr(pred.secondaryText.text) : "");
+      input.value = label; close();
+      var place = pred.toPlace(); token = null;
+      place.fetchFields({ fields: ["location", "formattedAddress", "displayName"] }).then(function () {
+        var fa = shortAddr(place.formattedAddress || label), dn = place.displayName || "";
+        var addr = dn && fa.indexOf(dn) !== 0 ? dn + ", " + fa : fa;
+        input.value = addr;
+        onPick({ address: addr, lat: place.location.lat(), lng: place.location.lng() });
+      }).catch(function () { onPick({ address: label, lat: null, lng: null }); });
+    }
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      var q = input.value.trim();
+      if (q.length < 3 || !C.key) { close(); return; }
+      timer = setTimeout(function () { search(q); }, 220);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (list.hidden) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(items.length - 1, active + 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(0, active - 1)); }
+      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(active); }
+      else if (e.key === "Escape") { close(); }
+    });
+    list.addEventListener("mousedown", function (e) {
+      var li = e.target.closest("li"); if (!li) return;
+      e.preventDefault(); pick(parseInt(li.getAttribute("data-i"), 10));
+    });
+    input.addEventListener("blur", function () { setTimeout(close, 150); });
   }
-  ["change", "input"].forEach(function (ev) { form.addEventListener(ev, update); });
-  var sw = $("swap");
-  if (sw) sw.addEventListener("click", function () { var t = fromSel.value; fromSel.value = toSel.value; toSel.value = t; sw.classList.toggle("flip"); update(); });
-  $("round").addEventListener("change", function () { $("back-wrap").hidden = !this.checked; });
-  // default date = tomorrow
-  var dt = $("date"); if (dt && !dt.value) { var d = new Date(Date.now() + 864e5); dt.value = d.toISOString().slice(0, 10); dt.min = new Date().toISOString().slice(0, 10); }
-  update();
 
-  function message() {
-    var a = places[fromSel.value], b = places[toSel.value];
-    if (!a || !b || a.id === b.id) { err.textContent = T.errRoute; return null; }
-    if (!$("date").value || !$("time").value) { err.textContent = T.errWhen; $("time").focus(); return null; }
-    err.textContent = "";
-    var L = [T.msgHead, T.route + ": " + a.label + " → " + b.label,
-      T.date + ": " + $("date").value + " " + $("time").value];
-    if ($("round").checked) L.push(T.back + ": " + ($("back").value || "?"));
-    L.push(T.pax + ": " + $("pax").value);
-    var opt = [["addr", T.addr], ["lug", T.lug], ["flight", T.flight], ["name", T.name], ["tel", T.phone], ["notes", T.notes]];
-    opt.forEach(function (o) { var el = $(o[0]); if (el && el.value.trim()) L.push(o[1] + ": " + el.value.trim()); });
-    if (last) L.push(T.est + ": " + last + " zł");
-    return L.join("\n");
+  // typed address without picking a suggestion -> try to find it
+  function geocode(text) {
+    return loadMaps().then(function (G) {
+      if (!G || !text) return null;
+      return G.maps.importLibrary("geocoding").then(function (lib) {
+        return new lib.Geocoder().geocode({ address: text, region: "pl", bounds: { north: C.base.lat + 0.5, south: C.base.lat - 0.5, east: C.base.lng + 0.8, west: C.base.lng - 0.8 } });
+      }).then(function (r) {
+        var x = r && r.results && r.results[0];
+        return x ? { address: shortAddr(x.formatted_address), lat: x.geometry.location.lat(), lng: x.geometry.location.lng() } : null;
+      });
+    }).catch(function () { return null; });
   }
-  $("send-wa").addEventListener("click", function (e) {
-    var m = message(); if (!m) { e.preventDefault(); return; }
-    this.href = "https://wa.me/" + D.wa + "?text=" + encodeURIComponent(m);
-  });
-  $("send-sms").addEventListener("click", function (e) {
-    var m = message(); if (!m) { e.preventDefault(); return; }
-    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    this.href = "sms:" + D.tel + (ios ? "&" : "?") + "body=" + encodeURIComponent(m);
-  });
+  function reverse(p) {
+    return loadMaps().then(function (G) {
+      if (!G) return null;
+      return G.maps.importLibrary("geocoding").then(function (lib) { return new lib.Geocoder().geocode({ location: p }); })
+        .then(function (r) { var x = r && r.results && r.results[0]; return x ? shortAddr(x.formatted_address) : null; });
+    }).catch(function () { return null; });
+  }
+
+  /* ---------- booking form ---------- */
+  var form = $("booking");
+  if (form) initBooking(form);
+
+  function initBooking(form) {
+    var S = { pickup: null, dest: null, quote: null, mode: form.getAttribute("data-mode") || "now" };
+    var pIn = $("pickup"), dIn = $("dest"), err = $("form-error"), btn = $("book-btn"), gps = $("gps");
+    var map = $("map") ? TripMap($("map")) : null, qSeq = 0, warmed = false;
+
+    // load Google only once the visitor starts using the form
+    form.addEventListener("focusin", function () { if (!warmed) { warmed = true; loadMaps(); } });
+
+    try { var pre = JSON.parse(form.getAttribute("data-dest") || "null"); if (pre) { S.dest = pre; dIn.value = pre.address; } } catch (e) {}
+
+    function setMode(m) {
+      S.mode = m; form.setAttribute("data-mode", m);
+      Array.prototype.forEach.call(form.querySelectorAll(".seg-btn"), function (b) { b.setAttribute("aria-checked", b.getAttribute("data-mode") === m ? "true" : "false"); });
+      Array.prototype.forEach.call(form.querySelectorAll(".later-only"), function (el) { el.hidden = m !== "later"; });
+      if (m === "later") {
+        var d = $("date");
+        var today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+        d.min = today.toISOString().slice(0, 10);
+        if (!d.value) { var t = new Date(Date.now() + 864e5); t.setMinutes(t.getMinutes() - t.getTimezoneOffset()); d.value = t.toISOString().slice(0, 10); }
+      }
+      quote();
+    }
+    Array.prototype.forEach.call(form.querySelectorAll(".seg-btn"), function (b) {
+      b.addEventListener("click", function () { setMode(b.getAttribute("data-mode")); });
+    });
+
+    function setPoint(which, p) {
+      S[which] = p;
+      (which === "pickup" ? pIn : dIn).value = p ? p.address : "";
+      quote();
+    }
+    Autocomplete(pIn, $("pickup-list"), function (p) { S.pickup = p; quote(); });
+    Autocomplete(dIn, $("dest-list"), function (p) { S.dest = p; quote(); });
+    [[pIn, "pickup"], [dIn, "dest"]].forEach(function (x) {
+      var el = x[0], which = x[1];
+      el.addEventListener("input", function () { S[which] = el.value.trim() ? { address: el.value.trim(), lat: null, lng: null } : null; S.quote = null; showQuote(); });
+      el.addEventListener("change", function () {
+        var p = S[which];
+        if (p && !hasXY(p) && C.key) geocode(p.address).then(function (g) { if (g && S[which] === p) { S[which] = g; el.value = g.address; quote(); } });
+      });
+    });
+
+    if (gps) gps.addEventListener("click", function () {
+      if (!navigator.geolocation) { err.textContent = T.gpsFail; return; }
+      gps.classList.add("busy"); gps.disabled = true; err.textContent = "";
+      var prevPh = pIn.placeholder; pIn.placeholder = T.locating;
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var p = { address: T.myLoc, lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setPoint("pickup", p);
+        if (pos.coords.accuracy > 150) err.textContent = fmt(T.gpsRough, { m: Math.round(pos.coords.accuracy) });
+        reverse(p).then(function (a) { if (a && S.pickup === p) { p.address = a; pIn.value = a; } });
+        gps.classList.remove("busy"); gps.disabled = false; pIn.placeholder = prevPh;
+      }, function (e) {
+        err.textContent = e && e.code === 1 ? T.gpsDenied : T.gpsFail;
+        gps.classList.remove("busy"); gps.disabled = false; pIn.placeholder = prevPh;
+      }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+    });
+
+    var sw = $("swap");
+    if (sw) sw.addEventListener("click", function () {
+      var a = S.pickup; S.pickup = S.dest; S.dest = a;
+      pIn.value = S.pickup ? S.pickup.address : ""; dIn.value = S.dest ? S.dest.address : "";
+      sw.classList.toggle("flip"); quote();
+    });
+
+    Array.prototype.forEach.call(form.querySelectorAll(".chip"), function (c) {
+      c.addEventListener("click", function () {
+        var x = (C.chips || [])[parseInt(c.getAttribute("data-chip"), 10)];
+        if (x) setPoint("dest", { address: x.address, lat: x.lat, lng: x.lng });
+      });
+    });
+
+    function fmtDur(s) {
+      var m = Math.max(1, Math.round(s / 60));
+      return m < 60 ? m + " " + T.min : Math.floor(m / 60) + " " + T.h + " " + (m % 60) + " " + T.min;
+    }
+    function showQuote() {
+      var q = S.quote, box = $("quote");
+      if (!q) { box.hidden = true; return; }
+      box.hidden = false;
+      $("q-dist").textContent = q.distanceM ? (q.distanceM / 1000).toFixed(q.distanceM < 10000 ? 1 : 0).replace(".", lang === "pl" ? "," : ".") + " " + T.km : "–";
+      $("q-time").textContent = q.durationS ? fmtDur(q.durationS) : "–";
+      $("q-price-lbl").textContent = q.priceKind === "fixed" ? T.priceFixed : T.priceEst;
+      $("q-price").textContent = q.price ? q.price + " zł" : T.priceNone;
+      box.classList.toggle("approx", !!q.approx);
+      var eta = $("q-eta");
+      if (S.mode === "now" && q.approachS) { eta.hidden = false; eta.textContent = fmt(T.etaNow, { m: Math.max(5, Math.round(q.approachS / 60) + 3) }); }
+      else eta.hidden = true;
+      if (!reduce) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); }
+    }
+    function localQuote() {   // no backend (e.g. local preview): straight line estimate, no price
+      var R = 6371, r = Math.PI / 180, a = S.pickup, b = S.dest;
+      var s = Math.pow(Math.sin((b.lat - a.lat) * r / 2), 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.pow(Math.sin((b.lng - a.lng) * r / 2), 2);
+      var km = 2 * R * Math.asin(Math.sqrt(s)) * 1.3;
+      return { distanceM: km * 1000, durationS: km / 55 * 3600 + 120, approx: true, price: null };
+    }
+    function quote() {
+      if (map) map.show(S.pickup, S.dest, null);
+      if (!hasXY(S.pickup) || !hasXY(S.dest)) { S.quote = null; showQuote(); return; }
+      var my = ++qSeq;
+      api("/api/quote", { pickup: S.pickup, dest: S.dest, mode: S.mode }, 12000).then(function (q) {
+        if (my !== qSeq) return;
+        S.quote = q._ok ? q : localQuote(); showQuote();
+        if (map) map.show(S.pickup, S.dest, S.quote.polyline);
+      }).catch(function () { if (my === qSeq) { S.quote = localQuote(); showQuote(); } });
+    }
+
+    function payload() {
+      return {
+        mode: S.mode, pickup: S.pickup, dest: S.dest, lang: lang,
+        when: S.mode === "later" ? $("date").value + "T" + $("time").value : null,
+        pax: $("pax").value, luggage: $("lug").value, name: $("name").value, phone: $("tel").value,
+        flight: $("flight").value, notes: $("notes").value, returnTrip: S.mode === "later" ? $("back").value : "",
+        website: $("website").value,
+      };
+    }
+    function validate() {
+      if (!S.pickup || !S.pickup.address) { pIn.focus(); return T.errFrom; }
+      if (!S.dest || !S.dest.address) { dIn.focus(); return T.errTo; }
+      if (S.mode === "later") {
+        var d = $("date").value, t = $("time").value;
+        if (!d || !t || new Date(d + "T" + t).getTime() < Date.now() + 14 * 60000) { (d ? $("time") : $("date")).focus(); return T.errWhen; }
+      }
+      if ($("tel").value.replace(/\D/g, "").length < 9) { $("tel").focus(); return T.errPhone; }
+      return null;
+    }
+    function message(p) {
+      var L = [T.msgHead, T.route + ": " + p.pickup.address + " → " + p.dest.address, p.when ? T.when + ": " + p.when.replace("T", " ") : T.whenNow, T.pax + ": " + p.pax];
+      [["luggage", T.lug], ["flight", T.flight], ["returnTrip", T.back], ["name", T.name], ["phone", T.phone], ["notes", T.notes]].forEach(function (o) {
+        if (p[o[0]] && String(p[o[0]]).trim()) L.push(o[1] + ": " + String(p[o[0]]).trim());
+      });
+      if (S.quote && S.quote.price) L.push((S.quote.priceKind === "fixed" ? T.priceFixed : T.priceEst) + ": " + S.quote.price + " zł");
+      return L.join("\n");
+    }
+    function fallback(p) {
+      var m = encodeURIComponent(message(p)), ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      err.innerHTML = escH(T.errSend) + '<span class="fb-btns"><a class="btn btn-wa" target="_blank" rel="noopener" href="https://wa.me/' + C.wa + "?text=" + m + '">WhatsApp</a>' +
+        '<a class="btn btn-sms" href="sms:' + C.tel + (ios ? "&" : "?") + "body=" + m + '">SMS</a></span>';
+    }
+    $("send-wa").addEventListener("click", function () {
+      if (S.pickup && S.dest) this.href = "https://wa.me/" + C.wa + "?text=" + encodeURIComponent(message(payload()));
+    });
+
+    var busy = false;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (busy) return;
+      var v = validate(); err.textContent = v || ""; if (v) return;
+      busy = true; btn.classList.add("busy"); btn.setAttribute("aria-busy", "true");
+      var old = btn.innerHTML; btn.innerHTML = '<span class="spin" aria-hidden="true"></span>' + escH(T.sending);
+      var fix = [];
+      ["pickup", "dest"].forEach(function (w) {
+        if (!hasXY(S[w]) && C.key) fix.push(geocode(S[w].address).then(function (g) { if (g) S[w] = { address: S[w].address, lat: g.lat, lng: g.lng }; }));
+      });
+      Promise.all(fix).then(function () {
+        var p = payload();
+        return api("/api/rides", p, 20000).then(function (r) {
+          if (r._ok && r.id) {
+            Rides.add({ id: r.id, token: r.token, created: Date.now(), mode: p.mode, when: p.when });
+            location.href = "/przejazd/?id=" + r.id + (lang === "en" ? "&lang=en" : "");
+            return;
+          }
+          if (r._status === 429) err.textContent = T.errMany; else fallback(p);
+          throw 0;
+        }, function () { fallback(p); throw 0; });
+      }).catch(function () {
+        busy = false; btn.classList.remove("busy"); btn.removeAttribute("aria-busy"); btn.innerHTML = old;
+      });
+    });
+
+    setMode(S.mode);
+  }
+
+  /* ---------- ride status page ---------- */
+  var track = $("track");
+  if (track) initTrack();
+
+  function initTrack() {
+    var id = new URLSearchParams(location.search).get("id") || (Rides.active() || {}).id;
+    var mine = id && Rides.get(id), last = null, skew = 0, total = 0, timer = null, tick = null, fails = 0;
+    var map = TripMap($("t-map")), mapDone = false;
+    if (lang === "en") {
+      document.querySelector(".track-actions .btn-call").lastChild.textContent = " " + T.call;
+      $("t-cancel").textContent = T.cancel; $("t-new").textContent = T.newRide; $("t-new").href = "/en/#booking";
+    }
+
+    function whenTxt(r) {
+      if (!r.when) return T.d.now;
+      var d = new Date(r.when);
+      return d.toLocaleString(lang === "en" ? "en-GB" : "pl-PL", { weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    }
+    function clock(ms) { return new Date(ms).toLocaleTimeString(lang === "en" ? "en-GB" : "pl-PL", { hour: "2-digit", minute: "2-digit" }); }
+
+    function steps(r) {
+      var order = r.mode === "now" ? ["sent", "confirmed", "arrived", "done"] : ["sent", "scheduled", "enroute", "arrived", "done"];
+      var at = { pending: 0, scheduled: 1, enroute: r.mode === "now" ? 1 : 2, arrived: order.indexOf("arrived"), done: order.length - 1 }[r.status];
+      var failed = at == null;
+      $("t-steps").innerHTML = order.map(function (k, i) {
+        var cls = failed ? (i === 0 ? "done" : "off") : i < at || r.status === "done" ? "done" : i === at ? "now" : "";
+        return '<li class="' + cls + '"><span></span>' + escH(T.steps[k]) + "</li>";
+      }).join("");
+    }
+
+    function render(r) {
+      var key = r.status === "pending" ? (r.mode === "now" ? "pending_now" : "pending_later") : r.status;
+      var waiting = r.status === "pending" && r.mode === "now" && Date.now() + skew - r.created > (r.waitMin || 3) * 60000;
+      var txt = T.st[waiting ? "waiting" : key] || T.st.notfound;
+      var o = { when: whenTxt(r), clock: r.etaAt ? clock(r.etaAt - skew) : "" };
+      $("t-kicker").textContent = T.kicker[r.mode] || "";
+      $("t-title").textContent = fmt(txt[0], o);
+      $("t-sub").textContent = fmt(txt[1], o);
+      $("t-visual").setAttribute("data-state", waiting ? "waiting" : r.status);
+      track.setAttribute("data-state", r.status);
+      track.classList.toggle("urgent", waiting || ["declined", "expired"].indexOf(r.status) >= 0);
+      document.title = $("t-title").textContent + " | Taxi Knurów";
+      steps(r);
+      var open = ["pending", "scheduled", "enroute", "arrived"].indexOf(r.status) >= 0;
+      $("t-cancel").hidden = !(open && mine && mine.token && r.status !== "arrived");
+      $("t-new").hidden = open;
+      if (r.status === "done") {
+        $("t-new").hidden = false; $("t-new").href = C.review || C.maps; $("t-new").textContent = T.review; $("t-new").target = "_blank";
+      }
+      if (!open) Rides.close(r.id);
+
+      var dl = [[T.d.from, r.pickup && r.pickup.address], [T.d.to, r.dest && r.dest.address], [T.d.when, whenTxt(r)], [T.d.pax, r.pax]];
+      if (r.distanceM) dl.push([T.d.dist, (r.distanceM / 1000).toFixed(1).replace(".", lang === "pl" ? "," : ".") + " km · ~" + Math.round(r.durationS / 60) + " min"]);
+      if (r.price) dl.push([T.d.price, (r.priceKind === "fixed" ? "" : "~") + r.price + " zł"]);
+      $("t-details").innerHTML = dl.map(function (x) { return "<div><dt>" + escH(x[0]) + "</dt><dd>" + escH(x[1]) + "</dd></div>"; }).join("");
+      if (!mapDone) { mapDone = true; map.show(r.pickup, r.dest, r.polyline); }
+
+      if (last && last.status !== r.status) alertChange();
+      last = r;
+      countdown();
+    }
+
+    function countdown() {
+      var r = last, eta = $("t-eta"), bar = $("t-progress");
+      if (!r || r.status !== "enroute" || !r.etaAt) { eta.hidden = true; bar.hidden = true; return; }
+      var left = r.etaAt - (Date.now() + skew);
+      total = Math.max(total, left);
+      eta.hidden = false; bar.hidden = false;
+      var m = Math.ceil(left / 60000);
+      $("t-eta-min").textContent = m > 0 ? m : "0";
+      $("t-eta-lbl").textContent = m > 0 ? T.etaLbl : T.anyMoment;
+      $("t-eta-at").textContent = fmt(T.at, { clock: clock(r.etaAt - skew) });
+      bar.firstChild.style.width = Math.min(100, Math.max(4, 100 - (left / (total || 1)) * 100)) + "%";
+    }
+
+    function alertChange() {
+      try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (e) {}
+      try {
+        var A = window.AudioContext || window.webkitAudioContext; if (!A) return;
+        var ctx = new A(), o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880; g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+        o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.5);
+      } catch (e) {}
+    }
+
+    function poll() {
+      clearTimeout(timer);
+      api("/api/rides/" + encodeURIComponent(id), null, 10000).then(function (r) {
+        if (r._status === 404) { notFound(); return; }
+        if (!r._ok) throw 0;
+        fails = 0; $("t-sub").classList.remove("muted");
+        skew = r.now ? r.now - Date.now() : 0;
+        render(r);
+        var next = { pending: 4000, enroute: 5000, arrived: 6000, scheduled: 30000 }[r.status];
+        if (next) timer = setTimeout(poll, document.hidden ? next * 3 : next);
+      }).catch(function () {
+        fails++;
+        if (!last) { $("t-sub").textContent = T.offline; }
+        timer = setTimeout(poll, Math.min(30000, 3000 * fails));
+      });
+    }
+    function notFound() {
+      $("t-title").textContent = T.st.notfound[0]; $("t-sub").textContent = T.st.notfound[1];
+      $("t-visual").setAttribute("data-state", "declined"); $("t-new").hidden = false; $("t-steps").innerHTML = "";
+      if (id) Rides.close(id);
+    }
+
+    $("t-cancel").addEventListener("click", function () {
+      if (!mine || !window.confirm(T.cancelQ)) return;
+      this.disabled = true;
+      api("/api/rides/" + id + "/cancel", { token: mine.token }).then(function (r) { if (r._ok) render(r); }).finally(function () { $("t-cancel").disabled = false; });
+    });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && last) poll(); });
+
+    if (!id) { notFound(); return; }
+    poll();
+    tick = setInterval(function () {
+      countdown();
+      if (last && last.status === "pending") render(last);   // switches to "call us" after a few minutes
+    }, 1000);
+  }
+
+  /* ---------- Google reviews ---------- */
+  var rvTrack = $("rv-track");
+  if (rvTrack) {
+    api("/api/reviews", null, 10000).then(function (d) {
+      if (!d || !d.reviews || !d.reviews.length) return;
+      if (d.rating) $("g-num").textContent = String(d.rating.toFixed(1)).replace(".", lang === "pl" ? "," : ".");
+      if (d.count) $("g-count").textContent = d.count + (lang === "pl" ? " opinii w Google" : " Google reviews");
+      if (d.url) $("rv-all").href = d.url;
+      var star = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"/></svg>';
+      rvTrack.innerHTML = d.reviews.map(function (v, i) {
+        var initial = escH((v.author || "?").trim().charAt(0).toUpperCase());
+        var av = v.photo ? '<img src="' + escH(v.photo) + '" alt="" width="44" height="44" loading="lazy" referrerpolicy="no-referrer">' : "<span>" + initial + "</span>";
+        var name = v.authorUri ? '<a href="' + escH(v.authorUri) + '" target="_blank" rel="noopener">' + escH(v.author) + "</a>" : escH(v.author);
+        var long = v.text.length > 220;
+        return '<figure class="rv" style="--i:' + i + '"><div class="rv-stars" aria-label="' + v.rating + '/5">' + new Array(v.rating + 1).join(star) + "</div>" +
+          '<blockquote class="' + (long ? "clamp" : "") + '">' + escH(v.text) + "</blockquote>" +
+          (long ? '<button type="button" class="rv-more">' + T.rvMore + "</button>" : "") +
+          '<figcaption><span class="rv-av">' + av + "</span><span><b>" + name + "</b><small>" + escH(v.when) + " · " + T.rvFrom + "</small></span></figcaption></figure>";
+      }).join("");
+      Array.prototype.forEach.call(rvTrack.querySelectorAll(".rv-more"), function (b) {
+        b.addEventListener("click", function () { var q = b.previousSibling; var c = q.classList.toggle("clamp"); b.textContent = c ? T.rvMore : T.rvLess; });
+      });
+      var navEl = $("rv-nav");
+      if (navEl && rvTrack.scrollWidth > rvTrack.clientWidth + 10) {
+        navEl.hidden = false;
+        Array.prototype.forEach.call(navEl.querySelectorAll("button"), function (b) {
+          b.addEventListener("click", function () {
+            var card = rvTrack.querySelector(".rv");
+            rvTrack.scrollBy({ left: (card ? card.offsetWidth + 16 : 300) * parseInt(b.getAttribute("data-dir"), 10), behavior: reduce ? "auto" : "smooth" });
+          });
+        });
+      }
+    }).catch(function () {});
+  }
 })();
 
 if ("serviceWorker" in navigator) {

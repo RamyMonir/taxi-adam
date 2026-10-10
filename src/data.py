@@ -99,6 +99,43 @@ DESTINATIONS = [
     dict(slug="taxi-sosnowiec", gen="Sosnowca", loc="w Sosnowcu", kind="city", name="Sosnowiec", short="Sosnowiec", price=140, confirmed=False),
 ]
 
+# Współrzędne celów (dla mapy i ceny stałej). match_km: jeśli cel klienta jest w tym promieniu,
+# liczymy cenę stałą z cennika; None = zawsze wycena za kilometr (kliniki, miasta – różne adresy).
+COORDS = {
+    "lotnisko-pyrzowice": (50.4743, 19.0800, 3),   "lotnisko-balice": (50.0777, 19.7848, 3),
+    "lotnisko-wroclaw": (51.1027, 16.8858, 3),     "lotnisko-ostrava": (49.6963, 18.1111, 3),
+    "lotnisko-okecie": (52.1657, 20.9671, 3),      "lotnisko-modlin": (52.4511, 20.6518, 3),
+    "sanatorium-busko-zdroj": (50.4705, 20.7186, 5), "sanatorium-szczyrk": (49.7185, 19.0335, 6),
+    "sanatorium-ustron": (49.7197, 18.8120, 5),    "sanatorium-goczalkowice-zdroj": (49.9370, 18.9660, 4),
+    "dworzec-gliwice": (50.3008, 18.6635, 1.2),    "dworzec-zabrze": (50.3029, 18.7780, 1.2),
+    "dworzec-katowice": (50.2575, 19.0170, 1.2),   "dworzec-ostrava": (49.8546, 18.2683, 1.5),
+    "kliniki-katowice": (50.2591, 19.0213, None),  "kliniki-gliwice": (50.2945, 18.6714, None),
+    "kliniki-zabrze": (50.3249, 18.7857, None),    "kliniki-sosnowiec": (50.2863, 19.1041, None),
+    "kliniki-czeladz": (50.3160, 19.0790, None),   "kliniki-wroclaw": (51.1079, 17.0385, None),
+    "taxi-gliwice": (50.2945, 18.6714, None),      "taxi-katowice": (50.2591, 19.0213, None),
+    "taxi-rybnik": (50.0971, 18.5418, None),       "taxi-zabrze": (50.3249, 18.7857, None),
+    "taxi-sosnowiec": (50.2863, 19.1041, None),
+}
+for _d in DESTINATIONS:
+    _d["lat"], _d["lng"], _d["match_km"] = COORDS[_d["slug"]]
+
+# Strefy odbioru liczone odległością od centrum Knurowa (km w linii prostej).
+# Do ZONE_KM["0"] = Knurów, do "A" = strefa A, do "B" = strefa B, dalej = wycena za kilometr.
+KNUROW_CENTER = (50.2197, 18.6767)
+ZONE_KM = {"0": 4.5, "A": 9, "B": 16}
+
+# Wycena kursów spoza cennika (SZACUNEK – potwierdź z Adamem): start + zł za km trasy, nie mniej niż minimum.
+TARIFF = {"start": 9, "per_km": 3.0, "min": 15, "confirmed": False}
+
+# ---------------- Rezerwacja online (Cloudflare + Telegram + Google) ----------------
+# Klucz przeglądarkowy Google Maps (Maps JavaScript API, Places API (New), Geocoding API).
+# Jest publiczny z założenia – w Google Cloud ogranicz go do domeny strony (HTTP referrers).
+# Pusty = strona działa bez mapy i podpowiedzi adresów (wpisywanie ręczne + GPS).
+GOOGLE_MAPS_BROWSER_KEY = ""   # TODO
+GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Management)
+# Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
+NOW_WAIT_MIN = 3
+
 KIND = {
     "airport": dict(hub="lotniska", hub_name="Transfery lotniskowe", plural="Lotniska"),
     "spa":     dict(hub="sanatoria", hub_name="Przejazdy do sanatoriów", plural="Sanatoria"),

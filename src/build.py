@@ -2,7 +2,8 @@
 """Generator strony: python3 build.py  ->  ../dist/"""
 import json, os, shutil, datetime
 from jinja2 import Environment, DictLoader
-from data import SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND
+from data import (SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -14,11 +15,16 @@ ICON = {
  "cal": '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zm-2 7h14v10H5z"/></svg>',
  "star": '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"/></svg>',
  "check": '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m9 16.2-3.5-3.5L4 14.2l5 5 11-11-1.4-1.4z"/></svg>',
+ "bolt": '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+ "gps": '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 3h-2.1A7 7 0 0 0 13 5.1V3h-2v2.1A7 7 0 0 0 5.1 11H3v2h2.1a7 7 0 0 0 5.9 5.9V21h2v-2.1a7 7 0 0 0 5.9-5.9H21zm-9 6a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>',
+ "swap": '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 3 3 7h3v9h2V7h3zm10 18 4-4h-3V8h-2v9h-3z"/></svg>',
+ "plane": '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>',
+ "train": '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8 2 4 2.5 4 6v9.5A3.5 3.5 0 0 0 7.5 19L6 20.5v.5h2.2l2-2h3.6l2 2H18v-.5L16.5 19a3.5 3.5 0 0 0 3.5-3.5V6c0-3.5-4-4-8-4zM7.5 17a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3.5-7H6V6h5zm2 0V6h5v4zm3.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>',
+ "spa": '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3c2 2.4 3 4.7 3 7a3 3 0 0 1-6 0c0-2.3 1-4.6 3-7zm-8 9c3 0 5.5 1.5 7 4-1.6 2.5-4 4-7 4zm16 0v8c-3 0-5.4-1.5-7-4 1.5-2.5 4-4 7-4z"/></svg>',
 }
-MARK = ('<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="9" width="24" height="9" rx="2" fill="#1C2430"/>'
-        '<text x="13" y="16.4" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="7" fill="#FFC72C">TAXI</text>'
-        '<rect x="5" y="4" width="4" height="4" fill="#1C2430"/><rect x="13" y="4" width="4" height="4" fill="#1C2430"/>'
-        '<rect x="9" y="19" width="4" height="4" fill="#1C2430"/><rect x="17" y="19" width="4" height="4" fill="#1C2430"/></svg>')
+# Logo z pliku od klienta (czarne tło zamienione na przezroczyste, do ciemnych teł)
+LOGO_HEAD = ('<img class="brand-logo" src="/assets/img/logo-emblem.webp" alt="" width="240" height="188">'
+             '<span class="brand-text"><b>TAXI KNURÓW</b><small>ADAM MĄCZKA</small></span>')
 # Taxi z boku (animacje: droga w hero i taksometr)
 CAR = ('<svg width="64" height="28" viewBox="0 0 64 28" aria-hidden="true"><rect x="25" y="1" width="13" height="5" rx="1.5" fill="#FFC72C" stroke="#1C2430" stroke-width=".8"/>'
        '<path d="M6 18 12 10Q14 8 18 8H42Q46 8 49 11L54 16Q60 17 61 20V23H3V20Q3 18 6 18Z" fill="#FFC72C"/>'
@@ -30,14 +36,32 @@ DEST = {d["slug"]: d for d in DESTINATIONS}
 def by_kind(k): return [d for d in DESTINATIONS if d["kind"] == k]
 ZONE_VILL = {z: [v[1] for v in VILLAGES if v[3] == z] for z in ZONES}
 
-def places_json():
-    P = []
-    for slug, name, loc, zone, price in VILLAGES:
-        P.append(dict(id="v:" + slug, type="v", label=name, group="Rejon odbioru", price=price, surcharge=ZONES[zone]["surcharge"]))
-    for d in DESTINATIONS:
-        P.append(dict(id="d:" + d["slug"], type="d", label=d["short"] if d["kind"] != "clinic" else "Kliniki – " + d["name"],
-                      group=KIND[d["kind"]]["plural"], price=d["price"]))
-    return json.dumps(dict(places=P, wa=B["whatsapp"], tel=B["phone_e164"]), ensure_ascii=False)
+def place_of(d):
+    """Cel trasy jako punkt dla formularza: adres + współrzędne."""
+    label = d["name"] if d["kind"] in ("airport", "spa") else (d["short"] if d["kind"] == "station" else d["name"])
+    return dict(address=label, lat=d["lat"], lng=d["lng"])
+
+CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balice", "Balice"), ("plane", "lotnisko-wroclaw", "Wrocław"),
+         ("train", "dworzec-gliwice", "Dworzec Gliwice"), ("train", "dworzec-katowice", "Dworzec Katowice")]
+
+def client_config(lang):
+    """window.TAXI – ustawienia dla app.js (formularz rezerwacji, status, opinie)."""
+    return json.dumps(dict(
+        lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
+        base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
+        chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS]), ensure_ascii=False)
+
+def write_server_config():
+    """server/config.js – te same ceny i strefy dla funkcji Cloudflare (liczą cenę po stronie serwera)."""
+    cfg = dict(
+        phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN,
+        base=dict(lat=B["lat"], lng=B["lng"]), center=dict(lat=KNUROW_CENTER[0], lng=KNUROW_CENTER[1]),
+        zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
+        destinations=[dict(slug=d["slug"], short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
+    path = os.path.join(HERE, "..", "server", "config.js")
+    open(path, "w", encoding="utf-8").write("// GENERATED by src/build.py from src/data.py – do not edit by hand.\nexport const CONFIG = "
+                                           + json.dumps(cfg, ensure_ascii=False, indent=1) + ";\n")
+DEST_BY_SLUG = {d["slug"]: d for d in DESTINATIONS}
 
 # ---------------- per-kind copy ----------------
 def dest_copy(d):
@@ -107,9 +131,9 @@ BASE = r"""<!doctype html>
 <link rel="canonical" href="{{ site }}{{ path }}">
 <meta property="og:type" content="website"><meta property="og:title" content="{{ title }}"><meta property="og:description" content="{{ desc }}">
 <meta property="og:url" content="{{ site }}{{ path }}"><meta property="og:image" content="{{ site }}/assets/og.png"><meta property="og:locale" content="{{ 'en_GB' if lang=='en' else 'pl_PL' }}">
-<meta name="theme-color" content="#FFC72C">
+<meta name="theme-color" content="#0A1430">{% if noindex %}<meta name="robots" content="noindex">{% endif %}
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/assets/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/icon-192.png">
+<link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
 {% for s in schema %}<script type="application/ld+json">{{ s }}</script>
@@ -117,17 +141,19 @@ BASE = r"""<!doctype html>
 <body>
 <a class="skip" href="#main">{{ 'Skip to content' if lang=='en' else 'Przejdź do treści' }}</a>
 <header class="top"><div class="wrap">
-  <a class="brand" href="/"><span class="brand-mark">{{ mark }}</span><span>{{ B.name }}<small>Knurów · Gierałtowice · okolice</small></span></a>
+  <a class="brand" href="{{ '/en/' if lang=='en' else '/' }}" aria-label="{{ B.name }}">{{ logo }}</a>
   <button class="menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
   <nav class="nav" id="nav" aria-label="Menu główne">
     {% for href, label in nav %}<a href="{{ href }}"{% if href == path %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
     <a class="call-top" href="tel:{{ B.phone_e164 }}">{{ icon.phone }} {{ B.phone }}</a>
   </nav>
 </div></header>
+<a class="ride-banner" id="ride-banner" href="/przejazd/" hidden></a>
 <main id="main">
 {{ body }}
 </main>
 <footer><div class="wrap">
+  <img class="foot-logo" src="/assets/img/logo-wide.webp" alt="{{ B.name }}" width="720" height="398" loading="lazy">
   <div class="cols">
     <div><h3>{{ B.name }}</h3><p>{{ B.street }}<br>{{ B.postal }} {{ B.city }}</p>
       <p><a href="tel:{{ B.phone_e164 }}"><strong>{{ B.phone }}</strong></a><br><a href="https://wa.me/{{ B.whatsapp }}">WhatsApp</a></p></div>
@@ -135,65 +161,110 @@ BASE = r"""<!doctype html>
     <div><h3>Rejon odbioru</h3><ul>{% for v in villages[1:8] %}<li><a href="/taxi-{{ v[0] }}/">Taxi {{ v[1] }}</a></li>{% endfor %}<li><a href="/#rejon">Wszystkie miejscowości</a></li></ul></div>
     <div><h3>Informacje</h3><ul><li><a href="/dla-firm/">Dla firm</a></li><li><a href="/kontakt/">Kontakt</a></li><li><a href="/en/">English</a></li><li><a href="/polityka-prywatnosci/">Polityka prywatności</a></li></ul></div>
   </div>
-  <div class="foot-bottom"><span>© {{ year }} {{ B.name }}. Strona nie używa plików cookies ani śledzenia.</span><button class="theme-toggle" type="button">Jasny / ciemny motyw</button></div>
+  <div class="foot-bottom"><span>© {{ year }} {{ B.name }}. Bez reklam i śledzenia.</span><button class="theme-toggle" type="button">Jasny / ciemny motyw</button></div>
 </div></footer>
 <nav class="actionbar" aria-label="Szybki kontakt">
   <a class="a-call" href="tel:{{ B.phone_e164 }}">{{ icon.phone }}{{ 'Call' if lang=='en' else 'Zadzwoń' }}</a>
   <a class="a-wa" href="https://wa.me/{{ B.whatsapp }}">{{ icon.wa }}WhatsApp</a>
-  <a class="a-book" href="{{ '/en/#booking' if lang=='en' else '/rezerwacja/' }}">{{ icon.cal }}{{ 'Book' if lang=='en' else 'Rezerwuj' }}</a>
+  <a class="a-book" href="{{ '/en/#booking' if lang=='en' else '/rezerwacja/' }}">{{ icon.bolt }}{{ 'Book' if lang=='en' else 'Zamów' }}</a>
 </nav>
-<script>window.TAXI={{ places|safe }};</script>
+<script>window.TAXI={{ config|safe }};</script>
 <script src="/assets/app.js" defer></script>
 </body></html>"""
 
-METER = r"""<form class="meter" id="booking" data-from="{{ m_from or 'v:knurow' }}" data-to="{{ m_to or 'd:lotnisko-pyrzowice' }}" onsubmit="return false" novalidate>
-  <div class="meter-head">
-    <span class="roof-sign" aria-hidden="true">TAXI</span>
-    <div><h2>{{ m_title or 'Sprawdź cenę i zarezerwuj' }}</h2><p class="meter-sub"><span class="live" aria-hidden="true"></span>Całodobowo · 7 dni w tygodniu</p></div>
+BOOK = r"""<form class="book" id="booking" data-mode="{{ mode }}"{% if dest %} data-dest='{{ dest }}'{% endif %} novalidate>
+  <div class="book-head">
+    <h2>{{ title or t.title }}</h2>
+    <p class="book-sub"><span class="live" aria-hidden="true"></span>{{ t.sub }}</p>
   </div>
-  <div class="route">
-    <div class="field f-from"><label for="from">Skąd</label><select id="from" name="from"></select></div>
-    <button type="button" id="swap" class="swap-btn" aria-label="Zamień kierunek" title="Zamień kierunek"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 3 3 7h3v9h2V7h3zm10 18 4-4h-3V8h-2v9h-3z"/></svg></button>
-    <div class="field f-to"><label for="to">Dokąd</label><select id="to" name="to"></select></div>
+  <div class="seg" role="radiogroup" aria-label="{{ t.whenq }}">
+    <button type="button" role="radio" class="seg-btn" data-mode="now" aria-checked="{{ 'true' if mode=='now' else 'false' }}">{{ icon.bolt }}<span>{{ t.now }}<small>{{ t.now_s }}</small></span></button>
+    <button type="button" role="radio" class="seg-btn" data-mode="later" aria-checked="{{ 'true' if mode=='later' else 'false' }}">{{ icon.cal }}<span>{{ t.later }}<small>{{ t.later_s }}</small></span></button>
+    <span class="seg-ind" aria-hidden="true"></span>
+  </div>
+  <div class="trip">
+    <div class="loc">
+      <span class="pin pin-a" aria-hidden="true"></span>
+      <label class="sr-only" for="pickup">{{ t.from_ }}</label>
+      <input id="pickup" type="text" placeholder="{{ pickup_ph or t.from_ph }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pickup-list">
+      <button type="button" class="gps" id="gps" title="{{ t.gps }}">{{ icon.gps }}<span>{{ t.gps_s }}</span></button>
+      <ul class="sugg" id="pickup-list" role="listbox" hidden></ul>
+    </div>
+    <div class="trip-line" aria-hidden="true"></div>
+    <button type="button" class="swap-btn" id="swap" aria-label="{{ t.swap }}" title="{{ t.swap }}">{{ icon.swap }}</button>
+    <div class="loc">
+      <span class="pin pin-b" aria-hidden="true"></span>
+      <label class="sr-only" for="dest">{{ t.to }}</label>
+      <input id="dest" type="text" placeholder="{{ t.to_ph }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dest-list">
+      <ul class="sugg" id="dest-list" role="listbox" hidden></ul>
+    </div>
+  </div>
+  <div class="chips" role="group" aria-label="{{ t.popular }}">{% for c in chips %}<button type="button" class="chip" data-chip="{{ loop.index0 }}">{{ icon[c.icon] }}{{ c.label }}</button>{% endfor %}</div>
+  <div class="row2 later-only"{% if mode != 'later' %} hidden{% endif %}>
+    <div class="field"><label for="date">{{ t.date }}</label><input type="date" id="date"></div>
+    <div class="field"><label for="time">{{ t.time }}</label><input type="time" id="time" step="300"></div>
+  </div>
+  <div class="map-wrap" id="map-wrap" hidden><div class="map" id="map"></div></div>
+  <div class="quote" id="quote" hidden>
+    <div class="q-cells" aria-live="polite">
+      <div><span>{{ t.distance }}</span><b id="q-dist">–</b></div>
+      <div><span>{{ t.duration }}</span><b id="q-time">–</b></div>
+      <div class="q-price"><span id="q-price-lbl">{{ t.price }}</span><b id="q-price">–</b></div>
+    </div>
+    <p class="q-eta" id="q-eta" hidden></p>
   </div>
   <div class="row2">
-    <div class="field"><label for="date">Data</label><input type="date" id="date" name="date" required></div>
-    <div class="field"><label for="time">Godzina odbioru</label><input type="time" id="time" name="time" required></div>
+    <div class="field"><label for="name">{{ t.name }}</label><input id="name" autocomplete="given-name"></div>
+    <div class="field"><label for="tel">{{ t.phone }} <span class="req">*</span></label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="{{ t.phone_ph }}"></div>
   </div>
   <div class="row2">
-    <div class="field"><label for="pax">Liczba osób</label><select id="pax">{% for i in range(1,8) %}<option>{{ i }}</option>{% endfor %}</select></div>
-    <div class="field"><label for="lug">Bagaż</label><select id="lug"><option value="">bez dużego bagażu</option><option>1–2 walizki</option><option>3–4 walizki</option><option>więcej niż 4</option></select></div>
+    <div class="field"><label for="pax">{{ t.pax }}</label><select id="pax">{% for i in range(1, B.seats + 1) %}<option>{{ i }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="lug">{{ t.luggage }}</label><select id="lug">{% for o in t.lug_opts %}<option value="{{ '' if loop.first else o }}">{{ o }}</option>{% endfor %}</select></div>
   </div>
-  <label class="chk"><input type="checkbox" id="round"> Kurs powrotny</label>
-  <div class="field" id="back-wrap" hidden><label for="back">Data i godzina powrotu</label><input type="text" id="back" placeholder="np. 24.10, przylot 21:40"></div>
-  <div class="readout">
-    <div class="readout-row" aria-live="polite"><span class="lbl">Cena od</span><span class="val" id="price">–</span></div>
-    <div class="meter-road" aria-hidden="true"><span class="car">{{ car }}</span></div>
-  </div>
-  <p class="readout-note" id="price-note"></p>
-  <details class="more"><summary>Dodaj szczegóły (adres, lot, uwagi)</summary>
-    <div class="field"><label for="addr">Adres odbioru</label><input id="addr" autocomplete="street-address"></div>
-    <div class="field"><label for="flight">Numer lotu / pociągu</label><input id="flight" placeholder="np. FR 1234"></div>
-    <div class="row2"><div class="field"><label for="name">Imię</label><input id="name" autocomplete="given-name"></div>
-    <div class="field"><label for="tel">Telefon</label><input id="tel" type="tel" autocomplete="tel"></div></div>
-    <div class="field"><label for="notes">Uwagi</label><textarea id="notes" placeholder="np. fotelik dla dziecka, pomoc z bagażem, pasażer: mama, tel. ..."></textarea></div>
+  <details class="more"><summary>{{ t.more }}</summary>
+    <div class="field"><label for="flight">{{ t.flight }}</label><input id="flight" placeholder="{{ t.flight_ph }}"></div>
+    <div class="field later-only"{% if mode != 'later' %} hidden{% endif %}><label for="back">{{ t.back }}</label><input id="back" placeholder="{{ t.back_ph }}"></div>
+    <div class="field"><label for="notes">{{ t.notes }}</label><textarea id="notes" placeholder="{{ t.notes_ph }}"></textarea></div>
   </details>
+  <div class="hp" aria-hidden="true"><label>Website<input id="website" tabindex="-1" autocomplete="off"></label></div>
   <p class="form-error" id="form-error" role="alert"></p>
-  <p class="readout-note" style="margin:0 0 4px">Wyślij rezerwację:</p>
-  <div class="btns">
-    <a class="btn btn-wa" id="send-wa" href="https://wa.me/{{ B.whatsapp }}" target="_blank" rel="noopener">{{ icon.wa }} WhatsApp</a>
-    <a class="btn btn-sms" id="send-sms" href="sms:{{ B.phone_e164 }}">SMS</a>
-    <a class="btn btn-call" href="tel:{{ B.phone_e164 }}">{{ icon.phone }} Zadzwoń: {{ B.phone }}</a>
-  </div>
+  <button type="submit" class="btn btn-book" id="book-btn"><span class="for-now">{{ t.book_now }}</span><span class="for-later">{{ t.book_later }}</span><span class="arrow" aria-hidden="true">→</span></button>
+  <p class="alt-contact">{{ t.or_ }} <a href="tel:{{ B.phone_e164 }}">{{ icon.phone }} {{ B.phone }}</a> <a id="send-wa" href="https://wa.me/{{ B.whatsapp }}" target="_blank" rel="noopener">{{ icon.wa }} WhatsApp</a></p>
 </form>"""
 
-env = Environment(loader=DictLoader({"base": BASE, "meter": METER}), autoescape=False)
+T_BOOK = {
+ "pl": dict(title="Zamów taxi", sub="Całodobowo · kierowca potwierdza w kilka minut", whenq="Kiedy jedziesz?",
+            now="Teraz", now_s="auto jak najszybciej", later="Na później", later_s="lotnisko, sanatorium…",
+            from_="Skąd", from_ph="Skąd? Wpisz adres odbioru", to="Dokąd", to_ph="Dokąd jedziesz?",
+            gps="Użyj mojej lokalizacji", gps_s="Tu jestem", swap="Zamień kierunek", popular="Popularne cele",
+            date="Data", time="Godzina odbioru", distance="Trasa", duration="Czas jazdy", price="Cena",
+            name="Imię", phone="Telefon", phone_ph="np. 600 100 200", pax="Osoby", luggage="Bagaż",
+            lug_opts=["bez dużego bagażu", "1–2 walizki", "3–4 walizki", "więcej niż 4"],
+            more="Szczegóły: lot, powrót, uwagi", flight="Numer lotu / pociągu", flight_ph="np. FR 1234",
+            back="Kurs powrotny (data, godzina)", back_ph="np. 24.10, przylot 21:40",
+            notes="Uwagi dla kierowcy", notes_ph="np. fotelik dla dziecka, pomoc z bagażem, brama od podwórza",
+            book_now="Zamów teraz", book_later="Zarezerwuj kurs", or_="albo zadzwoń:"),
+ "en": dict(title="Book a taxi", sub="24/7 · the driver confirms within minutes", whenq="When?",
+            now="Now", now_s="as soon as possible", later="Later", later_s="airport, scheduled…",
+            from_="From", from_ph="Pickup address", to="To", to_ph="Where to?",
+            gps="Use my location", gps_s="I'm here", swap="Swap", popular="Popular destinations",
+            date="Date", time="Pickup time", distance="Distance", duration="Drive", price="Price",
+            name="Name", phone="Phone", phone_ph="e.g. +44 7700 900123", pax="Passengers", luggage="Luggage",
+            lug_opts=["no large luggage", "1–2 suitcases", "3–4 suitcases", "more than 4"],
+            more="Details: flight, return, notes", flight="Flight / train number", flight_ph="e.g. FR 1234",
+            back="Return trip (date, time)", back_ph="e.g. 24 Oct, landing 21:40",
+            notes="Notes for the driver", notes_ph="e.g. child seat, help with luggage",
+            book_now="Book now", book_later="Book this ride", or_="or call:"),
+}
+
+env = Environment(loader=DictLoader({"base": BASE, "book": BOOK}), autoescape=False)
 NAV = [("/lotniska/", "Lotniska"), ("/sanatoria/", "Sanatoria"), ("/kliniki/", "Kliniki"), ("/dworce/", "Dworce"),
        ("/cennik/", "Cennik"), ("/dla-firm/", "Dla firm"), ("/kontakt/", "Kontakt")]
-PLACES = places_json()
-
-def meter(**kw):
-    return env.get_template("meter").render(B=B, icon=ICON, car=CAR, **kw)
+def book(dest=None, mode="now", title=None, pickup_ph=None, lang="pl"):
+    """Formularz zamówienia. dest = slug celu (strony lotnisk itd.) – wpisany od razu w „Dokąd”."""
+    d = json.dumps(place_of(DEST[dest]), ensure_ascii=False).replace("'", "&#39;") if dest else None
+    chips = [dict(icon=i, label=l) for i, s, l in CHIPS]
+    return env.get_template("book").render(B=B, icon=ICON, t=T_BOOK[lang], mode=mode, dest=d, title=title, pickup_ph=pickup_ph, chips=chips)
 
 def ld(obj): return json.dumps(obj, ensure_ascii=False)
 
@@ -239,23 +310,31 @@ def board(groups):
     return html + "</div>"
 
 pages = []
-def page(path, title, desc, body, schema=(), lang="pl"):
+NOINDEX = set()
+def page(path, title, desc, body, schema=(), lang="pl", noindex=False):
     pages.append(path)
+    if noindex: NOINDEX.add(path)
+    body = body.replace('<section class="hero" style="padding:0">', '<section class="hero">' + STREAKS)
     html = env.get_template("base").render(
         lang=lang, title=title, desc=desc, path=path, site=SITE_URL, body=body, schema=[ld(s) for s in schema],
-        B=B, icon=ICON, mark=MARK, nav=NAV, kinds=[KIND[k] for k in KIND], villages=VILLAGES, year=datetime.date.today().year,
-        places=PLACES)
+        B=B, icon=ICON, logo=LOGO_HEAD, nav=NAV, kinds=[KIND[k] for k in KIND], villages=VILLAGES, year=datetime.date.today().year,
+        config=client_config(lang), noindex=noindex)
     target = os.path.join(OUT, path.strip("/"), "index.html") if path.endswith("/") else os.path.join(OUT, path.strip("/"))
     os.makedirs(os.path.dirname(target), exist_ok=True)
     open(target, "w", encoding="utf-8").write(html)
 
-def hero(h1, lead, meter_html, crumbs=None, facts=True):
+# Światła nocnego ruchu w tle hero (niebieskie i żółte smugi)
+STREAKS = '<div class="streaks" aria-hidden="true">' + "".join(f'<i style="--y:{y}%;--d:{d}s;--w:{w}%;--c:var(--{c})"></i>' for y, d, w, c in
+           [(18, 9, 30, "blue-2"), (34, 13, 22, "yellow"), (52, 7.5, 34, "blue-2"), (67, 11, 18, "yellow"), (81, 15, 28, "blue-2")]) + "</div>"
+
+def hero(h1, lead, meter_html, crumbs=None, facts=True, logo=False):
     f = ""
     if facts:
         f = (f'<ul class="hero-facts"><li class="status">Całodobowo, 7 dni w tygodniu</li>'
              f'<li>{ICON["star"]}<span class="stars">{B["rating"]}</span>&nbsp;z {B["reviews"]} opinii w Google</li>'
              f'<li>{ICON["check"]} Auta do {B["seats"]} osób</li><li>{ICON["check"]} Karta, BLIK, przelew</li></ul>')
-    return (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs or ""}<h1>{h1}</h1>'
+    lg = ('<img class="hero-logo" src="/assets/img/logo.webp" alt="" width="560" height="671" fetchpriority="high">' if logo else "")
+    return (f'<section class="hero" style="padding:0"><div class="wrap"><div class="hero-copy">{crumbs or ""}{lg}<h1>{h1}</h1>'
             f'<p class="lead">{lead}</p>{f}</div>{meter_html}</div>{ROAD}</section>')
 
 ROAD = f'<div class="hero-road" aria-hidden="true"><span class="car">{CAR}</span></div>'
@@ -280,18 +359,27 @@ def services_block():
     return (f'<section class="services"><div class="wrap"><div class="sec-head"><h2>Nasze usługi</h2>'
             f'<p class="muted">Jeden numer, każdy kurs: {B["phone"]}</p></div><ul class="svc-grid">{cards}</ul></div></section>')
 
-STEPS = ('<ol class="steps"><li><h3>Wybierz trasę</h3><p>Kalkulator od razu pokazuje cenę od – bez taksometru i niespodzianek.</p></li>'
-         '<li><h3>Wyślij rezerwację</h3><p>Jednym kliknięciem przez WhatsApp lub SMS. Wszystkie szczegóły są już w wiadomości.</p></li>'
-         '<li><h3>Dostajesz potwierdzenie</h3><p>Adam potwierdza godzinę i cenę. W dniu kursu auto czeka pod drzwiami.</p></li></ol>')
+STEPS = ('<ol class="steps"><li><h3>Wskaż trasę</h3><p>Kliknij „Tu jestem” albo wpisz adres. Od razu widzisz trasę, czas jazdy i cenę.</p></li>'
+         '<li><h3>Zamów teraz lub na później</h3><p>Kurs teraz trafia od razu do telefonu kierowcy. Lotnisko czy sanatorium rezerwujesz na wybrany dzień i godzinę.</p></li>'
+         '<li><h3>Śledź status na żywo</h3><p>Widzisz, kiedy kierowca potwierdzi kurs i za ile minut będzie. Bez dzwonienia i czekania.</p></li></ol>')
 
 def village_links():
     return '<ul class="villages">' + "".join(
         f'<li><a href="{"/" if s == "knurow" else "/taxi-" + s + "/"}">{n}</a></li>' for s, n, *_ in VILLAGES) + "</ul>"
 
 def reviews_block():
-    return (f'<section class="alt"><div class="wrap rating"><div class="big">{B["rating"]}</div><div><h2 style="margin-bottom:.2em">Ocena klientów w Google</h2>'
-            f'<p>{B["reviews"]} opinii o {B["name"]}. Przeczytaj je i dodaj swoją po kursie.</p>'
-            f'<a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Zobacz opinie w Google</a></div></div></section>')
+    """Opinie z Google – karty ładuje app.js z /api/reviews; bez backendu zostaje sama ocena i link."""
+    stars = ICON["star"] * 5
+    return (f'<section class="reviews" id="opinie"><div class="wrap">'
+            f'<div class="rv-head"><div><h2>Co mówią klienci</h2><p class="muted">Najlepsze opinie z naszej wizytówki Google.</p></div>'
+            f'<div class="g-score"><span class="g-num" id="g-num">{B["rating"]}</span><span><span class="g-stars">{stars}</span>'
+            f'<small id="g-count">{B["reviews"]} opinii w Google</small></span></div></div>'
+            f'<div class="rv-track" id="rv-track" tabindex="0" aria-label="Opinie klientów"></div>'
+            f'<div class="rv-foot"><div class="rv-nav" id="rv-nav" hidden><button type="button" data-dir="-1" aria-label="Poprzednie opinie">←</button>'
+            f'<button type="button" data-dir="1" aria-label="Następne opinie">→</button></div>'
+            f'<p><a class="btn btn-ink" id="rv-all" href="{B["google_maps"]}" target="_blank" rel="noopener">Wszystkie opinie w Google</a> '
+            f'<a class="btn btn-line" href="{B["google_review"]}" target="_blank" rel="noopener">Dodaj swoją opinię</a></p></div>'
+            f'</div></section>')
 
 # ================= HOME =================
 home_faq = [
@@ -301,9 +389,9 @@ home_faq = [
     ("Ile osób zmieści się w aucie?", f"Do {B['seats']} osób. Przy 5–7 pasażerach podstawimy auto 7-osobowe – zaznacz liczbę osób w rezerwacji."),
     ("Czy mogę zamówić kurs dla rodzica?", "Tak. W uwagach wpisz imię i telefon pasażera. Przed wyjazdem potwierdzimy z nim godzinę odbioru."),
 ]
-body = hero("Taxi Knurów Adam Mączka: lotniska, sanatoria i kliniki ze stałą ceną",
-            f"Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł, Balice od {DEST['lotnisko-balice']['price']} zł. Sprawdź cenę swojej trasy i zarezerwuj w 30 sekund – przez WhatsApp, SMS albo telefon.",
-            meter())
+body = hero('<span class="sr-only">Taxi Knurów Adam Mączka – </span>Twoje taxi w Knurowie, <em>na teraz</em> i na lotnisko',
+            f"Zamów jak w aplikacji: wskaż adres, zobacz cenę i śledź, za ile minut będzie kierowca. Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł, Balice od {DEST['lotnisko-balice']['price']} zł.",
+            book(), logo=True)
 body += services_block()
 body += ('<section class="alt"><div class="wrap"><div class="sec-head"><h2>Najczęstsze trasy</h2><p class="muted">Ceny od, z Knurowa. Odbiór z innych miejscowości: +10 lub +20 zł.</p></div>'
          + board(["airport", "spa"]) + '<p style="margin-top:14px">Kliniki, dworce i miasta: <a href="/kliniki/">kliniki</a>, <a href="/dworce/">dworce</a>, <a href="/miasta/">miasta</a> albo <a href="/cennik/">pełny cennik</a>.</p></div></section>')
@@ -322,7 +410,7 @@ for d in DESTINATIONS:
     related = [x for x in by_kind(d["kind"]) if x["slug"] != d["slug"]][:5]
     rel = '<ul class="villages">' + "".join(f'<li><a href="/{x["slug"]}/">{x["short"]} – od {x["price"]} zł</a></li>' for x in related) + "</ul>"
     pts = '<ul style="padding-left:1.1em">' + "".join(f"<li>{p}</li>" for p in c["points"]) + "</ul>"
-    body = hero(c["h1"], c["intro"], meter(m_to="d:" + d["slug"], m_title=f"Cena: {d['short']}"), crumbs_html(cr))
+    body = hero(c["h1"], c["intro"], book(dest=d["slug"], mode="now" if d["kind"] == "city" else "later", title=f"Zamów: {d['short']}"), crumbs_html(cr))
     body += (f'<section><div class="wrap cols"><div><h2>Ceny z Twojej okolicy</h2>{zone_table(d["price"])}'
              f'<p class="small muted" style="margin-top:10px">Kurs w obie strony: zaznacz „Kurs powrotny” w kalkulatorze.</p></div>'
              f'<div><h2>Co zawiera kurs</h2>{pts}</div></div></section>')
@@ -345,7 +433,7 @@ for kk, k in KIND.items():
     items = by_kind(kk)
     cr = [("Strona główna", "/"), (k["hub_name"], f"/{k['hub']}/")]
     first = items[0]
-    body = hero(k["hub_name"] + " z Knurowa", hub_lead[kk], meter(m_to="d:" + first["slug"]), crumbs_html(cr))
+    body = hero(k["hub_name"] + " z Knurowa", hub_lead[kk], book(dest=first["slug"], mode="now" if kk == "city" else "later"), crumbs_html(cr))
     body += f'<section><div class="wrap"><div class="sec-head"><h2>{k["plural"]} i ceny</h2><p class="muted">Ceny od, z Knurowa.</p></div>{board([kk])}</div></section>'
     body += f'<section class="alt"><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div></section>'
     page(f"/{k['hub']}/", f"{k['hub_name']} z Knurowa – ceny od {min(x['price'] for x in items)} zł | {B['name']}",
@@ -361,7 +449,7 @@ for slug, name, loc, zone, price in VILLAGES:
                    for d in DESTINATIONS if d["kind"] in ("airport", "spa", "station"))
     body = hero(f"Taxi {name}: lotniska, sanatoria i kursy lokalne",
                 f"Odbieramy pasażerów {loc} o każdej porze. Kurs do Knurowa od {price} zł, a na lotnisko w Pyrzowicach od {DEST['lotnisko-pyrzowice']['price'] + sur} zł.",
-                meter(m_from="v:" + slug), crumbs_html(cr))
+                book(pickup_ph=f"Adres odbioru, {name}"), crumbs_html(cr))
     body += (f'<section><div class="wrap"><h2>Ceny z miejscowości {name}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Trasa</th><th>Cena od</th></tr></thead>'
              f'<tbody><tr><td>Knurów</td><td>{price} zł</td></tr>{rows}</tbody></table></div></div></section>')
     body += f'<section class="alt"><div class="wrap"><h2>Inne miejscowości w rejonie</h2>{village_links()}</div></section>'
@@ -388,11 +476,11 @@ page("/cennik/", f"Cennik taxi Knurów – lotniska, sanatoria, kliniki | {B['na
      body, [org(), crumbs_ld([("Strona główna", "/"), ("Cennik", "/cennik/")])])
 
 # ================= REZERWACJA =================
-body = hero("Rezerwacja kursu", "Wybierz trasę, termin i liczbę osób. Przycisk WhatsApp lub SMS tworzy gotową wiadomość ze wszystkimi szczegółami.", meter(m_title="Twój kurs"),
+body = hero("Zamów taxi", "Kurs teraz albo rezerwacja na wybrany dzień. Zgłoszenie trafia od razu do kierowcy, a status śledzisz na żywo na tej stronie.", book(),
             crumbs_html([("Strona główna", "/"), ("Rezerwacja", "/rezerwacja/")]))
 body += f'<section><div class="wrap"><h2>Jak to działa</h2>{STEPS}</div></section>'
-page("/rezerwacja/", f"Rezerwacja taxi Knurów – kalkulator ceny | {B['name']}",
-     "Zarezerwuj taxi z Knurowa i okolic w 30 sekund: kalkulator ceny, kurs powrotny, rezerwacja przez WhatsApp, SMS lub telefon.", body, [org()])
+page("/rezerwacja/", f"Zamów taxi Knurów online – teraz lub na później | {B['name']}",
+     "Zamów taxi z Knurowa i okolic online: Twoja lokalizacja, cena i czas przejazdu od razu, potwierdzenie kierowcy i status kursu na żywo.", body, [org()])
 
 # ================= DLA FIRM =================
 firm_faq = [("Czy wystawiacie faktury?", "Tak, za każdy kurs lub zbiorczo na koniec miesiąca."),
@@ -412,29 +500,31 @@ page("/dla-firm/", f"Taxi dla firm Knurów – faktura, przelew, transfery gośc
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs_html([("Strona główna","/"),("Kontakt","/kontakt/")])}'
         f'<h1>Kontakt</h1><p class="lead"><a href="tel:{B["phone_e164"]}" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;text-decoration:none">{B["phone"]}</a></p>'
         f'<p>{B["name"]}<br>{B["street"]}, {B["postal"]} {B["city"]}</p><p>Kursy przyjmujemy całodobowo: telefonicznie, przez WhatsApp lub SMS.</p>'
-        f'<p><a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Pokaż w Mapach Google</a></p></div>{meter()}</div></section>')
+        f'<p><a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Pokaż w Mapach Google</a></p></div>{book()}</div></section>')
 page("/kontakt/", f"Kontakt – {B['name']}, tel. {B['phone']}", f"Zamów taxi w Knurowie: tel. {B['phone']}, WhatsApp, SMS. {B['street']}, {B['city']}.", body, [org()])
 
 # ================= PRIVACY =================
 body = ('<section><div class="wrap"><h1>Polityka prywatności</h1>'
         f'<p>Administratorem danych jest {B["name"]}, {B["street"]}, {B["postal"]} {B["city"]}.</p>'
-        '<p>Strona nie zbiera danych, nie używa plików cookies ani narzędzi analitycznych i nie przechowuje formularzy. Kalkulator działa wyłącznie w Twojej przeglądarce. '
-        'Gdy klikasz „Rezerwuj przez WhatsApp” lub „Wyślij SMS”, Twoja aplikacja tworzy wiadomość, którą sam wysyłasz do przewoźnika.</p>'
-        '<p>Dane z rezerwacji (imię, telefon, adres, termin) przetwarzamy wyłącznie w celu wykonania kursu i rozliczenia go (art. 6 ust. 1 lit. b i c RODO), przez czas wymagany przepisami podatkowymi. '
-        'Przysługuje Ci prawo dostępu do danych, ich sprostowania, usunięcia, ograniczenia przetwarzania oraz skargi do Prezesa UODO.</p>'
-        '<p>Czcionki są hostowane na tym samym serwerze co strona – nie łączymy się z Google ani innymi zewnętrznymi serwisami.</p>'
+        '<h2>Zamówienia przez formularz</h2>'
+        '<p>Gdy zamawiasz kurs przez stronę, zapisujemy podane dane (adres odbioru i cel, termin, imię, telefon, liczba osób, uwagi) i wysyłamy je kierowcy '
+        'w komunikatorze Telegram, żeby mógł potwierdzić kurs. Dane przetwarzamy w celu wykonania przewozu (art. 6 ust. 1 lit. b RODO). '
+        'Zgłoszenia są przechowywane na serwerach Cloudflare i automatycznie usuwane po 30 dniach; dane potrzebne do rozliczenia przechowujemy przez czas wymagany przepisami podatkowymi (art. 6 ust. 1 lit. c RODO).</p>'
+        '<p>Twoja przeglądarka zapamiętuje numer Twojego ostatniego kursu, żeby można było wrócić do strony statusu. Nie używamy plików cookies, reklam ani narzędzi analitycznych.</p>'
+        '<h2>Mapa, adresy i lokalizacja</h2>'
+        '<p>Mapa, podpowiedzi adresów i wyliczanie trasy działają dzięki usłudze Google Maps (Google Ireland Ltd.). Gdy korzystasz z formularza, '
+        'Twoja przeglądarka łączy się z serwerami Google i przekazuje wpisywany adres. Zasady Google: <a href="https://policies.google.com/privacy" rel="noopener">policies.google.com/privacy</a>. '
+        'Twoją lokalizację GPS odczytujemy tylko po kliknięciu „Tu jestem” i tylko po Twojej zgodzie w przeglądarce.</p>'
+        '<p>Opinie wyświetlane na stronie pochodzą z wizytówki Google firmy.</p>'
+        '<h2>Twoje prawa</h2>'
+        '<p>Przysługuje Ci prawo dostępu do danych, ich sprostowania, usunięcia, ograniczenia przetwarzania oraz skargi do Prezesa UODO.</p>'
         f'<p>Kontakt w sprawie danych: tel. {B["phone"]}.</p></div></section>')
-page("/polityka-prywatnosci/", f"Polityka prywatności – {B['name']}", "Polityka prywatności strony: brak cookies i śledzenia, zasady przetwarzania danych z rezerwacji.", body)
+page("/polityka-prywatnosci/", f"Polityka prywatności – {B['name']}", "Polityka prywatności strony: zamówienia online, Google Maps, brak cookies i śledzenia.", body)
 
 # ================= ENGLISH =================
 air = by_kind("airport")
 rows = "".join(f'<tr><td>{d["name"].replace("Lotnisko ", "").replace("Warszawa", "Warsaw")} ({d["code"]})</td><td>from {d["price"]} PLN</td></tr>' for d in air)
-en_meter = (meter(m_title="Price and booking").replace(">Skąd<", ">From<").replace(">Dokąd<", ">To<").replace(">Data<", ">Date<")
-            .replace(">Godzina odbioru<", ">Pickup time<").replace(">Liczba osób<", ">Passengers<").replace(">Bagaż<", ">Luggage<")
-            .replace("Kurs powrotny", "Return trip").replace("Całodobowo · 7 dni w tygodniu", "Open 24/7, every day").replace("Cena od", "From").replace("Wyślij rezerwację:", "Send booking:")
-            .replace("Wyślij SMS", "Send SMS").replace("Zadzwoń:", "Call:").replace("Zamień kierunek", "Swap").replace("Dodaj szczegóły (adres, lot, uwagi)", "Add details (address, flight, notes)")
-            .replace(">Adres odbioru<", ">Pickup address<").replace(">Numer lotu / pociągu<", ">Flight / train number<").replace(">Imię<", ">Name<")
-            .replace(">Telefon<", ">Phone<").replace(">Uwagi<", ">Notes<").replace(">Data i godzina powrotu<", ">Return date and time<"))
+en_meter = book(lang="en", title="Book your ride")
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div><h1>Airport taxi from Knurów and Gierałtowice</h1>'
         f'<p class="lead">Fixed prices to Katowice, Kraków, Wrocław, Ostrava and Warsaw airports. Door-to-door pickup 24/7, cars for up to {B["seats"]} people.</p>'
         f'<p>Call or WhatsApp: <a href="tel:{B["phone_e164"]}"><strong>{B["phone"]}</strong></a></p></div>{en_meter}</div></section>'
@@ -445,28 +535,49 @@ page("/en/", f"Airport taxi Knurów – Katowice from {air[0]['price']} PLN | {B
      body, [org()], lang="en")
 
 # ================= 404 =================
-body = ('<section><div class="wrap"><h1>Nie ma takiej strony</h1><p>Adres mógł się zmienić. Sprawdź cenę kursu w kalkulatorze albo zadzwoń.</p>'
-        f'<p><a class="btn btn-ink" href="/rezerwacja/">Sprawdź cenę</a> <a class="btn btn-line" href="tel:{B["phone_e164"]}">Zadzwoń: {B["phone"]}</a></p></div></section>')
+body = ('<section><div class="wrap"><h1>Nie ma takiej strony</h1><p>Adres mógł się zmienić. Zamów kurs online albo zadzwoń.</p>'
+        f'<p><a class="btn btn-ink" href="/rezerwacja/">Zamów taxi</a> <a class="btn btn-line" href="tel:{B["phone_e164"]}">Zadzwoń: {B["phone"]}</a></p></div></section>')
 page("/404.html", f"Nie znaleziono strony | {B['name']}", "Strona nie istnieje.", body)
 
+# ================= STATUS KURSU =================
+body = ('<section class="hero track-hero" style="padding:0"><div class="wrap track" id="track">'
+        '<div class="track-card" aria-live="polite">'
+        '<div class="track-visual" id="t-visual" data-state="loading" aria-hidden="true">'
+        '<span class="radar"></span><span class="radar r2"></span>'
+        '<img src="/assets/img/logo-emblem.webp" alt="" width="240" height="188"></div>'
+        '<p class="track-kicker" id="t-kicker">Twój kurs</p>'
+        '<h1 id="t-title">Ładuję status…</h1>'
+        '<p class="lead" id="t-sub"></p>'
+        '<div class="eta" id="t-eta" hidden><b id="t-eta-min">–</b><span><small id="t-eta-lbl">min</small><small id="t-eta-at"></small></span></div>'
+        '<div class="progress" id="t-progress" hidden><span></span></div>'
+        '<ol class="tl" id="t-steps"></ol>'
+        f'<div class="track-actions"><a class="btn btn-call" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zadzwoń do kierowcy</a>'
+        '<button type="button" class="btn btn-line" id="t-cancel" hidden>Anuluj kurs</button>'
+        '<a class="btn btn-line" id="t-new" href="/rezerwacja/" hidden>Zamów nowy kurs</a></div>'
+        '</div>'
+        '<div class="track-side"><div class="map map-lg" id="t-map" hidden></div><dl class="t-details" id="t-details"></dl></div>'
+        '</div></section>')
+page("/przejazd/", f"Status kursu | {B['name']}", "Status Twojego kursu na żywo.", body, noindex=True)
+
 # ================= static files =================
+write_server_config()
 shutil.copytree(os.path.join(HERE, "assets"), os.path.join(OUT, "assets"), dirs_exist_ok=True)
-urls = [p for p in pages if not p.endswith(".html")]
+urls = [p for p in pages if not p.endswith(".html") and p not in NOINDEX]
 sm = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "".join(
     f"  <url><loc>{SITE_URL}{u}</loc><lastmod>{TODAY}</lastmod></url>\n" for u in urls) + "</urlset>\n"
 open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8").write(sm)
 open(os.path.join(OUT, "robots.txt"), "w", encoding="utf-8").write(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n")
 open(os.path.join(OUT, "manifest.webmanifest"), "w", encoding="utf-8").write(json.dumps({
     "name": B["name"], "short_name": B["short"], "start_url": "/rezerwacja/", "display": "standalone",
-    "background_color": "#FFC72C", "theme_color": "#FFC72C", "lang": "pl",
+    "background_color": "#0A1430", "theme_color": "#0A1430", "lang": "pl",
     "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
               {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
     "shortcuts": [{"name": "Zadzwoń", "url": "tel:" + B["phone_e164"]}, {"name": "Lotniska", "url": "/lotniska/"}]}, ensure_ascii=False, indent=1))
 open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
-    "const C='taxi-v2';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/icon.svg','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
+    "const C='taxi-v3';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
     "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));\n"
     "self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));\n"
-    "self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==location.origin)return;\n"
+    "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;\n"
     " e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp));return r;}).catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});\n")
 # Netlify / Cloudflare Pages: 404 + stare adresy z taxifest.pl (uzupełnij, jeśli domena będzie przekierowana)
 open(os.path.join(OUT, "_redirects"), "w", encoding="utf-8").write("/cennik-transfery-na-lotniska  /lotniska/  301\n/kontakt.html  /kontakt/  301\n")

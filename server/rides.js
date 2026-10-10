@@ -1,0 +1,165 @@
+// Rides: storage in Cloudflare D1 (binding "DB") and the driver's Telegram messages.
+//
+// Status flow
+//   now:   pending -> enroute (driver picked ETA) -> arrived -> done
+//   later: pending -> scheduled (driver confirmed) -> enroute -> arrived -> done
+//   any open ride can end as declined (driver), cancelled (customer) or expired (no answer).
+import { CONFIG } from "./config.js";
+import { esc, whenLabel, clockWarsaw } from "./util.js";
+
+export const OPEN = ["pending", "scheduled", "enroute", "arrived"];
+const EXPIRE_NOW_MIN = 15;   // unanswered "now" request closes after this
+const KEEP_DAYS = 30;        // ride data is deleted after this (privacy policy says so)
+
+let schemaReady = false;
+export async function db(env) {
+  if (!env.DB) throw new Error("D1 binding DB is missing");
+  if (!schemaReady) {
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS rides (
+        id TEXT PRIMARY KEY, token TEXT NOT NULL, status TEXT NOT NULL, mode TEXT NOT NULL,
+        created INTEGER NOT NULL, updated INTEGER NOT NULL, eta_at INTEGER, tg_msg INTEGER,
+        ip TEXT, data TEXT NOT NULL)`
+    ).run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS rides_ip ON rides (ip, created)").run();
+    schemaReady = true;
+  }
+  return env.DB;
+}
+
+export async function load(env, id) {
+  const row = await (await db(env)).prepare("SELECT * FROM rides WHERE id = ?").bind(id).first();
+  if (!row) return null;
+  return { ...row, data: JSON.parse(row.data) };
+}
+
+export async function save(env, r) {
+  r.updated = Date.now();
+  await (await db(env)).prepare(
+    `INSERT INTO rides (id, token, status, mode, created, updated, eta_at, tg_msg, ip, data)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+     ON CONFLICT(id) DO UPDATE SET status = ?3, updated = ?6, eta_at = ?7, tg_msg = ?8, data = ?10`
+  ).bind(r.id, r.token, r.status, r.mode, r.created, r.updated, r.eta_at ?? null, r.tg_msg ?? null, r.ip ?? null, JSON.stringify(r.data)).run();
+}
+
+export async function recentByIp(env, ip, sinceMs) {
+  const row = await (await db(env)).prepare("SELECT COUNT(*) AS n FROM rides WHERE ip = ? AND created > ?").bind(ip, sinceMs).first();
+  return row ? row.n : 0;
+}
+
+export async function purgeOld(env) {
+  await (await db(env)).prepare("DELETE FROM rides WHERE created < ?").bind(Date.now() - KEEP_DAYS * 864e5).run();
+}
+
+// A "now" request nobody answered: close it so the driver can't confirm a ride the customer gave up on.
+export async function expireIfStale(env, r) {
+  if (r.status === "pending" && r.mode === "now" && Date.now() - r.created > EXPIRE_NOW_MIN * 60000) {
+    r.status = "expired";
+    await save(env, r);
+    await syncDriverMessage(env, r);
+  }
+  return r;
+}
+
+// What the customer's status page may see (no name / phone).
+export function publicView(r) {
+  const d = r.data;
+  return {
+    id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated, etaAt: r.eta_at || null, now: Date.now(),
+    when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
+    approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
+    waitMin: CONFIG.waitMin, tel: CONFIG.phone,
+  };
+}
+
+/* ---------------- Telegram ---------------- */
+
+export async function tg(env, method, body) {
+  if (!env.TELEGRAM_BOT_TOKEN) return null;
+  // TELEGRAM_API_BASE only for local tests with a fake Telegram server
+  const r = await fetch(`${env.TELEGRAM_API_BASE || "https://api.telegram.org"}/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) console.log("telegram", method, JSON.stringify(j));
+  return j;
+}
+
+const btn = (text, data) => ({ text, callback_data: data });
+
+export function keyboard(r) {
+  const id = r.id;
+  switch (r.status) {
+    case "pending":
+      return r.mode === "now"
+        ? [[btn("✅ 5 min", `e|${id}|5`), btn("✅ 10 min", `e|${id}|10`), btn("✅ 15 min", `e|${id}|15`)],
+           [btn("✅ 20 min", `e|${id}|20`), btn("✅ 30 min", `e|${id}|30`)],
+           [btn("❌ Odrzuć", `x|${id}`)]]
+        : [[btn("✅ Potwierdź rezerwację", `s|${id}`)], [btn("❌ Odrzuć", `x|${id}`)]];
+    case "scheduled":
+      return [[btn("🚕 Wyjeżdżam – 10 min", `e|${id}|10`), btn("20 min", `e|${id}|20`), btn("30 min", `e|${id}|30`)],
+              [btn("❌ Anuluj kurs", `x|${id}`)]];
+    case "enroute":
+      return [[btn("📍 Jestem na miejscu", `a|${id}`)], [btn("⏱ +5 min", `p|${id}|5`), btn("❌ Anuluj", `x|${id}`)]];
+    case "arrived":
+      return [[btn("🏁 Kurs zakończony", `d|${id}`)]];
+    default:
+      return [];
+  }
+}
+
+const STATUS_PL = {
+  pending: "⏳ czeka na Twoją decyzję",
+  scheduled: "📅 rezerwacja potwierdzona",
+  enroute: "🚕 jedziesz do klienta",
+  arrived: "📍 czekasz na klienta",
+  done: "🏁 zakończony",
+  declined: "❌ odrzucony",
+  cancelled: "🚫 klient anulował",
+  expired: "⌛ wygasł (brak odpowiedzi)",
+};
+
+const mapLink = (p) => (p.lat != null ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`);
+
+export function driverText(r) {
+  const d = r.data;
+  const km = d.distanceM ? `${(d.distanceM / 1000).toFixed(1).replace(".", ",")} km` : null;
+  const min = d.durationS ? `~${Math.round(d.durationS / 60)} min` : null;
+  const price = d.price ? `${d.price} zł${d.priceKind === "fixed" ? " (cena z cennika)" : " (szacunek)"}` : "do ustalenia";
+  const L = [];
+  L.push(r.mode === "now" ? "🚖 <b>KURS TERAZ</b>" : `📅 <b>REZERWACJA: ${esc(whenLabel(d.when))}</b>`);
+  L.push("");
+  L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>`);
+  L.push(`🏁 <b>Dokąd:</b> <a href="${mapLink(d.dest)}">${esc(d.dest.address)}</a>`);
+  L.push("");
+  L.push(`👤 ${esc(d.name || "—")}   ☎️ ${esc(d.phone)}`);
+  const extra = [`👥 ${d.pax} os.`];
+  if (d.luggage) extra.push(`🧳 ${esc(d.luggage)}`);
+  if (d.flight) extra.push(`✈️ ${esc(d.flight)}`);
+  L.push(extra.join("   "));
+  L.push(`📏 ${[km, min].filter(Boolean).join(" · ") || "trasa nieznana"}   💰 ${price}`);
+  if (r.mode === "now" && d.approachS) L.push(`🚗 Dojazd z bazy: ok. ${Math.max(1, Math.round(d.approachS / 60))} min`);
+  if (d.returnTrip) L.push(`🔁 Powrót: ${esc(d.returnTrip)}`);
+  if (d.notes) L.push(`📝 ${esc(d.notes)}`);
+  L.push("");
+  let st = `<b>Status:</b> ${STATUS_PL[r.status] || r.status}`;
+  if (r.status === "enroute" && r.eta_at) st += ` – u klienta ok. ${clockWarsaw(r.eta_at)}`;
+  L.push(st);
+  return L.join("\n");
+}
+
+export async function notifyDriver(env, r) {
+  const j = await tg(env, "sendMessage", {
+    chat_id: env.TELEGRAM_CHAT_ID, text: driverText(r), parse_mode: "HTML",
+    disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard(r) },
+  });
+  return j && j.ok ? j.result.message_id : null;
+}
+
+export async function syncDriverMessage(env, r) {
+  if (!r.tg_msg) return;
+  await tg(env, "editMessageText", {
+    chat_id: env.TELEGRAM_CHAT_ID, message_id: r.tg_msg, text: driverText(r), parse_mode: "HTML",
+    disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard(r) },
+  });
+}
