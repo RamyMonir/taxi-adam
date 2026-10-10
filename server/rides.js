@@ -6,9 +6,12 @@
 //   any open ride can end as declined (driver), cancelled (customer) or expired (no answer).
 import { CONFIG } from "./config.js";
 import { esc, whenLabel, clockWarsaw, kmBetween, hasXY } from "./util.js";
+import { route } from "./google.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
-const CAR_FRESH_MS = 3 * 60000;
+const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
+const ETA_EVERY_MS = 60000;         // Google route refresh at most once a minute per ride
+export const SET_OFF_MS = 120000;   // time to set off after accepting, until the car actually moves
 const EXPIRE_NOW_MIN = 15;   // unanswered "now" request closes after this
 const KEEP_DAYS = 30;        // ride data is deleted after this (privacy policy says so)
 
@@ -26,6 +29,8 @@ export async function db(env) {
     await env.DB.prepare("CREATE INDEX IF NOT EXISTS rides_status ON rides (status, updated)").run();
     // the driver's last live location from Telegram (one row)
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS driver (id INTEGER PRIMARY KEY, lat REAL, lng REAL, ts INTEGER, hint_ts INTEGER)").run();
+    // end of the driver's Telegram live-location window (added later: add the column to older databases)
+    try { await env.DB.prepare("ALTER TABLE driver ADD COLUMN until INTEGER").run(); } catch (e) { /* already there */ }
     schemaReady = true;
   }
   return env.DB;
@@ -44,6 +49,19 @@ export async function save(env, r) {
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
      ON CONFLICT(id) DO UPDATE SET status = ?3, updated = ?6, eta_at = ?7, tg_msg = ?8, data = ?10`
   ).bind(r.id, r.token, r.status, r.mode, r.created, r.updated, r.eta_at ?? null, r.tg_msg ?? null, r.ip ?? null, JSON.stringify(r.data)).run();
+}
+
+// Background updates (route refresh, live location) only write if nobody changed the ride since it was read.
+// Without this, a slow Google call could put a ride back to "enroute" after the driver tapped "arrived"
+// or the customer cancelled.
+export async function saveIfUnchanged(env, r, prevUpdated) {
+  const now = Math.max(Date.now(), prevUpdated + 1);
+  const res = await (await db(env)).prepare(
+    "UPDATE rides SET status = ?1, eta_at = ?2, data = ?3, updated = ?4 WHERE id = ?5 AND updated = ?6"
+  ).bind(r.status, r.eta_at ?? null, JSON.stringify(r.data), now, r.id, prevUpdated).run();
+  const ok = !!(res && res.meta && res.meta.changes);
+  if (ok) r.updated = now;
+  return ok;
 }
 
 export async function recentByIp(env, ip, sinceMs) {
@@ -67,13 +85,39 @@ export async function expireIfStale(env, r) {
 
 /* ---------------- driver's live location ---------------- */
 export async function driverPos(env) {
-  const row = await (await db(env)).prepare("SELECT lat, lng, ts, hint_ts FROM driver WHERE id = 1").first();
+  const row = await (await db(env)).prepare("SELECT lat, lng, ts, hint_ts, until FROM driver WHERE id = 1").first();
   return row || null;
 }
-export async function saveDriverPos(env, lat, lng) {
+// Telegram only sends a new point when the phone moves, so a driver standing still sends nothing.
+// While the live-location window ("share for 8 h") is open, the last point is still where he is.
+export function isLive(pos) {
+  if (!pos || pos.lat == null || !pos.ts) return false;
+  if (pos.until) return Date.now() < pos.until;
+  return Date.now() - pos.ts < POS_FRESH_MS;
+}
+export async function saveDriverPos(env, lat, lng, until) {
   await (await db(env)).prepare(
-    "INSERT INTO driver (id, lat, lng, ts) VALUES (1, ?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET lat = ?1, lng = ?2, ts = ?3"
-  ).bind(lat, lng, Date.now()).run();
+    "INSERT INTO driver (id, lat, lng, ts, until) VALUES (1, ?1, ?2, ?3, ?4) ON CONFLICT(id) DO UPDATE SET lat = ?1, lng = ?2, ts = ?3, until = ?4"
+  ).bind(lat, lng, Date.now(), until ?? null).run();
+}
+
+// Precise arrival: Google route (with traffic) from where the driver really is to the pickup / destination.
+// Called on each driver location update and when the customer's page asks for the status.
+export async function refreshEta(env, r, pos, force = false) {
+  const d = r.data, target = r.status === "ontrip" ? d.dest : d.pickup;
+  if (!isLive(pos) || !hasXY(target) || !env.GOOGLE_SERVER_KEY) return false;
+  if (!force && d.liveAt && Date.now() - d.liveAt < ETA_EVERY_MS && d.liveFrom === `${pos.lat},${pos.lng}`) return false;
+  if (!force && d.liveAt && Date.now() - d.liveAt < ETA_EVERY_MS / 2) return false;
+  const prev = r.updated, here = `${pos.lat},${pos.lng}`;
+  const x = await route(env, { lat: pos.lat, lng: pos.lng }, target, true).catch((e) => { console.log("eta route", e); return null; });
+  if (!x || x.approx) return false;
+  const setOff = r.status === "enroute" && d.acceptFrom === here ? SET_OFF_MS : 0;
+  d.liveAt = Date.now(); d.liveFrom = here;
+  d.liveKm = Math.round(x.distanceM / 100) / 10; d.liveEtaAt = Date.now() + x.durationS * 1000 + setOff; d.etaSource = "google";
+  if (r.status === "enroute") r.eta_at = d.liveEtaAt;
+  const ok = await saveIfUnchanged(env, r, prev);
+  if (!ok) r.stale = true;   // someone else changed the ride meanwhile: the caller should reload it
+  return ok;
 }
 export async function markHint(env) {
   await (await db(env)).prepare("INSERT INTO driver (id, hint_ts) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET hint_ts = ?1").bind(Date.now()).run();
@@ -87,15 +131,18 @@ export async function activeRides(env) {
 // What the customer's status page may see (no name / phone).
 export function publicView(r, car) {
   const d = r.data;
-  const live = car && car.ts && Date.now() - car.ts < CAR_FRESH_MS && (r.status === "enroute" || r.status === "ontrip");
+  const live = isLive(car) && (r.status === "enroute" || r.status === "ontrip");
   const target = r.status === "ontrip" ? d.dest : d.pickup;
   return {
     car: live ? { lat: car.lat, lng: car.lng, ts: car.ts, km: hasXY(target) ? Math.round(kmBetween(car, target) * 10) / 10 : null,
-                  startKm: r.status === "ontrip" ? (d.distanceM ? d.distanceM / 1000 : null) : (d.carStartKm || null) } : null,
+                  startKm: r.status === "ontrip"
+                    ? (hasXY(d.pickup) && hasXY(d.dest) ? Math.round(kmBetween(d.pickup, d.dest) * 10) / 10 : null)
+                    : (d.carStartKm || null) } : null,
     startedAt: d.startedAt || null, enrouteAt: d.enrouteAt || null,
     destEtaAt: r.status === "ontrip" && d.liveEtaAt ? d.liveEtaAt : null, etaSource: d.etaSource || null,
-    roadKm: d.liveKm != null && d.liveAt && Date.now() - d.liveAt < CAR_FRESH_MS ? d.liveKm : null,
-    id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated, etaAt: r.eta_at || null, now: Date.now(),
+    roadKm: live && d.liveKm != null && d.liveAt && Date.now() - d.liveAt < 3 * ETA_EVERY_MS ? d.liveKm : null,
+    id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated,
+    etaAt: r.status === "ontrip" ? null : r.eta_at || null, now: Date.now(),
     when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
     approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
     flightInfo: d.flightInfo || null, flight: d.flight || null,
@@ -121,7 +168,9 @@ export const navUrl = (p) => (p && p.lat != null
   ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving&dir_action=navigate`
   : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((p && p.address) || "")}`);
 // Google's drive time to the pickup + 2 min to get going
-export const suggestMin = (d) => (d.approachS ? Math.max(3, Math.ceil(d.approachS / 60) + 2) : null);
+export const suggestMin = (d) => (d.approachS ? Math.max(3, Math.ceil(d.approachS / 60) + (d.approachApprox ? 0 : 2)) : null);
+// driving time only (the straight-line fallback includes 2 min to set off)
+const driveMin = (d) => Math.max(1, Math.round((d.approachS - (d.approachApprox ? 120 : 0)) / 60));
 
 export function keyboard(r) {
   const id = r.id, sm = suggestMin(r.data);
@@ -177,11 +226,11 @@ export function driverText(r) {
   L.push(extra.join("   "));
   if (d.flightInfo) L.push(`✈️ ${esc(d.flightInfo)}`);
   L.push(`📏 ${[km, min].filter(Boolean).join(" · ") || "trasa nieznana"}   💰 ${price}`);
-  if (r.mode === "now" && d.approachS) {
+  if (r.mode === "now" && d.approachS && r.status === "pending") {
     const km = d.approachM ? `${(d.approachM / 1000).toFixed(1).replace(".", ",")} km, ` : "";
     L.push(d.approachFrom === "live"
-      ? `🚗 Od Ciebie do klienta: ${km}~${Math.max(1, Math.round(d.approachS / 60))} min ${d.approachApprox ? "(szacunek)" : "(Google, z korkami)"}`
-      : `🚗 Dojazd z bazy: ${km}~${Math.max(1, Math.round(d.approachS / 60))} min · udostępnij lokalizację na żywo, żeby liczyć od Ciebie`);
+      ? `🚗 Od Ciebie do klienta: ${km}~${driveMin(d)} min ${d.approachApprox ? "(szacunek)" : "(Google, z korkami)"}`
+      : `⚠️ Nie widzę Twojej lokalizacji na żywo – liczę od bazy: ${km}~${driveMin(d)} min.\nUdostępnij lokalizację na żywo, a czas policzę od Ciebie.`);
   }
   if (d.liveEtaAt && (r.status === "enroute" || r.status === "ontrip")) {
     L.push(`📡 Google: ${d.liveKm != null ? String(d.liveKm).replace(".", ",") + " km, " : ""}na miejscu ok. ${clockWarsaw(d.liveEtaAt)}`);

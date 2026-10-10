@@ -8,7 +8,8 @@ export async function route(env, from, to, traffic = false) {
   if (!hasXY(from) || !hasXY(to)) return null;
   if (env.GOOGLE_SERVER_KEY) {
     try {
-      const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      // ROUTES_API_BASE only for local tests with a fake Routes server
+      const r = await fetch(`${env.ROUTES_API_BASE || "https://routes.googleapis.com"}/directions/v2:computeRoutes`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

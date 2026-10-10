@@ -1,7 +1,7 @@
 // GET /api/admin/setup?key=ADMIN_KEY – one-time setup check: connects the Telegram webhook
 // to this site and reports which settings are still missing.
 import { json, canonicalOrigin } from "../../../server/util.js";
-import { db, tg } from "../../../server/rides.js";
+import { db, tg, driverPos, isLive } from "../../../server/rides.js";
 import { reviews, autocomplete, reverseGeocode } from "../../../server/google.js";
 import { lookupFlight } from "../../../server/flights.js";
 import { CONFIG } from "../../../server/config.js";
@@ -27,7 +27,7 @@ export async function onRequestGet({ request, env }) {
       allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: true,
     });
     report.webhook = hook && hook.ok ? `${site}/api/telegram` : hook;
-    report.code_version = "2026-10-10 auto-eta";
+    report.code_version = "2026-10-10 live-window";
     const me = await tg(env, "getMe", {});
     report.bot = me && me.ok ? "@" + me.result.username : null;
     if (env.TELEGRAM_CHAT_ID) {
@@ -41,6 +41,12 @@ export async function onRequestGet({ request, env }) {
   await check("google_autocomplete", async () => { const s = await autocomplete(env, "Dworcowa Knurów", "setupcheck123", CONFIG.base); return s.length ? "OK – " + s[0].main : "no results"; });
   await check("google_reverse_geocode", async () => { const r = await reverseGeocode(env, CONFIG.base.lat, CONFIG.base.lng); return r ? r.address + (r.near ? " (nearest place)" : "") : "no address"; });
   report.geocoding_api = reverseGeocode.lastStatus ? reverseGeocode.lastStatus + " – add Geocoding API to the server key for exact street addresses" : "OK";
+  try {
+    const pos = await driverPos(env);
+    report.driver_location = !pos || pos.lat == null ? "brak – udostępnij lokalizację na żywo w czacie z botem"
+      : `${isLive(pos) ? "NA ŻYWO" : "NIEAKTUALNA"}: ostatni punkt ${Math.round((Date.now() - pos.ts) / 60000)} min temu` +
+        (pos.until ? `, udostępnianie do ${new Date(pos.until).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw" })}` : " (bez okna na żywo)");
+  } catch (e) { report.driver_location = "ERROR " + e.message; }
   report.AERODATABOX_KEY = !!env.AERODATABOX_KEY;
   if (env.AERODATABOX_KEY) await check("flight_lookup", async () => { const f = await lookupFlight(env, "FR3014", new Date().toISOString().slice(0, 10)); return f.error ? "ERROR " + f.error : f.found ? "OK" : "OK (test flight not found today)"; });
   report.ready = report.DB && report.TELEGRAM_BOT_TOKEN && report.TELEGRAM_CHAT_ID && report.TELEGRAM_WEBHOOK_SECRET && report.test_message === true;

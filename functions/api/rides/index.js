@@ -4,7 +4,7 @@ import { route, reverseGeocode, findPlace } from "../../../server/google.js";
 import { lookupFlight, flightLine, normFlight, validFlight } from "../../../server/flights.js";
 import { price } from "../../../server/pricing.js";
 import { CONFIG } from "../../../server/config.js";
-import { save, recentByIp, purgeOld, notifyDriver, publicView, driverPos } from "../../../server/rides.js";
+import { save, recentByIp, purgeOld, notifyDriver, publicView, driverPos, isLive } from "../../../server/rides.js";
 
 const MAX_PER_HOUR = 8;   // override with the Cloudflare variable MAX_BOOKINGS_PER_HOUR (e.g. 100 while testing)
 const GPS_LABEL = /^(moja lokalizacja|my location|-?\d+\.\d+,\s*-?\d+\.\d+)$/i;
@@ -62,7 +62,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   // price and distances are always computed here, never taken from the browser.
   // "now": drive time to the pickup from the driver's live position (Telegram), else from the base.
   const car = mode === "now" ? await driverPos(env).catch(() => null) : null;
-  const carLive = car && car.ts && Date.now() - car.ts < 5 * 60000;
+  const carLive = isLive(car);
   const [trip, approach] = await Promise.all([
     hasXY(pickup) && hasXY(dest) ? route(env, pickup, dest) : null,
     mode === "now" && hasXY(pickup) ? route(env, carLive ? { lat: car.lat, lng: car.lng } : CONFIG.base, pickup, true) : null,
