@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Generator strony: python3 build.py  ->  ../dist/"""
-import json, os, shutil, datetime
+import json, os, shutil, datetime, hashlib
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
                   GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN)
@@ -137,7 +137,7 @@ BASE = r"""<!doctype html>
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Taxi Knurów"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/assets/style.css?v={{ av }}">
 <script>(function(h){var m=h.match(/^[0-9a-f]{8}\.([^.]+\.pages\.dev)$/);if(m)location.replace("https://"+m[1]+location.pathname+location.search+location.hash);})(location.hostname);
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;});</script>
 {% for s in schema %}<script type="application/ld+json">{{ s }}</script>
@@ -195,7 +195,7 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
 </div>
 <dialog class="lightbox" id="lightbox"><button type="button" class="lb-x" aria-label="Zamknij">×</button><img alt=""><p></p></dialog>
 <script>window.TAXI={{ config|safe }};</script>
-<script src="/assets/app.js" defer></script>
+<script src="/assets/app.js?v={{ av }}" defer></script>
 </body></html>"""
 
 BOOK = r"""<form class="book" id="booking" data-mode="{{ mode }}"{% if dest %} data-dest='{{ dest }}'{% endif %} novalidate>
@@ -287,6 +287,9 @@ T_BOOK = {
 }
 
 env = Environment(loader=DictLoader({"base": BASE, "book": BOOK}), autoescape=False)
+# version stamp for style.css / app.js: a new deploy always loads the new files (no stale copies in phones / the installed app)
+_here = os.path.dirname(os.path.abspath(__file__))
+env.globals["av"] = hashlib.sha1(b"".join(open(os.path.join(_here, "assets", f), "rb").read() for f in ("style.css", "app.js"))).hexdigest()[:10]
 NAV = [("/lotniska/", "Lotniska"), ("/sanatoria/", "Sanatoria"), ("/kliniki/", "Kliniki"), ("/dworce/", "Dworce"),
        ("/cennik/", "Cennik"), ("/dla-firm/", "Dla firm"), ("/kontakt/", "Kontakt")]
 def book(dest=None, mode="now", title=None, pickup_ph=None, lang="pl"):
@@ -633,7 +636,7 @@ open(os.path.join(OUT, "manifest.webmanifest"), "w", encoding="utf-8").write(jso
               {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
     "shortcuts": [{"name": "Zadzwoń", "url": "tel:" + B["phone_e164"]}, {"name": "Lotniska", "url": "/lotniska/"}]}, ensure_ascii=False, indent=1))
 open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
-    "const C='taxi-v5';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
+    "const C='taxi-v6';const CORE=['/','/rezerwacja/','/cennik/','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
     "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));\n"
     "self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));\n"
     "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;\n"
