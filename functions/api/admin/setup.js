@@ -1,6 +1,6 @@
 // GET /api/admin/setup?key=ADMIN_KEY – one-time setup check: connects the Telegram webhook
 // to this site and reports which settings are still missing.
-import { json } from "../../../server/util.js";
+import { json, canonicalOrigin } from "../../../server/util.js";
 import { db, tg } from "../../../server/rides.js";
 import { reviews, autocomplete, reverseGeocode } from "../../../server/google.js";
 import { lookupFlight } from "../../../server/flights.js";
@@ -18,11 +18,16 @@ export async function onRequestGet({ request, env }) {
   try { await db(env); report.DB = true; } catch (e) { report.DB_error = String(e.message || e); }
 
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_WEBHOOK_SECRET) {
+    const site = canonicalOrigin(request, env);
+    const before = await tg(env, "getWebhookInfo", {});
+    report.webhook_before = before && before.ok ? before.result.url || "(none)" : null;
+    if (before && before.ok && before.result.last_error_message) report.webhook_last_error = before.result.last_error_message;
     const hook = await tg(env, "setWebhook", {
-      url: `${url.origin}/api/telegram`, secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+      url: `${site}/api/telegram`, secret_token: env.TELEGRAM_WEBHOOK_SECRET,
       allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: true,
     });
-    report.webhook = hook && hook.ok ? `${url.origin}/api/telegram` : hook;
+    report.webhook = hook && hook.ok ? `${site}/api/telegram` : hook;
+    report.code_version = "2026-10-10 auto-eta";
     const me = await tg(env, "getMe", {});
     report.bot = me && me.ok ? "@" + me.result.username : null;
     if (env.TELEGRAM_CHAT_ID) {

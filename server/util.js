@@ -9,6 +9,15 @@ export function json(data, status = 200, headers = {}) {
 
 export const bad = (msg, status = 400) => json({ error: msg }, status);
 
+// The site's real address. Cloudflare also serves every old build at "<hash>.<project>.pages.dev";
+// those copies never update, so the bot must never be connected to one of them.
+export function canonicalOrigin(request, env) {
+  if (env.PUBLIC_URL) return env.PUBLIC_URL.replace(/\/+$/, "");
+  const u = new URL(request.url);
+  const m = u.hostname.match(/^[^.]+\.([^.]+\.pages\.dev)$/);
+  return m ? `https://${m[1]}` : u.origin;
+}
+
 export function randomId(len = 12) {
   const abc = "abcdefghijkmnpqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(len));

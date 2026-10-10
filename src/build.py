@@ -138,7 +138,8 @@ BASE = r"""<!doctype html>
 <link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
-<script>window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;});</script>
+<script>(function(h){var m=h.match(/^[0-9a-f]{8}\.([^.]+\.pages\.dev)$/);if(m)location.replace("https://"+m[1]+location.pathname+location.search+location.hash);})(location.hostname);
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;});</script>
 {% for s in schema %}<script type="application/ld+json">{{ s }}</script>
 {% endfor %}</head>
 <body>
