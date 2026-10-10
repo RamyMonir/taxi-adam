@@ -26,17 +26,19 @@
         enroute: ["Kierowca jedzie do Ciebie", "Będzie ok. {clock}. Przygotuj się do wyjścia."],
         arrived: ["Kierowca czeka na Ciebie", "Auto stoi pod adresem odbioru."],
         done: ["Dziękujemy za wspólną trasę!", "Jeśli było dobrze, zostaw opinię w Google – bardzo nam to pomaga."],
-        declined: ["Kierowca nie może przyjąć tego kursu", "Przepraszamy. Zadzwoń – poszukamy innego rozwiązania."],
+        declined: ["Kierowca jest teraz zajęty", "Adam wiezie innego pasażera i nie zdąży do Ciebie na czas. Przepraszamy! Zarezerwuj kurs na późniejszą godzinę albo zadzwoń – podpowiemy najbliższy wolny termin."],
         cancelled: ["Kurs anulowany", "Kierowca dostał informację o anulowaniu."],
-        expired: ["Kierowca nie zdążył odpowiedzieć", "Zadzwoń, a ustalimy kurs od ręki."],
+        expired: ["Kierowca jest teraz w trasie", "Nie zdążył odpowiedzieć na zgłoszenie. Zadzwoń – ustalimy kurs od ręki – albo zarezerwuj na później."],
         notfound: ["Nie znaleziono kursu", "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń."],
       },
       steps: { sent: "Zgłoszenie wysłane", confirmed: "Kierowca potwierdził", scheduled: "Rezerwacja potwierdzona", enroute: "Kierowca w drodze", arrived: "Kierowca na miejscu", done: "Kurs zakończony" },
-      flLooking: "Sprawdzam lot…", flNone: "Nie znaleźliśmy lotu {no} w dniu {date}. Sprawdź numer i datę.", flDep: "Wylot", flArr: "Przylot",
-      flSugDep: "Proponowany odbiór: {t} (2 h przed wylotem + czas dojazdu).", flSugArr: "Kierowca będzie czekał od {t} (20 min po lądowaniu).", flUse: "Ustaw tę godzinę",
+      flLooking: "Szukam lotu…", flNone: "Nie znaleźliśmy lotu {no} w dniu {date}. Sprawdź numer i datę.", flNoneWeek: "Nie znaleźliśmy lotu {no} w najbliższych 7 dniach. Sprawdź numer.",
+      flDep: "Wylot", flArr: "Przylot", flOther: "Inne dni:", flSet: "ustawiliśmy datę i godzinę odbioru",
+      flSugDep: "Odbiór: {d}, {t} (2 h przed wylotem + dojazd).", flSugArr: "Kierowca czeka od {t}, {d} (20 min po lądowaniu).", flUse: "Ustaw tę godzinę",
+      flStatus: { Expected: "planowo", Scheduled: "planowo", Delayed: "opóźniony", Departed: "wystartował", EnRoute: "w powietrzu", Approaching: "podchodzi do lądowania", Arrived: "wylądował", Canceled: "ODWOŁANY", Cancelled: "ODWOŁANY", Diverted: "przekierowany", CheckIn: "odprawa", Boarding: "boarding", GateClosed: "bramka zamknięta", Unknown: "brak danych" },
       anyMoment: "lada chwila", etaLbl: "min do przyjazdu", at: "ok. {clock}", cancel: "Anuluj kurs", cancelQ: "Na pewno anulować kurs?",
       review: "Dodaj opinię w Google", offline: "Brak połączenia – próbuję ponownie…",
-      d: { from: "Skąd", to: "Dokąd", when: "Termin", now: "teraz", pax: "Osoby", dist: "Trasa", price: "Cena" },
+      d: { from: "Skąd", to: "Dokąd", when: "Termin", now: "teraz", pax: "Osoby", dist: "Trasa", price: "Cena", flight: "Lot" },
       call: "Zadzwoń do kierowcy", newRide: "Zamów nowy kurs",
     },
     en: {
@@ -59,17 +61,19 @@
         enroute: ["Your driver is on the way", "Arriving around {clock}. Get ready to go."],
         arrived: ["Your driver is waiting", "The car is at your pickup address."],
         done: ["Thanks for riding with us!", "If you enjoyed it, please leave a Google review – it helps a lot."],
-        declined: ["The driver can't take this ride", "Sorry about that. Call us and we'll find another way."],
+        declined: ["The driver is busy right now", "Adam is driving another passenger and can't reach you in time. Sorry! Book for a later time or call us for the next free slot."],
         cancelled: ["Ride cancelled", "The driver has been notified."],
-        expired: ["The driver didn't answer in time", "Call us and we'll arrange the ride right away."],
+        expired: ["The driver is on the road", "He couldn't answer your request in time. Call us or book for later."],
         notfound: ["Ride not found", "The link may have expired. Book a new ride or call us."],
       },
       steps: { sent: "Request sent", confirmed: "Driver confirmed", scheduled: "Booking confirmed", enroute: "Driver on the way", arrived: "Driver arrived", done: "Ride finished" },
-      flLooking: "Checking the flight…", flNone: "We couldn't find flight {no} on {date}. Check the number and date.", flDep: "Departs", flArr: "Arrives",
-      flSugDep: "Suggested pickup: {t} (2 h before departure + drive).", flSugArr: "The driver will wait from {t} (20 min after landing).", flUse: "Use this time",
+      flLooking: "Looking up the flight…", flNone: "We couldn't find flight {no} on {date}. Check the number and date.", flNoneWeek: "We couldn't find flight {no} in the next 7 days. Check the number.",
+      flDep: "Departs", flArr: "Arrives", flOther: "Other days:", flSet: "pickup date and time filled in",
+      flSugDep: "Pickup: {d}, {t} (2 h before departure + drive).", flSugArr: "The driver waits from {t}, {d} (20 min after landing).", flUse: "Use this time",
+      flStatus: {},
       anyMoment: "any moment", etaLbl: "min away", at: "around {clock}", cancel: "Cancel ride", cancelQ: "Cancel this ride?",
       review: "Leave a Google review", offline: "Connection lost – retrying…",
-      d: { from: "From", to: "To", when: "When", now: "now", pax: "Passengers", dist: "Route", price: "Price" },
+      d: { from: "From", to: "To", when: "When", now: "now", pax: "Passengers", dist: "Route", price: "Price", flight: "Flight" },
       call: "Call the driver", newRide: "Book a new ride",
     },
   }[lang];
@@ -260,7 +264,7 @@
   // GPS position -> street address
   function reverse(p) {
     return api("/api/geocode?lat=" + p.lat.toFixed(6) + "&lng=" + p.lng.toFixed(6), null, 8000)
-      .then(function (r) { return r._ok ? r.address : null; }).catch(function () { return null; });
+      .then(function (r) { return r._ok && r.address ? r.address : null; }).catch(function () { return null; });
   }
 
   /* ---------- booking form ---------- */
@@ -277,6 +281,18 @@
     form.addEventListener("focusin", function () { if (!warmed) { warmed = true; loadMaps(); } });
 
     try { var pre = JSON.parse(form.getAttribute("data-dest") || "null"); if (pre) { S.dest = pre; dIn.value = pre.address; } } catch (e) {}
+    // "Zarezerwuj na później" from a declined ride: same route, later mode
+    if (location.hash === "#again") {
+      try {
+        var last = JSON.parse(localStorage.getItem("taxi.last") || "null");
+        if (last) {
+          S.pickup = last.pickup; S.dest = last.dest; pIn.value = last.pickup ? last.pickup.address : ""; dIn.value = last.dest ? last.dest.address : "";
+          $("pax").value = last.pax || "1"; $("name").value = last.name || ""; $("tel").value = last.phone || ""; if (last.flight) $("flight").value = last.flight;
+          S.mode = "later";
+          setTimeout(function () { form.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); $("time").focus(); }, 300);
+        }
+      } catch (e) {}
+    }
 
     function setMode(m) {
       S.mode = m; form.setAttribute("data-mode", m);
@@ -402,19 +418,24 @@
     }
 
 
-    /* ---------- flight number -> flight times (AeroDataBox via /api/flight) ---------- */
+    /* ---------- flight number -> next flight, date, time, status (AeroDataBox via /api/flight) ---------- */
     var fWrap = $("flight-wrap"), fIn = $("flight"), fInfo = $("flight-info"), fTimer = null, fSeq = 0, fLast = null;
+    var fLegs = [], fSel = 0, dateTouched = false, timeTouched = false;
     function pad(n) { return (n < 10 ? "0" : "") + n; }
     function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
     function nearAirport(p) {
       return hasXY(p) && (C.airports || []).some(function (a) { return Math.abs(a.lat - p.lat) + Math.abs(a.lng - p.lng) < 0.06; });
     }
-    function updateFlightBox() { if (fWrap) fWrap.hidden = !(nearAirport(S.pickup) || nearAirport(S.dest) || fIn.value.trim()); }
-    function flightDate() { return S.mode === "later" && $("date").value ? $("date").value : ymd(new Date()); }
+    function updateFlightBox() {
+      if (fWrap) fWrap.hidden = !(S.mode === "later" || nearAirport(S.pickup) || nearAirport(S.dest) || fIn.value.trim());
+    }
+    function dayLabel(date) {
+      return new Date(date + "T12:00:00").toLocaleDateString(lang === "en" ? "en-GB" : "pl-PL", { weekday: "short", day: "numeric", month: "short" });
+    }
     // flight time +/- minutes, rounded to 5 min, as {date, time}
     function shift(date, time, mins, up) {
       var d = new Date(date + "T" + time + ":00"); d.setMinutes(d.getMinutes() + mins);
-      var m = d.getMinutes(), r = up ? Math.ceil(m / 5) * 5 : Math.floor(m / 5) * 5; d.setMinutes(r);
+      var m = d.getMinutes(); d.setMinutes(up ? Math.ceil(m / 5) * 5 : Math.floor(m / 5) * 5);
       return { date: ymd(d), time: pad(d.getHours()) + ":" + pad(d.getMinutes()) };
     }
     function suggestion(f) {
@@ -428,41 +449,57 @@
     function applyPickup(at) {
       if (S.mode !== "later") setMode("later");
       $("date").value = at.date; $("time").value = at.time;
+      [$("date"), $("time")].forEach(function (el) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); });
     }
-    function renderFlight(f) {
+    function renderFlight() {
+      var f = fLegs[fSel]; if (!f) return;
       var sug = suggestion(f);
       var end = function (e, lbl) {
         var late = e.time && e.scheduled && e.time !== e.scheduled;
-        return "<span><small>" + lbl + "</small><b>" + escH(e.time || "–") + "</b>" + (late ? '<s>' + escH(e.scheduled) + "</s>" : "") +
+        return "<span><small>" + lbl + " · " + escH(dayLabel(e.date)) + "</small><b>" + escH(e.time || "–") + "</b>" + (late ? "<s>" + escH(e.scheduled) + "</s>" : "") +
           "<em>" + escH(e.iata ? e.iata + " · " + e.name : e.name) + "</em></span>";
       };
+      var days = fLegs.length > 1 ? '<div class="fl-days"><small>' + escH(T.flOther) + "</small>" + fLegs.map(function (l, i) {
+        var e = l.kind === "arr" ? l.arr : l.dep;
+        return '<button type="button" data-leg="' + i + '"' + (i === fSel ? ' aria-pressed="true"' : "") + ">" + escH(dayLabel(e.date)) + "</button>";
+      }).join("") + "</div>" : "";
       fInfo.className = "flight-info";
-      fInfo.innerHTML = '<div class="fl-head"><b>' + escH(f.number) + "</b> " + escH(f.airline) + (f.status ? ' <span class="fl-st">' + escH(f.status) + "</span>" : "") + "</div>" +
+      fInfo.innerHTML = '<div class="fl-head"><b>' + escH(f.number) + "</b> " + escH(f.airline) +
+        (f.status ? ' <span class="fl-st">' + escH(T.flStatus[f.status] || f.status) + "</span>" : "") + "</div>" +
         '<div class="fl-route">' + end(f.dep, T.flDep) + '<i aria-hidden="true">✈</i>' + end(f.arr, T.flArr) + "</div>" +
-        (sug ? '<p class="fl-sug">' + escH(fmt(sug.text, { t: sug.at.time })) + ' <button type="button" class="fl-use">' + escH(T.flUse) + "</button></p>" : "");
-      if (sug) {
-        fInfo.querySelector(".fl-use").addEventListener("click", function () { applyPickup(sug.at); this.textContent = "✓"; });
-        // nothing chosen yet -> fill the pickup time for the customer
-        if (S.mode === "later" && !$("time").value) { applyPickup(sug.at); fInfo.querySelector(".fl-use").textContent = "✓"; }
-      }
+        (sug ? '<p class="fl-sug"><span>' + escH(fmt(sug.text, { t: sug.at.time, d: dayLabel(sug.at.date) })) + "</span>" +
+          (timeTouched ? '<button type="button" class="fl-use">' + escH(T.flUse) + "</button>" : '<span class="fl-ok">✓ ' + escH(T.flSet) + "</span>") + "</p>" : "") + days;
+      if (sug && !timeTouched) applyPickup(sug.at);
+      var use = fInfo.querySelector(".fl-use");
+      if (use) use.addEventListener("click", function () { timeTouched = false; applyPickup(sug.at); renderFlight(); });
+      Array.prototype.forEach.call(fInfo.querySelectorAll("[data-leg]"), function (b) {
+        b.addEventListener("click", function () { fSel = parseInt(b.getAttribute("data-leg"), 10); renderFlight(); });
+      });
     }
     function lookupFlight() {
       var no = fIn.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      if (!/^[A-Z0-9]{2}[0-9]{1,4}[A-Z]?$/.test(no)) { fInfo.hidden = true; fLast = null; return; }
-      var key = no + "|" + flightDate(); if (key === fLast) return; fLast = key;
+      if (!/^[A-Z0-9]{2}[0-9]{1,4}[A-Z]?$/.test(no)) { fInfo.hidden = true; fLast = null; fLegs = []; return; }
+      // a date the customer picked themselves wins; otherwise find the next flight with this number
+      var date = S.mode === "later" && dateTouched && $("date").value ? $("date").value : "";
+      var key = no + "|" + date; if (key === fLast) return; fLast = key;
       var my = ++fSeq;
-      fInfo.hidden = false; fInfo.className = "flight-info loading"; fInfo.textContent = T.flLooking;
-      api("/api/flight?no=" + no + "&date=" + flightDate(), null, 15000).then(function (f) {
+      fInfo.hidden = false; fInfo.className = "flight-info loading"; fInfo.innerHTML = '<span class="spin" aria-hidden="true"></span> ' + escH(T.flLooking);
+      api("/api/flight?no=" + no + (date ? "&date=" + date : ""), null, 15000).then(function (f) {
         if (my !== fSeq) return;
         if (f._status === 503 || f._status === 403) { fInfo.hidden = true; return; }   // lookup not set up: plain text field
-        if (!f._ok || !f.found) { fInfo.className = "flight-info warn"; fInfo.textContent = fmt(T.flNone, { no: no, date: flightDate() }); return; }
-        renderFlight(f);
+        if (!f._ok || !f.found) {
+          fInfo.className = "flight-info warn";
+          fInfo.textContent = date ? fmt(T.flNone, { no: no, date: dayLabel(date) }) : fmt(T.flNoneWeek, { no: no });
+          fLegs = []; return;
+        }
+        fLegs = f.legs || [f]; fSel = 0; renderFlight();
       }).catch(function () { if (my === fSeq) fInfo.hidden = true; });
     }
     if (fIn) {
-      fIn.addEventListener("input", function () { clearTimeout(fTimer); fTimer = setTimeout(lookupFlight, 700); });
+      fIn.addEventListener("input", function () { clearTimeout(fTimer); fTimer = setTimeout(lookupFlight, 600); });
       fIn.addEventListener("change", lookupFlight);
-      $("date").addEventListener("change", function () { if (fIn.value) lookupFlight(); });
+      $("date").addEventListener("change", function () { dateTouched = true; if (fIn.value) lookupFlight(); });
+      $("time").addEventListener("change", function () { timeTouched = true; if (fLegs.length) renderFlight(); });
     }
 
     function payload() {
@@ -517,6 +554,7 @@
         return api("/api/rides", p, 20000).then(function (r) {
           if (r._ok && r.id) {
             Rides.add({ id: r.id, token: r.token, created: Date.now(), mode: p.mode, when: p.when });
+            try { localStorage.setItem("taxi.last", JSON.stringify({ pickup: p.pickup, dest: p.dest, pax: p.pax, name: p.name, phone: p.phone, flight: p.flight })); } catch (e) {}
             location.href = "/przejazd/?id=" + r.id + (lang === "en" ? "&lang=en" : "");
             return;
           }
@@ -575,6 +613,10 @@
       document.title = $("t-title").textContent + " | Taxi Knurów";
       steps(r);
       var open = ["pending", "scheduled", "enroute", "arrived"].indexOf(r.status) >= 0;
+      var busy = r.status === "declined" || r.status === "expired";
+      track.classList.toggle("busy", busy);
+      $("t-steps").hidden = busy;
+      $("t-later").hidden = !busy;
       $("t-cancel").hidden = !(open && mine && mine.token && r.status !== "arrived");
       $("t-new").hidden = open;
       if (r.status === "done") {
@@ -585,6 +627,7 @@
       var dl = [[T.d.from, r.pickup && r.pickup.address], [T.d.to, r.dest && r.dest.address], [T.d.when, whenTxt(r)], [T.d.pax, r.pax]];
       if (r.distanceM) dl.push([T.d.dist, (r.distanceM / 1000).toFixed(1).replace(".", lang === "pl" ? "," : ".") + " km · ~" + Math.round(r.durationS / 60) + " min"]);
       if (r.price) dl.push([T.d.price, (r.priceKind === "fixed" ? "" : "~") + r.price + " zł"]);
+      if (r.flightInfo || r.flight) dl.push([T.d.flight, r.flightInfo || r.flight]);
       $("t-details").innerHTML = dl.map(function (x) { return "<div><dt>" + escH(x[0]) + "</dt><dd>" + escH(x[1]) + "</dd></div>"; }).join("");
       if (!mapDone) { mapDone = true; map.show(r.pickup, r.dest, r.polyline); }
 
@@ -652,6 +695,52 @@
       countdown();
       if (last && last.status === "pending") render(last);   // switches to "call us" after a few minutes
     }, 1000);
+  }
+
+  /* ---------- "add to home screen" panel (PWA) ---------- */
+  (function () {
+    var box = $("install"); if (!box) return;
+    var standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
+    var later = 0; try { later = parseInt(localStorage.getItem("taxi.install") || "0", 10); } catch (e) {}
+    if (standalone || Date.now() < later) return;
+    var ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
+    var promptEvt = null, shown = false;
+    function show() {
+      if (shown) return; shown = true;
+      box.hidden = false; box.classList.toggle("is-ios", ios);
+      requestAnimationFrame(function () { box.classList.add("open"); });
+    }
+    function hide(days) {
+      box.classList.remove("open");
+      setTimeout(function () { box.hidden = true; }, 400);
+      try { localStorage.setItem("taxi.install", String(Date.now() + days * 864e5)); } catch (e) {}
+    }
+    // after a booking the customer is most likely to want it; otherwise wait a bit
+    var delay = $("track") ? 2500 : 9000;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault(); if (ios) return; promptEvt = e; $("install-go").hidden = false;
+      setTimeout(show, delay);
+    });
+    if (ios) { box.querySelector(".install-ios").hidden = false; setTimeout(show, delay); }
+    $("install-go").addEventListener("click", function () {
+      if (!promptEvt) return;
+      promptEvt.prompt();
+      promptEvt.userChoice.then(function (c) { hide(c.outcome === "accepted" ? 3650 : 14); promptEvt = null; });
+    });
+    $("install-x").addEventListener("click", function () { hide(14); });
+    window.addEventListener("appinstalled", function () { hide(3650); });
+  })();
+
+  /* ---------- VIP photos: tap to enlarge ---------- */
+  var lb = $("lightbox");
+  if (lb && lb.showModal) {
+    Array.prototype.forEach.call(document.querySelectorAll(".vip-ph"), function (b) {
+      b.addEventListener("click", function () {
+        lb.querySelector("img").src = b.getAttribute("data-full"); lb.querySelector("p").textContent = b.getAttribute("data-cap") || "";
+        lb.showModal();
+      });
+    });
+    lb.addEventListener("click", function (e) { if (e.target === lb || e.target.classList.contains("lb-x")) lb.close(); });
   }
 
   /* ---------- Google reviews ---------- */

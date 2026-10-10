@@ -68,6 +68,7 @@ export function publicView(r) {
     id: r.id, mode: r.mode, status: r.status, created: r.created, updated: r.updated, etaAt: r.eta_at || null, now: Date.now(),
     when: d.when || null, pickup: d.pickup, dest: d.dest, pax: d.pax, distanceM: d.distanceM || null, durationS: d.durationS || null,
     approachS: d.approachS || null, price: d.price || null, priceKind: d.priceKind || null, polyline: d.polyline || null,
+    flightInfo: d.flightInfo || null, flight: d.flight || null,
     waitMin: CONFIG.waitMin, tel: CONFIG.phone,
   };
 }
@@ -129,7 +130,7 @@ export function driverText(r) {
   const L = [];
   L.push(r.mode === "now" ? "🚖 <b>KURS TERAZ</b>" : `📅 <b>REZERWACJA: ${esc(whenLabel(d.when))}</b>`);
   L.push("");
-  L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>${d.pickup.gps ? " (GPS klienta)" : ""}`);
+  L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>${d.pickup.gps ? (d.pickup.near ? " (GPS klienta – w pobliżu, zadzwoń)" : " (GPS klienta)") : ""}`);
   L.push(`🏁 <b>Dokąd:</b> <a href="${mapLink(d.dest)}">${esc(d.dest.address)}</a>`);
   L.push("");
   L.push(`👤 ${esc(d.name || "—")}   ☎️ ${esc(d.phone)}`);

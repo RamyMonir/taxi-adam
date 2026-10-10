@@ -100,11 +100,11 @@ export async function placeDetails(env, id, session) {
   return { address: !isAddress && dn && !fa.startsWith(dn) ? `${dn}, ${fa}` : fa, lat: j.location?.latitude, lng: j.location?.longitude };
 }
 
-// GPS -> street address. Geocoding API first; if that API isn't enabled on the key, nearest place from Places API (New).
+// GPS -> {address, near}. near = closest known place, not the exact street address. Geocoding API first; if that API isn't enabled on the key, nearest place from Places API (New).
 export async function reverseGeocode(env, lat, lng) {
   const g = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=pl&result_type=street_address|premise|route&key=${env.GOOGLE_SERVER_KEY}`);
   const j = await g.json().catch(() => ({}));
-  if (j.status === "OK" && j.results?.[0]) return tidy(j.results[0].formatted_address);
+  if (j.status === "OK" && j.results?.[0]) return { address: tidy(j.results[0].formatted_address), near: false };
   if (j.status && j.status !== "ZERO_RESULTS") { console.log("geocoding", j.status, j.error_message); reverseGeocode.lastStatus = j.status; }
   // nearest known place, searching wider until something is found (outskirts, fields, motorway)
   for (const radius of [80, 400, 2000]) {
@@ -116,7 +116,7 @@ export async function reverseGeocode(env, lat, lng) {
     });
     if (!r.ok) throw new Error("Reverse geocode: " + (await googleError(r)));
     const a = (await r.json()).places?.[0]?.formattedAddress;
-    if (a) return (radius > 80 ? "okolice: " : "") + tidy(a);
+    if (a) return { address: tidy(a), near: true };
   }
   return null;
 }

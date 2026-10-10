@@ -39,7 +39,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       try {
         if (hasXY(p) && (gps || GPS_LABEL.test(p.address))) {
           const a = await reverseGeocode(env, p.lat, p.lng);
-          if (a) return { ...p, address: a, gps: true };
+          if (a) return { ...p, address: a.address, gps: true, near: a.near };
         } else if (!hasXY(p)) {
           const f = await findPlace(env, p.address, CONFIG.base);
           if (f) return { address: p.address, lat: f.lat, lng: f.lng };

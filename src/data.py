@@ -143,3 +143,9 @@ KIND = {
     "station": dict(hub="dworce", hub_name="Dworce PKP i autobusowe", plural="Dworce"),
     "city":    dict(hub="miasta", hub_name="Kursy do miast", plural="Miasta"),
 }
+
+# Zdjęcia do sekcji „Przewozy VIP”: wrzuć pliki .jpg/.webp do src/assets/img/vip/ – pojawią się same.
+# Podpisy (opcjonalnie): nazwa pliku -> tekst pod zdjęciem.
+VIP_CAPTIONS = {
+    # "gala-katowice.jpg": "Gala w Katowicach, 2026",
+}

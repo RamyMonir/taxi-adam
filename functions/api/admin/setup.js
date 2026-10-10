@@ -34,7 +34,7 @@ export async function onRequestGet({ request, env }) {
   const check = async (name, fn) => { try { report[name] = await fn(); } catch (e) { report[name] = "ERROR " + e.message; } };
   await check("google_reviews", async () => { const r = await reviews(env); return `${r.place}: ${r.rating}★, ${r.count} opinii, pobrano ${r.fetched}, pokazane ${r.reviews.length}`; });
   await check("google_autocomplete", async () => { const s = await autocomplete(env, "Dworcowa Knurów", "setupcheck123", CONFIG.base); return s.length ? "OK – " + s[0].main : "no results"; });
-  await check("google_reverse_geocode", async () => (await reverseGeocode(env, CONFIG.base.lat, CONFIG.base.lng)) || "no address");
+  await check("google_reverse_geocode", async () => { const r = await reverseGeocode(env, CONFIG.base.lat, CONFIG.base.lng); return r ? r.address + (r.near ? " (nearest place)" : "") : "no address"; });
   report.geocoding_api = reverseGeocode.lastStatus ? reverseGeocode.lastStatus + " – add Geocoding API to the server key for exact street addresses" : "OK";
   report.AERODATABOX_KEY = !!env.AERODATABOX_KEY;
   if (env.AERODATABOX_KEY) await check("flight_lookup", async () => { const f = await lookupFlight(env, "FR3014", new Date().toISOString().slice(0, 10)); return f.error ? "ERROR " + f.error : f.found ? "OK" : "OK (test flight not found today)"; });

@@ -2,7 +2,7 @@
 """Generator strony: python3 build.py  ->  ../dist/"""
 import json, os, shutil, datetime
 from jinja2 import Environment, DictLoader
-from data import (SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
+from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
                   GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -134,6 +134,7 @@ BASE = r"""<!doctype html>
 <meta property="og:url" content="{{ site }}{{ path }}"><meta property="og:image" content="{{ site }}/assets/og.png"><meta property="og:locale" content="{{ 'en_GB' if lang=='en' else 'pl_PL' }}">
 <meta name="theme-color" content="#0A1430">{% if noindex %}<meta name="robots" content="noindex">{% endif %}
 <link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Taxi Knurów"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
@@ -169,6 +170,24 @@ BASE = r"""<!doctype html>
   <a class="a-wa" href="https://wa.me/{{ B.whatsapp }}">{{ icon.wa }}WhatsApp</a>
   <a class="a-book" href="{{ '/en/#booking' if lang=='en' else '/rezerwacja/' }}">{{ icon.bolt }}{{ 'Book' if lang=='en' else 'Zamów' }}</a>
 </nav>
+<div class="install" id="install" role="dialog" aria-labelledby="install-title" hidden>
+  <button type="button" class="install-x" id="install-x" aria-label="{{ 'Close' if lang=='en' else 'Zamknij' }}">×</button>
+  <div class="install-art" aria-hidden="true">
+    <div class="phone"><div class="notch"></div><div class="apps">{% for i in range(11) %}<i></i>{% endfor %}<span class="slot"></span></div></div>
+    <img class="fly-icon" src="/assets/icon-192.png" alt="" width="64" height="64">
+  </div>
+  <div class="install-text">
+    <h2 id="install-title">{{ 'Taxi Knurów on your phone' if lang=='en' else 'Taxi Knurów w Twoim telefonie' }}</h2>
+    <p>{{ 'Add the site to your home screen and book a ride with one tap – just like an app. No download, no account.' if lang=='en' else 'Dodaj stronę do ekranu głównego i zamawiaj kurs jednym dotknięciem – jak w aplikacji. Bez pobierania i zakładania konta.' }}</p>
+    <ol class="install-ios" hidden>
+      <li>{{ 'Tap' if lang=='en' else 'Dotknij' }} <span class="ios-share"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 7.5 6.5l1.4 1.4L11 5.8V15h2V5.8l2.1 2.1 1.4-1.4zM5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10h-4v2h2v8H7v-8h2v-2z"/></svg> {{ 'Share' if lang=='en' else 'Udostępnij' }}</span> {{ 'in Safari' if lang=='en' else 'na dole Safari' }}</li>
+      <li>{{ 'Choose' if lang=='en' else 'Wybierz' }} <b>{{ '„Add to Home Screen”' if lang=='en' else '„Do ekranu początkowego”' }}</b></li>
+    </ol>
+    <button type="button" class="btn btn-book install-go" id="install-go" hidden>{{ 'Add to home screen' if lang=='en' else 'Dodaj do ekranu' }}</button>
+  </div>
+  <span class="ios-arrow" aria-hidden="true">↓</span>
+</div>
+<dialog class="lightbox" id="lightbox"><button type="button" class="lb-x" aria-label="Zamknij">×</button><img alt=""><p></p></dialog>
 <script>window.TAXI={{ config|safe }};</script>
 <script src="/assets/app.js" defer></script>
 </body></html>"""
@@ -385,6 +404,31 @@ def reviews_block():
             f'<a class="btn btn-line" href="{B["google_review"]}" target="_blank" rel="noopener">Dodaj swoją opinię</a></p></div>'
             f'</div></section>')
 
+VIP_DIR = os.path.join(HERE, "assets", "img", "vip")
+def vip_photos():
+    if not os.path.isdir(VIP_DIR): return []
+    return sorted(f for f in os.listdir(VIP_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")))
+
+def vip_block():
+    feats = [("Punktualnie co do minuty", "Śledzimy lot i korki, czekamy z tabliczką z nazwiskiem gościa."),
+             ("Pełna dyskrecja", "Plany, rozmowy i trasa zostają w aucie."),
+             ("Komfort na długą trasę", "Czyste, klimatyzowane auto i miejsce na bagaż całej ekipy."),
+             ("Rozliczenie dla firm", "Faktura i przelew, także zbiorczo raz w miesiącu.")]
+    photos = vip_photos()
+    gallery = ""
+    if photos:
+        gallery = '<ul class="vip-gallery">' + "".join(
+            f'<li data-reveal style="--i:{i}"><button type="button" class="vip-ph" data-full="/assets/img/vip/{f}" data-cap="{VIP_CAPTIONS.get(f, "")}">'
+            f'<img src="/assets/img/vip/{f}" alt="{VIP_CAPTIONS.get(f, "Przewóz VIP – Taxi Knurów Adam Mączka")}" loading="lazy" decoding="async">'
+            + (f'<span>{VIP_CAPTIONS[f]}</span>' if VIP_CAPTIONS.get(f) else "") + '</button></li>'
+            for i, f in enumerate(photos)) + "</ul>"
+    items = "".join(f'<li><b>{t}</b><span>{d}</span></li>' for t, d in feats)
+    return (f'<section class="vip" id="vip"><div class="wrap"><div class="vip-grid"><div>'
+            f'<span class="vip-badge">VIP · ŚLĄSK</span><h2>Przewozy VIP na Śląsku</h2>'
+            f'<p class="lead">Wozimy gości biznesowych, artystów i delegacje – z lotniska na spotkanie, galę czy koncert, i z powrotem. Dyskretnie, punktualnie i w komfortowym aucie.</p>'
+            f'<p class="vip-cta"><a class="btn btn-gold" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zarezerwuj przejazd VIP</a> <a class="btn btn-line" href="/dla-firm/">Oferta dla firm</a></p>'
+            f'</div><ul class="vip-feats">{items}</ul></div>{gallery}</div></section>')
+
 # ================= HOME =================
 home_faq = [
     ("Ile kosztuje taxi z Knurowa na lotnisko w Pyrzowicach?", f"Od {DEST['lotnisko-pyrzowice']['price']} zł z Knurowa. Ceny dla wszystkich lotnisk znajdziesz w cenniku i w kalkulatorze."),
@@ -397,6 +441,7 @@ body = hero('<span class="sr-only">Taxi Knurów Adam Mączka – </span>Twoje ta
             f"Zamów jak w aplikacji: wskaż adres, zobacz cenę i śledź, za ile minut będzie kierowca. Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł, Balice od {DEST['lotnisko-balice']['price']} zł.",
             book(), logo=True)
 body += services_block()
+body += vip_block()
 body += ('<section class="alt"><div class="wrap"><div class="sec-head"><h2>Najczęstsze trasy</h2><p class="muted">Ceny od, z Knurowa. Odbiór z innych miejscowości: +10 lub +20 zł.</p></div>'
          + board(["airport", "spa"]) + '<p style="margin-top:14px">Kliniki, dworce i miasta: <a href="/kliniki/">kliniki</a>, <a href="/dworce/">dworce</a>, <a href="/miasta/">miasta</a> albo <a href="/cennik/">pełny cennik</a>.</p></div></section>')
 body += f'<section><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div></section>'
@@ -496,6 +541,7 @@ body = (f'<section class="hero" style="padding:0"><div class="wrap" style="grid-
         '<section><div class="wrap cols"><div class="panel"><h3>Faktura i przelew</h3><p>Za każdy kurs albo zbiorczo raz w miesiącu.</p></div>'
         '<div class="panel"><h3>Transfery gości</h3><p>Odbiór kontrahentów z Pyrzowic, Balic i Okęcia z kartką z nazwiskiem.</p></div>'
         '<div class="panel"><h3>Stałe kursy</h3><p>Regularne dojazdy pracowników lub kurierskie przewozy dokumentów.</p></div></div></section>'
+        + vip_block() +
         f'<section class="alt"><div class="wrap"><h2>Pytania i odpowiedzi</h2>{faq_html(firm_faq)}</div></section>')
 page("/dla-firm/", f"Taxi dla firm Knurów – faktura, przelew, transfery gości | {B['name']}",
      "Taxi dla firm z Knurowa i okolic: delegacje, transfery gości z lotnisk, faktura i rozliczenie miesięczne przelewem.", body, [org(), faq_ld(firm_faq)])
@@ -547,7 +593,7 @@ page("/404.html", f"Nie znaleziono strony | {B['name']}", "Strona nie istnieje."
 body = ('<section class="hero track-hero" style="padding:0"><div class="wrap track" id="track">'
         '<div class="track-card" aria-live="polite">'
         '<div class="track-visual" id="t-visual" data-state="loading" aria-hidden="true">'
-        '<span class="radar"></span><span class="radar r2"></span>'
+        '<span class="radar"></span><span class="radar r2"></span><span class="busy-ring"></span><span class="busy-sign">ZAJĘTY</span>'
         '<img src="/assets/img/logo-emblem.webp" alt="" width="240" height="188"></div>'
         '<p class="track-kicker" id="t-kicker">Twój kurs</p>'
         '<h1 id="t-title">Ładuję status…</h1>'
@@ -557,6 +603,7 @@ body = ('<section class="hero track-hero" style="padding:0"><div class="wrap tra
         '<ol class="tl" id="t-steps"></ol>'
         f'<div class="track-actions"><a class="btn btn-call" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zadzwoń do kierowcy</a>'
         '<button type="button" class="btn btn-line" id="t-cancel" hidden>Anuluj kurs</button>'
+        '<a class="btn btn-ink" id="t-later" href="/rezerwacja/#again" hidden>Zarezerwuj na później</a>'
         '<a class="btn btn-line" id="t-new" href="/rezerwacja/" hidden>Zamów nowy kurs</a></div>'
         '</div>'
         '<div class="track-side"><div class="map map-lg" id="t-map" hidden></div><dl class="t-details" id="t-details"></dl></div>'
@@ -572,13 +619,14 @@ sm = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps
 open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8").write(sm)
 open(os.path.join(OUT, "robots.txt"), "w", encoding="utf-8").write(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n")
 open(os.path.join(OUT, "manifest.webmanifest"), "w", encoding="utf-8").write(json.dumps({
-    "name": B["name"], "short_name": B["short"], "start_url": "/rezerwacja/", "display": "standalone",
+    "id": "/", "name": B["name"], "short_name": "Taxi Knurów", "description": "Zamów taxi w Knurowie – teraz albo na później, status kursu na żywo.",
+    "start_url": "/rezerwacja/?app=1", "scope": "/", "display": "standalone", "orientation": "portrait",
     "background_color": "#0A1430", "theme_color": "#0A1430", "lang": "pl",
     "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
               {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}],
     "shortcuts": [{"name": "Zadzwoń", "url": "tel:" + B["phone_e164"]}, {"name": "Lotniska", "url": "/lotniska/"}]}, ensure_ascii=False, indent=1))
 open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
-    "const C='taxi-v3';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
+    "const C='taxi-v4';const CORE=['/','/rezerwacja/','/cennik/','/assets/style.css','/assets/app.js','/assets/favicon.png','/assets/img/logo-emblem.webp','/assets/fonts/archivo-latin-wdth-normal.woff2'];\n"
     "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));\n"
     "self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));\n"
     "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;\n"
