@@ -5,7 +5,7 @@
 //  3. a driver's live location ran out: remind him once (daytime only)
 //  4. 23:00 (Warsaw): each driver gets his day, Adam gets the whole company + CSV
 import { json, nowWarsaw, clockWarsaw, esc } from "../../../server/util.js";
-import { db, load, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
+import { db, load, transition, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
 import { escalate, listDrivers, busyDriverIds, markReminded } from "../../../server/fleet.js";
 import { buildReport, dayWarsaw } from "../../../server/report.js";
 
@@ -23,6 +23,8 @@ export async function onRequestPost({ request, env }) {
   if (!(env.CRON_KEY && key === env.CRON_KEY) && !(env.ADMIN_KEY && key === env.ADMIN_KEY)) return new Response("forbidden", { status: 403 });
   const out = { dispatched: 0, expired: 0, reminders: 0, locationReminders: 0, report: null };
   const d = await db(env);
+
+  await d.prepare("DELETE FROM tg_updates WHERE ts < ?").bind(Date.now() - 2 * 864e5).run().catch(() => {});
 
   // 1. open "now" requests
   const pend = (await d.prepare("SELECT id FROM rides WHERE status = 'pending' AND mode = 'now'").all()).results || [];
@@ -42,8 +44,9 @@ export async function onRequestPost({ request, env }) {
     const r = await load(env, id); if (!r) continue;
     const w = r.data.when;
     if (!w || w > soon || w < now || r.data.remindedAt) continue;
-    r.data.remindedAt = Date.now();
-    await d.prepare("UPDATE rides SET data = ? WHERE id = ?").bind(JSON.stringify(r.data), r.id).run();
+    // conditional write: a driver tapping "Wyjeżdżam" at this moment must not be overwritten
+    const ok = await transition(env, id, ["scheduled"], (x) => { if (x.data.remindedAt) return false; x.data.remindedAt = Date.now(); });
+    if (!ok) continue;
     await tg(env, "sendMessage", { chat_id: r.data.chat || env.TELEGRAM_CHAT_ID, reply_to_message_id: r.tg_msg || undefined, parse_mode: "HTML",
       text: `⏰ Za niecałą godzinę (${esc(w.slice(11, 16))}): <b>${esc(r.data.pickup.address)}</b>\nGdy ruszasz, kliknij „🚕 Wyjeżdżam do klienta”.` });
     out.reminders++;

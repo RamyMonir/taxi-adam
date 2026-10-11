@@ -1,0 +1,9 @@
+{
+  "name": "taxi-knurow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "check": "for f in $(find server functions cron-worker src/assets -name '*.js'); do node --check \"$f\" || exit 1; done"
+  }
+}

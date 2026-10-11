@@ -1,13 +1,13 @@
 // POST /api/telegram – webhook of the bot used by Adam and his drivers (each in his own private chat):
 // button taps, commands, and every driver's live location.
-import { json, clockWarsaw, kmBetween, hasXY, esc, randomId, canonicalOrigin } from "../../server/util.js";
+import { json, clockWarsaw, kmBetween, hasXY, esc, randomId, canonicalOrigin, safeEqual } from "../../server/util.js";
 import { route, findPlace } from "../../server/google.js";
 import { price } from "../../server/pricing.js";
 import { parseRide, HELP, PARSE_ERRORS } from "../../server/phone.js";
 import { lookupCustomer, recordOrder, recordDone } from "../../server/customers.js";
 import { METHODS, setPayMsg, setPaid, tripByPayMsg, parsePaid, parsePeriod, buildReport, REPORT_HELP } from "../../server/report.js";
 import { CONFIG } from "../../server/config.js";
-import { db, notifyDriver, tgFile, load, save, saveIfUnchanged, tg, syncDriverMessage, closeOtherOffers, activeRides, navUrl, isLive,
+import { db, notifyDriver, tgFile, load, save, saveIfUnchanged, transition, tg, syncDriverMessage, closeOtherOffers, activeRides, navUrl, isLive,
          refreshEta, driverText, keyboard, SET_OFF_MS, nextListing } from "../../server/rides.js";
 import { driverByChat, listDrivers, saveDriverPos, markHint, addDriver, bindDriver, updateDriver, deactivateDriver, newInviteCode,
          busyDriverIds, botUsername, escalate, ensureOwner } from "../../server/fleet.js";
@@ -257,11 +257,28 @@ async function command(env, request, drv, text) {
     : "Komendy: /ja, /kurs, /raport, /auto, /telefon, /imie");
 }
 
+// Telegram resends an update when we answer with an error or too slowly. So: every update is handled once
+// (update_id remembered in D1), and errors are logged but answered with 200 (no endless re-delivery).
 export async function onRequestPost({ request, env }) {
-  if (!env.TELEGRAM_WEBHOOK_SECRET || request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.TELEGRAM_WEBHOOK_SECRET) {
+  if (!env.TELEGRAM_WEBHOOK_SECRET || !safeEqual(request.headers.get("X-Telegram-Bot-Api-Secret-Token") || "", env.TELEGRAM_WEBHOOK_SECRET)) {
     return new Response("forbidden", { status: 403 });
   }
-  const u = await request.json().catch(() => ({}));
+  const u = await request.json().catch(() => null);
+  if (!u) return json({ ok: true });
+  if (u.update_id != null && !(await firstDelivery(env, u.update_id))) return json({ ok: true, duplicate: true });
+  try { await handle(request, env, u); }
+  catch (e) { console.log(JSON.stringify({ at: "telegram", update: u.update_id, error: String(e && e.stack || e) })); }
+  return json({ ok: true });
+}
+
+async function firstDelivery(env, updateId) {
+  try {
+    const res = await (await db(env)).prepare("INSERT OR IGNORE INTO tg_updates (update_id, ts) VALUES (?, ?)").bind(updateId, Date.now()).run();
+    return !!(res && res.meta && res.meta.changes);
+  } catch (e) { console.log("tg_updates", e.message); return true; }   // can't tell: better handle it than drop it
+}
+
+async function handle(request, env, u) {
   const msg = u.message || u.edited_message;
   const drv = msg ? await driverByChat(env, msg.chat?.id).catch(() => null) : null;
 
@@ -324,6 +341,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   let st = r.status, act2 = act;
+  const prevUpdated = r.updated;
   const min = parseInt(arg, 10) || 0, d = r.data;
   let toast = null, follow = null;
   const offered = d.offers && d.offers[me.id];
@@ -339,7 +357,11 @@ export async function onRequestPost({ request, env }) {
   }
   if (act === "ok" && st === "draft") {
     await recordOrder(env, r).catch(() => {});
-    if (r.mode === "later") { r.status = "scheduled"; await save(env, r); await Promise.all([answer("Zapisano rezerwację"), syncDriverMessage(env, r)]); return json({ ok: true }); }
+    if (r.mode === "later") {
+      r.status = "scheduled";
+      if (!(await saveIfUnchanged(env, r, r.updated))) { await answer("Kurs zmienił się w międzyczasie", true); return json({ ok: true }); }
+      await Promise.all([answer("Zapisano rezerwację"), syncDriverMessage(env, r)]); return json({ ok: true });
+    }
     st = "pending"; act2 = "e";
   }
 
@@ -403,11 +425,16 @@ export async function onRequestPost({ request, env }) {
     const all = await listDrivers(env);
     const to = act === "s" ? all.find((x) => x.owner) : all.find((x) => x.id === arg);
     if (!to || !to.chat_id) { await answer("Ten kierowca nie jest już dostępny", true); return json({ ok: true }); }
-    const ownerMsg = d.offers?.owner?.msg || r.tg_msg;
+    const ownerMsg = d.offers?.owner?.msg || r.tg_msg, prev = r.updated;
     assign(r, to); r.status = "scheduled";
     if (to.owner) r.tg_msg = ownerMsg;
-    else { d.ownerInfo = ownerMsg; d.offers = {}; r.tg_msg = await notifyDriver(env, r, to.chat_id); }
-    await save(env, r);
+    else { d.ownerInfo = ownerMsg; d.offers = {}; r.tg_msg = null; }
+    // claim first, message after: a customer cancel at the same moment wins cleanly
+    if (!(await saveIfUnchanged(env, r, prev))) { await answer("Kurs zmienił się w międzyczasie", true); await syncDriverMessage(env, (await load(env, id)) || r); return json({ ok: true }); }
+    if (!to.owner) {
+      const mid = await notifyDriver(env, r, to.chat_id);
+      r = (await transition(env, r.id, ["scheduled"], (x) => { x.tg_msg = mid; })) || r;
+    }
     await Promise.all([answer(to.owner ? "Rezerwacja potwierdzona" : `Przydzielono: ${to.name}`), syncDriverMessage(env, r)]);
     if (!to.owner) await say(env, to.chat_id, `📅 Adam przydzielił Ci rezerwację na <b>${esc(String(d.when || "").replace("T", " "))}</b>. W dniu kursu kliknij „🚕 Wyjeżdżam do klienta”.`, { reply_to_message_id: r.tg_msg || undefined });
     return json({ ok: true });
@@ -429,11 +456,12 @@ export async function onRequestPost({ request, env }) {
   }
   if (act === "x" && st === "scheduled" && !me.owner) {
     // a driver gives a reservation back to Adam
+    const prev = r.updated;
     unassign(r); r.status = "pending"; d.offers = {}; d.assignable = (await listDrivers(env)).filter((x) => !x.owner && x.chat_id && x.id !== me.id).map((x) => ({ id: x.id, name: x.name }));
-    await save(env, r);
+    if (!(await saveIfUnchanged(env, r, prev))) { await answer("Kurs zmienił się w międzyczasie", true); return json({ ok: true }); }
     const owner = await ensureOwner(env);
     const mid = await notifyDriver(env, r, owner.chat_id);
-    d.offers = { owner: { chat: owner.chat_id, msg: mid, name: owner.name } }; await save(env, r);
+    r = (await transition(env, r.id, ["pending"], (x) => { x.data.offers = { owner: { chat: owner.chat_id, msg: mid, name: owner.name } }; })) || r;
     await answer("Oddano Adamowi");
     await clearButtons();
     await say(env, owner.chat_id, `↩️ ${esc(me.name)} oddał rezerwację – przydziel ją ponownie.`, { reply_to_message_id: mid || undefined });
@@ -455,7 +483,6 @@ export async function onRequestPost({ request, env }) {
   } else if (act === "d" && (st === "ontrip" || st === "arrived")) {
     r.status = "done"; toast = "Kurs zakończony 👍"; follow = "pay";
     if (d.listing == null) d.listing = await nextListing(env).catch(() => null);   // review link: the listings take turns
-    await recordDone(env, r).catch(() => {});
   } else if (act === "x" && ["pending", "scheduled", "enroute"].includes(st)) {
     r.status = "declined"; toast = "Kurs odrzucony – klient dostał informację";
   } else if (act === "c" && (st === "arrived" || st === "ontrip")) {
@@ -476,7 +503,14 @@ export async function onRequestPost({ request, env }) {
     await syncDriverMessage(env, r);
     return json({ ok: true });
   }
-  await save(env, r);
+  // conditional write: if the customer cancelled (or anything else changed) since this tap was read, the tap loses
+  if (!(await saveIfUnchanged(env, r, prevUpdated))) {
+    await answer("Kurs zmienił się w międzyczasie – sprawdź status", true);
+    const fresh = await load(env, id);
+    if (fresh) await syncDriverMessage(env, fresh);
+    return json({ ok: true });
+  }
+  if (r.status === "done") await recordDone(env, r).catch(() => {});
   const jobs = [answer(toast), syncDriverMessage(env, r)];
   // a button tapped on a follow-up message: remove its buttons so it can't be tapped twice
   if (q.message?.message_id && q.message.message_id !== r.tg_msg) jobs.push(clearButtons());

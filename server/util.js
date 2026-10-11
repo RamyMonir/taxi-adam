@@ -71,3 +71,11 @@ export function nowWarsaw(offsetMin = 0) {
 export function clockWarsaw(ms) {
   return new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
 }
+
+// secret comparison without an early exit (timing-safe for equal-length strings)
+export function safeEqual(a, b) {
+  a = String(a ?? ""); b = String(b ?? "");
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
