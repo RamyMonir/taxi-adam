@@ -38,7 +38,9 @@ export async function onRequestGet({ request, env }) {
       { command: "kurs", description: "Dodaj kurs przyjęty przez telefon" },
       { command: "raport", description: "Raport i rozliczenie (np. /raport tydzień)" },
       { command: "zdjecie", description: "Moje zdjęcie dla klienta" },
-      { command: "start", description: "Sprawdź, czy bot działa" },
+      { command: "zmiana", description: "Czy jestem na zmianie? Jak zacząć zmianę" },
+      { command: "pomoc", description: "Jak to działa – wszystko w jednym miejscu" },
+      { command: "start", description: "Pokaż menu z przyciskami" },
     ];
     const cmds = await tg(env, "setMyCommands", { commands: driverCmds });
     // Adam's chat: + fleet and settlement commands
@@ -49,7 +51,8 @@ export async function onRequestGet({ request, env }) {
       { command: "prowizja", description: "Rozliczenie kierowców: procent albo opłata dzienna" },
       { command: "dodaj", description: "Dodaj kierowcę: /dodaj Imię telefon" },
       { command: "dodajauto", description: "Dodaj auto: Marka Model; kolor; rejestracja; miejsca" },
-      { command: "start", description: "Sprawdź, czy bot działa" },
+      { command: "pomoc", description: "Jak to działa – wszystko w jednym miejscu" },
+      { command: "start", description: "Pokaż menu z przyciskami" },
     ] });
     report.bot_menu = !!(cmds && cmds.ok);
     const me = await tg(env, "getMe", {});
