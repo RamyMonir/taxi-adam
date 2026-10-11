@@ -8,6 +8,16 @@ import { db, tg, isLive, saveIfUnchanged, load, driverText, keyboard } from "./r
 import { route } from "./google.js";
 import { kmBetween, hasXY, randomId, esc } from "./util.js";
 import { CONFIG } from "./config.js";
+import { isDemo, release } from "./cars.js";
+
+// may this driver get a "now" ride: joined, on shift, free, with a car (Adam may drive without picking one),
+// enough seats in the car he holds. Demo drivers (seed data) never get rides.
+export function canDrive(x, busy, pax = 1) {
+  if (!x || !x.chat_id || isDemo(x) || !isLive(x) || busy.has(x.id)) return false;
+  if (!x.owner && !x.current_car_id) return false;
+  const seats = x.car_seats ?? x.seats;
+  return !seats || seats >= pax;
+}
 
 export const NEAREST_WAIT_MS = 60000;
 
@@ -60,7 +70,11 @@ export async function getDriver(env, id) {
 }
 export async function listDrivers(env) {
   await ensureOwner(env);
-  const rs = await (await fdb(env)).prepare("SELECT * FROM drivers WHERE active = 1 ORDER BY owner DESC, created").all();
+  // + the car he holds now (cars are shared: server/cars.js)
+  const rs = await (await fdb(env)).prepare(
+    `SELECT d.*, c.make AS car_make, c.model AS car_model, c.color AS car_color, c.plate AS car_plate, c.seats AS car_seats
+       FROM drivers d LEFT JOIN cars c ON c.id = d.current_car_id
+      WHERE d.active = 1 ORDER BY d.owner DESC, d.created`).all();
   return rs.results || [];
 }
 
@@ -91,12 +105,13 @@ export async function bindDriver(env, code, chatId) {
   return { ...drv, chat_id: String(chatId), code: null };
 }
 export async function updateDriver(env, id, f) {
-  const cols = ["name", "phone", "car", "color", "plate", "seats", "listing"].filter((k) => f[k] !== undefined);
+  const cols = ["name", "phone", "car", "color", "plate", "seats", "listing", "photo_key", "photo_ok", "await_photo", "pay_model", "driver_pct", "daily_fee"].filter((k) => f[k] !== undefined);
   if (!cols.length) return;
   await (await fdb(env)).prepare(`UPDATE drivers SET ${cols.map((k, i) => `${k} = ?${i + 1}`).join(", ")} WHERE id = ?${cols.length + 1}`)
     .bind(...cols.map((k) => f[k]), id).run();
 }
 export async function deactivateDriver(env, id) {
+  await release(env, id, "admin").catch(() => null);   // his car is free again
   await (await fdb(env)).prepare("UPDATE drivers SET active = 0, chat_id = NULL, code = NULL WHERE id = ? AND owner = 0").bind(id).run();
 }
 export async function newInviteCode(env, id) {
@@ -170,10 +185,10 @@ export async function dispatchNew(env, r) {
   let to, stage;
   if (r.mode === "later") {
     to = [owner]; stage = "owner";
-    r.data.assignable = all.filter((x) => !x.owner && x.chat_id).map((x) => ({ id: x.id, name: x.name || "kierowca" }));
+    r.data.assignable = all.filter((x) => !x.owner && x.chat_id && !isDemo(x)).map((x) => ({ id: x.id, name: x.name || "kierowca" }));
   }
   else {
-    const free = all.filter((x) => x.chat_id && isLive(x) && !busy.has(x.id) && (!x.seats || x.seats >= (r.data.pax || 1)));
+    const free = all.filter((x) => canDrive(x, busy, r.data.pax || 1));
     if (!free.length) { to = [owner]; stage = "owner"; }
     else {
       const p = r.data.pickup;
@@ -208,7 +223,7 @@ export async function escalate(env, r) {
     const [all, busy] = await Promise.all([listDrivers(env), busyDriverIds(env)]);
     let next = [], stage = d.stage;
     if (d.stage === "nearest") {
-      next = all.filter((x) => x.chat_id && !offers[x.id] && isLive(x) && !busy.has(x.id) && (!x.seats || x.seats >= (d.pax || 1)));
+      next = all.filter((x) => !offers[x.id] && canDrive(x, busy, d.pax || 1));
       stage = "all";
     }
     if (!next.length && allNo) {

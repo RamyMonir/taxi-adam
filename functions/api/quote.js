@@ -5,7 +5,7 @@ import { route } from "../../server/google.js";
 import { price } from "../../server/pricing.js";
 import { CONFIG } from "../../server/config.js";
 import { isLive } from "../../server/rides.js";
-import { listDrivers, busyDriverIds } from "../../server/fleet.js";
+import { listDrivers, busyDriverIds, canDrive } from "../../server/fleet.js";
 import { kmBetween } from "../../server/util.js";
 
 export async function onRequestPost({ request, env }) {
@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
   let from = CONFIG.base;
   if (b.mode === "now") {
     const [all, busy] = await Promise.all([listDrivers(env).catch(() => []), busyDriverIds(env).catch(() => new Set())]);
-    const free = all.filter((x) => x.chat_id && isLive(x) && !busy.has(x.id)).sort((a, c) => kmBetween(a, pickup) - kmBetween(c, pickup));
+    const free = all.filter((x) => canDrive(x, busy)).sort((a, c) => kmBetween(a, pickup) - kmBetween(c, pickup));
     if (free.length) from = { lat: free[0].lat, lng: free[0].lng };
   }
   const [trip, approach] = await Promise.all([

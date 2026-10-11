@@ -981,3 +981,8 @@ section:not(.hero) .wrap>p+h2,section:not(.hero) .wrap>ul+h2{margin-top:1.4em}
 .td-plate{padding-right:7px}.td-plate i{margin-right:6px}
 .td-plate{align-items:center}
 @media (max-width:360px){.td-plate{font-size:.82rem}}
+
+/* driver photo + car photo on the ride status page */
+.t-driver img.td-ava{object-fit:cover;padding:0}
+.t-driver{flex-wrap:wrap}
+.td-carimg{display:block;width:100%;max-height:170px;object-fit:cover;border-radius:12px;margin-top:10px;flex-basis:100%}

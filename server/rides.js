@@ -181,6 +181,9 @@ export function publicView(r, car, drv) {
     reviewUrl: r.status === "done" && reviewPlace(r) ? `https://search.google.com/local/writereview?placeid=${reviewPlace(r).id}` : null,
     reviewName: r.status === "done" && reviewPlace(r) ? reviewPlace(r).name : null,
     driver: showDriver(r) && d.driver ? { name: d.driver.name, car: d.driver.car, color: d.driver.color, plate: d.driver.plate } : null,
+    // the car he drives on this ride (snapshot); photo URLs are added by server/photos.js withPhotos()
+    vehicle: showDriver(r) && d.vehicle ? { model: `${d.vehicle.make} ${d.vehicle.model}`.trim(), color: d.vehicle.color || "", plate: d.vehicle.plate || "",
+                                           seats: d.vehicle.seats || null } : null,
   };
 }
 

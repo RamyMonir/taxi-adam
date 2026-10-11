@@ -3,7 +3,8 @@
 (function () {
   "use strict";
   var C = window.TAXI || {};
-  var lang = C.lang === "en" || /[?&]lang=en\b/.test(location.search) ? "en" : "pl";
+  // the ride status page (/przejazd/) is Polish only; the /en/ landing pages keep English
+  var lang = !document.getElementById("track") && (C.lang === "en" || /[?&]lang=en\b/.test(location.search)) ? "en" : "pl";
   var T = {
     pl: {
       myLoc: "Moja lokalizacja", locating: "Szukam Twojej lokalizacji…", fromPh: "", gpsDenied: "Zezwól przeglądarce na dostęp do lokalizacji albo wpisz adres.",
@@ -676,6 +677,35 @@
   var track = $("track");
   if (track) initTrack();
 
+  var mk = function (tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  var ownPhoto = function (u) { return typeof u === "string" && /^\/api\/photo\/[dc]\/[a-z0-9]{12}\?t=[a-f0-9]{32}$/.test(u); };
+  function renderDriver(dc, dv, vh) {
+    var sig = JSON.stringify([dv, vh]);
+    if (dc.getAttribute("data-sig") === sig) return;   // the page polls every few seconds: don't reload the photos each time
+    dc.setAttribute("data-sig", sig);
+    dc.hidden = !dv; dc.textContent = "";
+    if (!dv) return;
+    var initial = function () { return mk("span", "td-ava", (dv.name || "?").charAt(0).toUpperCase()); };
+    var ava = initial();
+    if (ownPhoto(dv.photo)) {
+      ava = mk("img", "td-ava td-photo"); ava.src = dv.photo; ava.alt = "Zdjęcie kierowcy: " + (dv.name || "");
+      ava.width = 56; ava.height = 56; ava.decoding = "async"; ava.referrerPolicy = "no-referrer";
+      ava.onerror = function () { ava.replaceWith(initial()); };
+    }
+    ava.setAttribute("aria-hidden", ownPhoto(dv.photo) ? "false" : "true");
+    var txt = mk("span", "td-txt");
+    txt.append(mk("small", null, "Twój kierowca"), mk("b", null, dv.name || ""));
+    var model = vh ? vh.model : dv.car, color = vh ? vh.color : dv.color, plate = vh ? vh.plate : dv.plate;
+    if (model) txt.append(mk("span", null, [model, color].filter(Boolean).join(" · ")));
+    if (plate) { var pl = mk("em", "td-plate"); pl.setAttribute("aria-label", "Rejestracja " + plate); pl.append(mk("i", null, "PL"), document.createTextNode(plate)); txt.append(pl); }
+    dc.append(ava, txt);
+    if (vh && ownPhoto(vh.photo)) {
+      var ci = mk("img", "td-carimg"); ci.src = vh.photo; ci.alt = "Samochód: " + [vh.model, vh.color].filter(Boolean).join(", ");
+      ci.loading = "lazy"; ci.decoding = "async"; ci.referrerPolicy = "no-referrer"; ci.onerror = function () { ci.remove(); };
+      dc.append(ci);
+    }
+  }
+
   function initTrack() {
     var id = new URLSearchParams(location.search).get("id") || (Rides.active() || {}).id;
     var tok = new URLSearchParams(location.search).get("t");
@@ -738,14 +768,10 @@
       if (r.price) dl.push([T.d.price, (r.priceKind === "fixed" ? "" : "~") + r.price + " zł"]);
       if (r.flightInfo || r.flight) dl.push([T.d.flight, r.flightInfo || r.flight]);
       // which driver and car is coming (+ the call button rings that driver)
-      var dc = $("t-driver"), dv = r.driver;
-      if (dc) {
-        dc.hidden = !dv;
-        if (dv) dc.innerHTML = '<span class="td-ava" aria-hidden="true">' + escH((dv.name || "?").charAt(0).toUpperCase()) + '</span>' +
-          '<span class="td-txt"><small>' + (lang === "en" ? "Your driver" : "Twój kierowca") + '</small><b>' + escH(dv.name || "") + '</b>' +
-          (dv.car ? '<span>' + escH([dv.car, dv.color].filter(Boolean).join(" · ")) + '</span>' : "") +
-          (dv.plate ? '<em class="td-plate" aria-label="' + (lang === "en" ? "Plate " : "Rejestracja ") + escH(dv.plate) + '"><i>PL</i>' + escH(dv.plate) + '</em>' : "") + '</span>';
-      }
+      // which driver and car is coming (+ the call button rings that driver). Built with DOM nodes and textContent only:
+      // names, models and plates are typed in Telegram, so they must never be parsed as HTML.
+      var dc = $("t-driver"), dv = r.driver, vh = r.vehicle;
+      if (dc) renderDriver(dc, dv, vh);
       var cb = document.querySelector(".track-actions .btn-call");
       if (cb && r.tel) { var tn = String(r.tel).replace(/[^\d+]/g, ""); if (/^\d{9}$/.test(tn)) tn = "+48" + tn; cb.href = "tel:" + tn; }
       $("t-details").innerHTML = dl.map(function (x) { return "<div><dt>" + escH(x[0]) + "</dt><dd>" + escH(x[1]) + "</dd></div>"; }).join("");

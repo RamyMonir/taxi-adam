@@ -2,6 +2,7 @@
 import { json, bad } from "../../../server/util.js";
 import { load, expireIfStale, publicView, refreshEta, syncDriverMessage } from "../../../server/rides.js";
 import { escalate, getDriver } from "../../../server/fleet.js";
+import { withPhotos } from "../../../server/photos.js";
 
 export async function onRequestGet({ params, request, env, waitUntil }) {
   if (!/^[a-z0-9]{12}$/.test(params.id)) return bad("not found", 404);
@@ -19,5 +20,5 @@ export async function onRequestGet({ params, request, env, waitUntil }) {
   // keep distance and arrival time current even when the driver's phone sends no new point (car standing / in traffic)
   if (car && (await refreshEta(env, r, car).catch(() => false))) waitUntil(syncDriverMessage(env, r));
   else if (r.stale) r = (await load(env, params.id)) || r;   // driver tapped / customer cancelled meanwhile: show the real status
-  return json(publicView(r, car, drv));
+  return json(await withPhotos(env, r, publicView(r, car, drv)));
 }
