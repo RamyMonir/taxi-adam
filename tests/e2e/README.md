@@ -18,3 +18,16 @@ node tests/e2e/run.mjs                     # prints ✔ / ✘ per step and the t
 Start with an empty `--persist-to` directory each time.
 
 `FLEET_FROM_FILE=0` turns off the automatic sync with `src/fleet.py`, because this run adds its own cars and drivers.
+
+## Adam as dispatcher (`dispatch.mjs`)
+
+Phone ride → "Kto jedzie?" panel → give it to one driver / send to the free ones / take it himself, "📋 Kursy teraz",
+grouped "👥 Kierowcy" with 🗑, a hand-picked driver saying no, reservations. Uses the cars and drivers from `src/fleet.py`,
+so start wrangler on a fresh `--persist-to` **without** `FLEET_FROM_FILE=0`, plus a fake Google for the addresses:
+
+```bash
+node tests/e2e/fake-google.mjs &           # fake Places + Routes on :8998
+wrangler pages dev dist ... (same bindings, no FLEET_FROM_FILE) GOOGLE_SERVER_KEY=fake \
+  PLACES_API_BASE=http://127.0.0.1:8998 ROUTES_API_BASE=http://127.0.0.1:8998 &
+node tests/e2e/dispatch.mjs
+```

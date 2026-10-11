@@ -10,13 +10,14 @@ import { CONFIG } from "../../server/config.js";
 import { db, notifyDriver, tgFile, load, save, saveIfUnchanged, transition, tg, syncDriverMessage, closeOtherOffers, activeRides, navUrl, isLive,
          refreshEta, driverText, keyboard, SET_OFF_MS, nextListing } from "../../server/rides.js";
 import { driverByChat, listDrivers, saveDriverPos, markHint, addDriver, bindDriver, updateDriver, deactivateDriver, newInviteCode,
-         busyDriverIds, botUsername, escalate, ensureOwner } from "../../server/fleet.js";
-import { currentCar, vehicleSnapshot, carName, carLabel, carLong, isDemo } from "../../server/cars.js";
+         busyDriverIds, botUsername, escalate, ensureOwner, availability, availabilityText, ownerPanel, offerToFree, offerToDriver, ownerInfoText } from "../../server/fleet.js";
+import { currentCar, vehicleSnapshot, carName, carLabel, carLong, isDemo, release } from "../../server/cars.js";
 import { fleetCallback, fleetCommand, onPhotoMessage, sendCarPicker, FLEET_OWNER_HELP, todayLine } from "../../server/botfleet.js";
 import { ensureFleetSynced } from "../../server/fleetsync.js";
 import { modelOf, modelLabel } from "../../server/settle.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
+
 const ARRIVE_KM = 0.15, FINISH_KM = 0.3;
 const say = (env, chat, text, extra = {}) => tg(env, "sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, ...extra });
 
@@ -24,9 +25,9 @@ const say = (env, chat, text, extra = {}) => tg(env, "sendMessage", { chat_id: c
 // which is mapped to the command below.
 const MENU = {
   driver: [["🟢 Zmiana", "🚗 Moje auto"], ["📞 Kurs z telefonu", "📊 Mój dzień"], ["👤 Ja", "❓ Pomoc"]],
-  owner: [["👥 Kierowcy", "🚗 Auta"], ["📞 Kurs z telefonu", "📊 Raport dziś"], ["🟢 Zmiana", "👤 Ja", "❓ Pomoc"]],
+  owner: [["➕ Nowy kurs", "📋 Kursy teraz"], ["👥 Kierowcy", "🚗 Auta"], ["📊 Raport dziś", "🟢 Zmiana"], ["👤 Ja", "❓ Pomoc"]],
 };
-const MENU_CMD = { "🟢 Zmiana": "/zmiana", "🚗 Moje auto": "/auto", "📞 Kurs z telefonu": "/kurs", "📊 Mój dzień": "/raport", "📊 Raport dziś": "/raport",
+const MENU_CMD = { "➕ Nowy kurs": "/kurs", "📋 Kursy teraz": "/kursy", "🟢 Zmiana": "/zmiana", "🚗 Moje auto": "/auto", "📞 Kurs z telefonu": "/kurs", "📊 Mój dzień": "/raport", "📊 Raport dziś": "/raport",
                    "👤 Ja": "/ja", "❓ Pomoc": "/pomoc", "👥 Kierowcy": "/kierowcy", "🚗 Auta": "/auta" };
 const menu = (drv) => ({ keyboard: (drv && drv.owner ? MENU.owner : MENU.driver).map((row) => row.map((text) => ({ text }))),
                          resize_keyboard: true, is_persistent: true, input_field_placeholder: "Wybierz przycisk albo napisz…" });
@@ -55,6 +56,7 @@ async function statusLine(env, drv) {
   return "⚪ Nie jesteś na zmianie – dotknij „🟢 Zmiana”, żeby zacząć.";
 }
 function helpText(drv) {
+  if (drv && drv.owner) return ownerHelpText();
   const L = [
     "❓ <b>Jak to działa</b>", "",
     "🟢 <b>Zmiana</b> – start: udostępnij mi lokalizację na żywo (📎 → Lokalizacja). Koniec: zatrzymaj udostępnianie.",
@@ -64,8 +66,30 @@ function helpText(drv) {
     "📊 <b>Mój dzień</b> – kursy, kilometry i rozliczenie (też tydzień i miesiąc).",
     "👤 <b>Ja</b> – Twoje dane. Zmiany: <code>/telefon 600100200</code> · /zdjecie · <code>/imie Marek</code>",
   ];
-  if (drv && drv.owner) L.push("", "👥 <b>Kierowcy</b> – /kierowcy · <code>/dodaj Imię 600100200</code> · <code>/usun 3</code> · <code>/link 3</code> · <code>/wizytowka 2 3</code>", FLEET_OWNER_HELP);
   return L.join("\n");
+}
+// Adam: dispatcher first – a call comes in, he decides who drives
+function ownerHelpText() {
+  return [
+    "❓ <b>Jak to działa – Adam</b>", "",
+    "📞 <b>Ktoś dzwoni?</b> Dotknij „➕ Nowy kurs” albo po prostu napisz jedną linijkę:",
+    "<code>Rynek 1 Knurów &gt; Dworzec Gliwice, 600100200, Pani Ewa</code>",
+    "<code>Rynek 1 Knurów &gt; Pyrzowice, jutro 14:30, 600100200</code> (z godziną = rezerwacja)",
+    "Dostaniesz podgląd z ceną i listą <b>wolnych kierowców</b> (najbliżsi pierwsi). Jeden przycisk:",
+    "  🙋 <b>Jadę sam</b> – kurs jest Twój",
+    "  📨 <b>Wyślij do wolnych</b> – dostaje najbliższy, po minucie wszyscy wolni",
+    "  🟢 <b>Imię</b> – tylko ten kierowca; jeśli odmówi, wraca do Ciebie",
+    "  👤 <b>Przydziel: Imię</b> – rezerwacja dla konkretnego kierowcy",
+    "  🗑 <b>Usuń</b> – pomyłka, kasujesz",
+    "",
+    "🌐 <b>Kursy ze strony</b> idą same do najbliższego wolnego kierowcy. Ty dostajesz cichą kopię z tymi samymi przyciskami – możesz przejąć albo dać komuś innemu.",
+    "📋 <b>Kursy teraz</b> – wszystko, co otwarte; przy kursie bez kierowcy jest „👥 Przydziel”.",
+    "👥 <b>Kierowcy</b> – kto wolny, kto w kursie, kto poza zmianą, kto jeszcze nie dołączył (z linkiem). 🗑 usuwa kierowcę.",
+    "  Dodaj: <code>/dodaj Imię 600100200</code> · link: <code>/link 3</code> · wizytówka: <code>/wizytowka 2 3</code>",
+    "🚗 <b>Auta</b> / 📊 <b>Raport dziś</b> / 🟢 <b>Zmiana</b> (gdy sam jeździsz) / 👤 <b>Ja</b>",
+    "",
+    FLEET_OWNER_HELP,
+  ].join("\n");
 }
 
 // a new message (with sound) in the chat of the driver who has the ride
@@ -208,8 +232,32 @@ async function phoneRide(env, request, drv, text) {
   };
   assign(r, drv, await currentCar(env, drv.id).catch(() => null));
   await save(env, r);
-  r.tg_msg = await notifyDriver(env, r, drv.chat_id);
+  if (drv.owner) {
+    const a = await availability(env, r).catch(() => null);
+    const j = await say(env, drv.chat_id, driverText(r) + (a ? "\n\n" + availabilityText(a) + "\n\n<b>Kto jedzie?</b>" : ""),
+      { reply_markup: { inline_keyboard: a ? await ownerPanel(env, r, a) : keyboard(r) } });
+    r.tg_msg = j && j.ok ? j.result.message_id : null;
+  } else r.tg_msg = await notifyDriver(env, r, drv.chat_id);
   await save(env, r);
+}
+
+// "📋 Kursy teraz" – everything open right now; rides waiting for a driver get a "Przydziel" button
+const OPEN_ICON = { pending: "⏳", scheduled: "📅", enroute: "🚕", arrived: "📍", ontrip: "🛣" };
+async function openRidesList(env, drv) {
+  const rs = await (await db(env)).prepare(
+    "SELECT * FROM rides WHERE status IN ('pending','scheduled','enroute','arrived','ontrip') ORDER BY created DESC LIMIT 15").all();
+  const rides = (rs.results || []).map((row) => ({ ...row, data: JSON.parse(row.data) }));
+  if (!rides.length) return say(env, drv.chat_id, "📋 <b>Kursy teraz:</b> brak otwartych kursów. ☕", { reply_markup: menu(drv) });
+  const hm = (ms) => new Date(ms).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" });
+  const part = (a) => esc(String(a || "").split(",")[0]);
+  const L = ["📋 <b>Kursy teraz</b>"], rows = [];
+  for (const r of rides) {
+    const d = r.data, when = d.when ? String(d.when).slice(5, 16).replace("T", " ") : hm(r.created);
+    const who = d.driverId ? "👤 " + esc((d.driver && d.driver.name) || "") : "czeka na kierowcę";
+    L.push(`${OPEN_ICON[r.status] || "•"} ${when} · ${part(d.pickup && d.pickup.address)} → ${part(d.dest && d.dest.address)} · ${who}`);
+    if (r.status === "pending" && !d.driverId) rows.push([btn(`👥 Przydziel: ${String(d.pickup && d.pickup.address || "").split(",")[0].slice(0, 24)}`, `dpl|${r.id}`)]);
+  }
+  return say(env, drv.chat_id, L.join("\n"), rows.length ? { reply_markup: { inline_keyboard: rows } } : {});
 }
 
 /* ---------------- drivers: joining, car, Adam's list ---------------- */
@@ -223,6 +271,30 @@ const JOIN_HELP =
   "<b>3. Auto:</b> na początku zmiany wybierasz je jednym kliknięciem (zmiana: /auto, oddanie: /oddaj). Klient zobaczy auto i rejestrację.\n" +
   "   Numer, pod którym klient może do Ciebie zadzwonić: <code>/telefon 600100200</code> · zdjęcie dla klienta: /zdjecie\n\n" +
   "Inne: /kurs – kurs przyjęty przez telefon, /raport – Twoje kursy i rozliczenie, /ja – Twoje dane.";
+
+async function driversPanel(env, owner) {
+  const [all, busy, bot] = await Promise.all([listDrivers(env), busyDriverIds(env), botUsername(env)]);
+  const team = all.filter((x) => !x.owner && !isDemo(x));
+  const carOf = (x) => (x.current_car_id ? " · 🚗 " + esc([x.car_model, x.car_plate].filter(Boolean).join(" ")) : "");
+  const ago = (x) => Math.max(0, Math.round((Date.now() - x.ts) / 60000));
+  const groups = [
+    ["🟢 <b>Wolni</b> (mogą wziąć kurs)", team.filter((x) => x.chat_id && !busy.has(x.id) && isLive(x) && x.current_car_id), (x) => `${carOf(x)} · lokalizacja ${ago(x)} min temu`],
+    ["🟡 <b>Na zmianie, ale bez auta</b>", team.filter((x) => x.chat_id && !busy.has(x.id) && isLive(x) && !x.current_car_id), () => ""],
+    ["🚕 <b>W kursie</b>", team.filter((x) => x.chat_id && busy.has(x.id)), carOf],
+    ["⚪ <b>Poza zmianą</b>", team.filter((x) => x.chat_id && !busy.has(x.id) && !isLive(x)), (x) => (x.ts ? ` · ostatnio ${new Date(x.ts).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : "")],
+    ["⏳ <b>Nie dołączyli jeszcze</b> (wyślij im link)", team.filter((x) => !x.chat_id), (x) => (x.code && bot ? `\n      https://t.me/${bot}?start=d_${x.code}` : "")],
+  ];
+  const L = [`👥 <b>Kierowcy</b> (${team.length})`];
+  for (const [title, list, extra] of groups) {
+    if (!list.length) continue;
+    L.push("", title);
+    for (const x of list) L.push(`• ${esc(x.name || "?")}${extra(x)}`);
+  }
+  if (!team.length) L.push("", "Nie masz jeszcze kierowców. Dodaj: <code>/dodaj Imię 600100200</code> albo wpisz ich w pliku src/fleet.py.");
+  L.push("", "➕ Dodaj: <code>/dodaj Imię 600100200</code> · 🗑 usuń: przycisk poniżej");
+  const rows = team.map((x) => [btn(`🗑 Usuń: ${x.name}`, `drm|${x.id}`)]);
+  return { text: L.join("\n"), rows };
+}
 
 async function driversList(env, owner) {
   const [all, busy, bot] = await Promise.all([listDrivers(env), busyDriverIds(env), botUsername(env)]);
@@ -296,7 +368,7 @@ async function command(env, request, drv, text) {
     return say(env, chat, `✅ Klient zobaczy imię: <b>${esc(arg.slice(0, 30))}</b>`);
   }
   // Adam only
-  if (["kierowcy", "dodaj", "usun", "usuń", "link", "wizytowka", "wizytówka"].includes(cmd) && !drv.owner) return say(env, chat, "Tę komendę może użyć tylko Adam.");
+  if (["kierowcy", "kursy", "dodaj", "usun", "usuń", "link", "wizytowka", "wizytówka"].includes(cmd) && !drv.owner) return say(env, chat, "Tę komendę może użyć tylko Adam.");
   if (cmd === "wizytowka" || cmd === "wizytówka") {
     // "/wizytowka 2 3" = driver no. 2 (from /kierowcy) -> listing no. 3; "/wizytowka 2 0" = in turn
     const places = CONFIG.places || [], all = await listDrivers(env);
@@ -307,7 +379,8 @@ async function command(env, request, drv, text) {
     await updateDriver(env, x.id, { listing: k ? k - 1 : null });
     return say(env, chat, `✅ Klienci kierowcy <b>${esc(x.name)}</b> będą proszeni o opinię dla: <b>${k ? esc(places[k - 1].name) : "wszystkich wizytówek po kolei"}</b>`);
   }
-  if (cmd === "kierowcy") return say(env, chat, await driversList(env, drv));
+  if (cmd === "kierowcy") { const p = await driversPanel(env, drv); return say(env, chat, p.text, { reply_markup: { inline_keyboard: p.rows } }); }
+  if (cmd === "kursy") return openRidesList(env, drv);
   if (cmd === "dodaj") {
     const phone = (arg.match(/\+?\d[\d \-]{7,}\d/) || [""])[0].trim();
     const name = arg.replace(phone, "").trim().slice(0, 30);
@@ -415,9 +488,76 @@ async function handle(request, env, u) {
     return json({ ok: true });
   }
 
-  const [act, id, arg] = String(q.data || "").split("|");
+  let [act, id, arg] = String(q.data || "").split("|");
+  if (act === "drm" || act === "drmy") {   // Adam removes a driver (asks once)
+    if (!me.owner) { await answer("Tylko Adam", true); return json({ ok: true }); }
+    const x = (await listDrivers(env)).find((y) => y.id === id && !y.owner);
+    if (!x) { await answer("Tego kierowcy już nie ma na liście", true); return json({ ok: true }); }
+    if (act === "drm") {
+      await answer();
+      await say(env, me.chat_id, `🗑 Usunąć kierowcę <b>${esc(x.name)}</b>?\nNie dostanie już kursów; jego dotychczasowe kursy zostają w raportach.`,
+        { reply_markup: { inline_keyboard: [[btn("Tak, usuń", `drmy|${x.id}`), btn("Nie", "k|-")]] } });
+      return json({ ok: true });
+    }
+    if ((await busyDriverIds(env)).has(x.id)) { await answer("Ten kierowca jest teraz w kursie – usuń go po kursie.", true); return json({ ok: true }); }
+    await release(env, x.id, "admin").catch(() => {});
+    await deactivateDriver(env, x.id);
+    if (x.chat_id) await say(env, x.chat_id, "Twoje konto kierowcy w bocie Taxi Adam zostało wyłączone. W razie pytań – zadzwoń do Adama.");
+    await answer(`Usunięto: ${x.name}`);
+    await clearButtons();
+    const p = await driversPanel(env, me);
+    await say(env, me.chat_id, `✅ Usunięto: <b>${esc(x.name)}</b>\n\n` + p.text, { reply_markup: { inline_keyboard: p.rows } });
+    return json({ ok: true });
+  }
+  if (act === "k" && id === "-") { await answer("OK"); await clearButtons(); return json({ ok: true }); }
   let r = await load(env, id);
   if (!r) { await answer("Nie znaleziono kursu", true); return json({ ok: true }); }
+
+  // ---- Adam's dispatch panel: take it himself, send to the free drivers, or give it to one driver ----
+  let ownerTake = false;
+  if (["dpo", "dps", "dpa", "dpl"].includes(act)) {
+    if (!me.owner) { await answer("Kursy przydziela Adam", true); return json({ ok: true }); }
+    if (act === "dpl") {   // from "📋 Kursy teraz": a fresh panel for this ride
+      if (r.status !== "pending" || r.data.driverId) { await answer("Ten kurs ma już kierowcę albo się zakończył", true); return json({ ok: true }); }
+      const a = await availability(env, r);
+      const j = await say(env, me.chat_id, ownerInfoText(r) + "\n\n" + availabilityText(a), { reply_markup: { inline_keyboard: await ownerPanel(env, r, a) } });
+      if (j && j.ok) r = (await transition(env, r.id, ["pending"], (x) => { x.data.ownerInfo = j.result.message_id; })) || r;
+      await answer(); return json({ ok: true });
+    }
+    if (!["draft", "pending"].includes(r.status) || (r.status === "pending" && r.data.driverId)) {
+      await answer("Ten kurs ma już kierowcę albo się zakończył", true); await syncDriverMessage(env, r); return json({ ok: true });
+    }
+    const draft = r.status === "draft";
+    if (act === "dpo") {   // Adam drives himself
+      if (draft) act = "ok";
+      else if (r.mode === "later") act = "s";
+      else { act = "e"; ownerTake = true; }
+    } else if (r.mode === "later") {   // a reservation: give it to the chosen driver
+      if (act === "dps") { await answer("Rezerwację przydziel konkretnemu kierowcy", true); return json({ ok: true }); }
+      if (draft) await recordOrder(env, r).catch(() => {});
+      act = "g";
+    } else {   // a ride now: offer it to the free drivers / to the chosen one
+      const prev = r.updated, d0 = r.data;
+      if (draft) {
+        await recordOrder(env, r).catch(() => {});
+        const preview = r.tg_msg; unassign(r); r.status = "pending"; d0.ownerInfo = preview; r.tg_msg = null; d0.offers = {}; d0.pendingSince = Date.now();
+      }
+      let n = 0, to = "";
+      if (act === "dps") { n = await offerToFree(env, r); to = "najbliższego wolnego kierowcy"; }
+      else {
+        const x = (await listDrivers(env)).find((y) => y.id === arg);
+        if (x && x.chat_id && !isDemo(x)) { n = await offerToDriver(env, r, x); to = x.name; }
+      }
+      if (!n) { await answer(act === "dps" ? "Nikt nie jest teraz wolny – jedź sam albo spróbuj za chwilę." : "Ten kierowca jest teraz niedostępny.", true); return json({ ok: true }); }
+      if (!(await saveIfUnchanged(env, r, prev))) {   // someone changed the ride meanwhile: keep the offers that went out
+        const sent = r.data;
+        r = (await transition(env, r.id, ["pending", "draft"], (x) => { x.data.offers = { ...(sent.offers || {}), ...(x.data.offers || {}) }; x.data.stage = sent.stage; x.data.stageAt = sent.stageAt; })) || (await load(env, id)) || r;
+      }
+      await answer(`📨 Wysłano do: ${to}`);
+      await syncDriverMessage(env, r);
+      return json({ ok: true });
+    }
+  }
 
   if (act === "pay") {
     if (!mine(r, me)) { await answer("To nie Twój kurs", true); return json({ ok: true }); }
@@ -432,6 +572,7 @@ async function handle(request, env, u) {
   }
 
   let st = r.status, act2 = act;
+  if (act === "g" && st === "draft") st = "pending";   // Adam gives his phone reservation to a driver
   const prevUpdated = r.updated;
   const min = parseInt(arg, 10) || 0, d = r.data;
   let toast = null, follow = null;
@@ -471,7 +612,8 @@ async function handle(request, env, u) {
 
   if (act2 === "e" && (st === "pending" || st === "scheduled")) {
     // pending: any driver it was offered to; scheduled: the driver it was given to
-    const allowed = st === "pending" ? (offered || legacy && me.owner || (act === "ok" && mine(r, me))) : mine(r, me);
+    const allowed = st === "pending" ? (offered || legacy && me.owner || ownerTake || (act === "ok" && mine(r, me))) : mine(r, me);
+    if (ownerTake && d.ownerInfo && !(d.offers && d.offers[me.id])) { r.tg_msg = d.ownerInfo; d.ownerInfo = null; }
     if (!allowed) { await answer("Ten kurs nie jest dla Ciebie", true); return json({ ok: true }); }
     // the car the customer will see: the one he holds now (Adam may drive without checking one in)
     const myCar = await currentCar(env, me.id).catch(() => null);
