@@ -100,6 +100,9 @@
   var hasXY = function (p) { return p && p.lat != null && p.lng != null; };
   var shortAddr = function (a) { return String(a || "").replace(/,\s*(Polska|Poland|Czechy|Česko)$/i, ""); };
 
+  // tiny DOM builder: el("b", "cls", "text") – text is always set with textContent
+  var el = function (tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
   function api(url, body, timeoutMs, headers) {
     var ctl = "AbortController" in window ? new AbortController() : null;
     var t = ctl && setTimeout(function () { ctl.abort(); }, timeoutMs || 15000);
@@ -213,7 +216,8 @@
   var banner = $("ride-banner"), act = Rides.active();
   if (banner && act && !$("track")) {
     banner.href = "/przejazd/?id=" + act.id + (lang === "en" ? "&lang=en" : "");
-    banner.innerHTML = '<span class="live" aria-hidden="true"></span>' + escH(T.banner) + " →";
+    var dot = el("span", "live"); dot.setAttribute("aria-hidden", "true");
+    banner.textContent = ""; banner.append(dot, document.createTextNode(T.banner + " →"));
     banner.hidden = false;
   }
 
@@ -283,7 +287,7 @@
   }
   function Autocomplete(input, list, onPick) {
     var token = null, timer = null, items = [], active = -1, seq = 0;
-    function close() { list.hidden = true; list.innerHTML = ""; items = []; active = -1; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); }
+    function close() { list.hidden = true; list.textContent = ""; items = []; active = -1; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); }
     function highlight(i) {
       active = i;
       Array.prototype.forEach.call(list.children, function (li, k) { li.setAttribute("aria-selected", k === i ? "true" : "false"); });
@@ -291,9 +295,11 @@
     }
     function render() {
       if (!items.length || document.activeElement !== input) { close(); return; }
-      list.innerHTML = items.map(function (p, i) {
-        return '<li role="option" id="' + list.id + "-" + i + '" data-i="' + i + '"><b>' + escH(p.main) + "</b><small>" + escH(p.sub) + "</small></li>";
-      }).join("");
+      list.textContent = "";
+      items.forEach(function (p, i) {
+        var li = el("li"); li.setAttribute("role", "option"); li.id = list.id + "-" + i; li.setAttribute("data-i", String(i));
+        li.append(el("b", null, p.main), el("small", null, p.sub)); list.append(li);
+      });
       list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
     }
     function search(q) {
@@ -554,20 +560,32 @@
       var f = fLegs[fSel]; if (!f) return;
       var sug = suggestion(f);
       var end = function (e, lbl) {
-        var late = e.time && e.scheduled && e.time !== e.scheduled;
-        return "<span><small>" + lbl + " · " + escH(dayLabel(e.date)) + "</small><b>" + escH(e.time || "–") + "</b>" + (late ? "<s>" + escH(e.scheduled) + "</s>" : "") +
-          "<em>" + escH(e.iata ? e.iata + " · " + e.name : e.name) + "</em></span>";
+        var late = e.time && e.scheduled && e.time !== e.scheduled, sp = el("span");
+        sp.append(el("small", null, lbl + " · " + dayLabel(e.date)), el("b", null, e.time || "–"));
+        if (late) sp.append(el("s", null, e.scheduled));
+        sp.append(el("em", null, e.iata ? e.iata + " · " + e.name : e.name));
+        return sp;
       };
-      var days = fLegs.length > 1 ? '<div class="fl-days"><small>' + escH(T.flOther) + "</small>" + fLegs.map(function (l, i) {
-        var e = l.kind === "arr" ? l.arr : l.dep;
-        return '<button type="button" data-leg="' + i + '"' + (i === fSel ? ' aria-pressed="true"' : "") + ">" + escH(dayLabel(e.date)) + "</button>";
-      }).join("") + "</div>" : "";
-      fInfo.className = "flight-info";
-      fInfo.innerHTML = '<div class="fl-head"><b>' + escH(f.number) + "</b> " + escH(f.airline) +
-        (f.status && f.status !== "Unknown" ? ' <span class="fl-st' + (/Delayed|Cancel|Diverted/.test(f.status) ? " bad" : "") + '">' + escH(T.flStatus[f.status] || f.status) + "</span>" : "") + "</div>" +
-        '<div class="fl-route">' + end(f.dep, T.flDep) + '<i aria-hidden="true">✈</i>' + end(f.arr, T.flArr) + "</div>" +
-        (sug ? '<p class="fl-sug"><span>' + escH(fmt(sug.text, { t: sug.at.time, d: dayLabel(sug.at.date) })) + "</span>" +
-          (timeTouched ? '<button type="button" class="fl-use">' + escH(T.flUse) + "</button>" : '<span class="fl-ok">✓ ' + escH(T.flSet) + "</span>") + "</p>" : "") + days;
+      fInfo.className = "flight-info"; fInfo.textContent = "";
+      var head = el("div", "fl-head"); head.append(el("b", null, f.number), document.createTextNode(" " + (f.airline || "")));
+      if (f.status && f.status !== "Unknown") { head.append(document.createTextNode(" "), el("span", "fl-st" + (/Delayed|Cancel|Diverted/.test(f.status) ? " bad" : ""), T.flStatus[f.status] || f.status)); }
+      var route = el("div", "fl-route"), plane = el("i", null, "✈"); plane.setAttribute("aria-hidden", "true");
+      route.append(end(f.dep, T.flDep), plane, end(f.arr, T.flArr));
+      fInfo.append(head, route);
+      if (sug) {
+        var sp = el("p", "fl-sug"); sp.append(el("span", null, fmt(sug.text, { t: sug.at.time, d: dayLabel(sug.at.date) })));
+        if (timeTouched) { var ub = el("button", "fl-use", T.flUse); ub.type = "button"; sp.append(ub); } else sp.append(el("span", "fl-ok", "✓ " + T.flSet));
+        fInfo.append(sp);
+      }
+      if (fLegs.length > 1) {
+        var days = el("div", "fl-days"); days.append(el("small", null, T.flOther));
+        fLegs.forEach(function (l, i) {
+          var e = l.kind === "arr" ? l.arr : l.dep, db = el("button", null, dayLabel(e.date));
+          db.type = "button"; db.setAttribute("data-leg", String(i)); if (i === fSel) db.setAttribute("aria-pressed", "true");
+          days.append(db);
+        });
+        fInfo.append(days);
+      }
       if (sug && !timeTouched) applyPickup(sug.at);
       var use = fInfo.querySelector(".fl-use");
       if (use) use.addEventListener("click", function () { timeTouched = false; applyPickup(sug.at); renderFlight(); });
@@ -582,7 +600,8 @@
       var date = S.mode === "later" && dateTouched && $("date").value ? $("date").value : "";
       var key = no + "|" + date; if (key === fLast) return; fLast = key;
       var my = ++fSeq;
-      fInfo.hidden = false; fInfo.className = "flight-info loading"; fInfo.innerHTML = '<span class="spin" aria-hidden="true"></span> ' + escH(T.flLooking);
+      fInfo.hidden = false; fInfo.className = "flight-info loading"; fInfo.textContent = "";
+      var spn = el("span", "spin"); spn.setAttribute("aria-hidden", "true"); fInfo.append(spn, document.createTextNode(" " + T.flLooking));
       api("/api/flight?no=" + no + (date ? "&date=" + date : ""), null, 15000).then(function (f) {
         if (my !== fSeq) return;
         if (f._status === 503 || f._status === 403) { fInfo.hidden = true; return; }   // lookup not set up: plain text field
@@ -632,8 +651,10 @@
     }
     function fallback(p) {
       var m = encodeURIComponent(message(p)), ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      err.innerHTML = escH(T.errSend) + '<span class="fb-btns"><a class="btn btn-wa" target="_blank" rel="noopener" href="https://wa.me/' + C.wa + "?text=" + m + '">WhatsApp</a>' +
-        '<a class="btn btn-sms" href="sms:' + C.tel + (ios ? "&" : "?") + "body=" + m + '">SMS</a></span>';
+      var wa = el("a", "btn btn-wa", "WhatsApp"); wa.target = "_blank"; wa.rel = "noopener"; wa.href = "https://wa.me/" + C.wa + "?text=" + m;
+      var sms = el("a", "btn btn-sms", "SMS"); sms.href = "sms:" + C.tel + (ios ? "&" : "?") + "body=" + m;
+      var fb = el("span", "fb-btns"); fb.append(wa, sms);
+      err.textContent = ""; err.append(document.createTextNode(T.errSend), fb);
     }
     $("send-wa").addEventListener("click", function () {
       if (S.pickup && S.dest) this.href = "https://wa.me/" + C.wa + "?text=" + encodeURIComponent(message(payload()));
@@ -645,7 +666,8 @@
       if (busy) return;
       var v = validate(); err.textContent = v || ""; if (v) return;
       busy = true; btn.classList.add("busy"); btn.setAttribute("aria-busy", "true");
-      var old = btn.innerHTML; btn.innerHTML = '<span class="spin" aria-hidden="true"></span>' + escH(T.sending);
+      var old = Array.prototype.map.call(btn.childNodes, function (n) { return n.cloneNode(true); });
+      var sp0 = el("span", "spin"); sp0.setAttribute("aria-hidden", "true"); btn.textContent = ""; btn.append(sp0, document.createTextNode(T.sending));
       var fix = [];
       ["pickup", "dest"].forEach(function (w) {
         if (!hasXY(S[w])) fix.push(geocode(S[w].address).then(function (g) { if (g) S[w] = { address: S[w].address, lat: g.lat, lng: g.lng }; }));
@@ -665,7 +687,7 @@
           throw 0;
         }, function () { fallback(p); throw 0; });
       }).catch(function () {
-        busy = false; btn.classList.remove("busy"); btn.removeAttribute("aria-busy"); btn.innerHTML = old;
+        busy = false; btn.classList.remove("busy"); btn.removeAttribute("aria-busy"); btn.textContent = ""; old.forEach(function (n) { btn.append(n); });
       });
     });
 
@@ -673,137 +695,599 @@
     setInterval(function () { if (nightCheck() && S.mode === "now") setMode("later"); }, 60000);
   }
 
-  /* ---------- ride status page ---------- */
+  /* =====================================================================================
+     G2 – app-like booking (/rezerwacja/) and ride status (/przejazd/). Polish only.
+     All customer, driver, car and address data is written with textContent / setAttribute.
+     ===================================================================================== */
+  var mk = function (tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  var ownPhoto = function (u) { return typeof u === "string" && /^\/api\/photo\/[dc]\/[a-z0-9]{12}\?t=[a-f0-9]{32}$/.test(u); };
+  var plClock = function (ms) { return new Date(ms).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" }); };
+  var plWhen = function (iso) {
+    var d = new Date(iso);
+    return d.toLocaleString("pl-PL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+  var firstPart = function (a) { return shortAddr(a).split(",")[0]; };
+  var telHref = function (t) { var n = String(t || C.tel || "").replace(/[^\d+]/g, ""); if (/^\d{9}$/.test(n)) n = "+48" + n; return "tel:" + n; };
+  var kmTxt = function (m) { return (m / 1000).toFixed(1).replace(".", ",") + " km"; };
+  var minTxt = function (s) { var m = Math.max(1, Math.round(s / 60)); return m < 60 ? m + " min" : Math.floor(m / 60) + " godz. " + (m % 60) + " min"; };
+  function nightAtMs(ms) {
+    var N = C.night; if (!N) return false;
+    var h = function (s) { return +s.slice(0, 2) * 60 + +s.slice(3, 5); };
+    var m = h(new Date(ms).toLocaleTimeString("en-GB", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }));
+    var f = h(N.from), t = h(N.to);
+    return f > t ? m >= f || m < t : m >= f && m < t;
+  }
+
+  /* ---------- sheets: open/close, focus trap, Esc ---------- */
+  var g2Open = null, g2Back = null;
+  function g2Focusables(root) {
+    return Array.prototype.filter.call(root.querySelectorAll('button,[href],input,textarea,select,[tabindex]:not([tabindex="-1"])'),
+      function (e) { return !e.disabled && e.offsetParent !== null && !e.closest(".hp"); });
+  }
+  function sheetOpen(over, focusEl) {
+    if (g2Open && g2Open !== over) sheetClose(g2Open, true);
+    if (!g2Open) g2Back = document.activeElement;
+    g2Open = over; over.hidden = false; document.documentElement.style.overflow = "hidden";
+    setTimeout(function () { var f = focusEl || g2Focusables(over)[0]; if (f) f.focus(); }, 40);
+  }
+  function sheetClose(over, keepFocus) {
+    if (!over || over.hidden) return;
+    over.hidden = true; if (g2Open === over) g2Open = null;
+    document.documentElement.style.overflow = "";
+    if (!keepFocus && g2Back && g2Back.focus) g2Back.focus();
+    if (over.onclosed) over.onclosed();
+  }
+  if (document.body.classList.contains("app-g2")) {
+    document.addEventListener("keydown", function (e) {
+      if (!g2Open) return;
+      if (e.key === "Escape") { e.preventDefault(); sheetClose(g2Open); return; }
+      if (e.key !== "Tab") return;
+      var f = g2Focusables(g2Open); if (!f.length) return;
+      if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".g2-over [data-close]"), function (b) {
+      b.addEventListener("click", function () { sheetClose(b.closest(".g2-over")); });
+    });
+  }
+
+  /* ---------- map: Google Maps when a browser key is set, otherwise a calm background ---------- */
+  var DARKQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  var isDark = function () { return !!(DARKQ && DARKQ.matches); };
+  var MAP_LIGHT = [
+    { elementType: "geometry", stylers: [{ color: "#F2F1ED" }] }, { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#7C8499" }] }, { elementType: "labels.text.stroke", stylers: [{ color: "#F7F6F3" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#FFFFFF" }] }, { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#ECEBE7" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#DCE3EC" }] }, { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] }, { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] }];
+  var MAP_DARK = [
+    { elementType: "geometry", stylers: [{ color: "#121A2E" }] }, { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#97A1BA" }] }, { elementType: "labels.text.stroke", stylers: [{ color: "#121A2E" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1B2540" }] }, { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#26314F" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0D1424" }] }, { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] }, { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] }];
+  function G2Map(box) {
+    var m = null, g = null, marks = {}, line = null, fitted = false;
+    var ink = function () { return isDark() ? "#E9ECF4" : "#2A3553"; }, card = function () { return isDark() ? "#1B2540" : "#FFFFFF"; };
+    function svgIcon(kind) {
+      var s;
+      if (kind === "taxi") s = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><circle cx="22" cy="22" r="18" fill="' + card() + '" stroke="' + (isDark() ? "#EBC65E" : "#F4CF5D") + '" stroke-width="3"/><text x="22" y="28" font-size="17" text-anchor="middle">🚕</text></svg>';
+      else s = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="9" fill="' + card() + '" stroke="' + ink() + '" stroke-width="4"/>' + (kind === "b" ? '<circle cx="13" cy="13" r="4" fill="' + ink() + '"/>' : "") + "</svg>";
+      var n = kind === "taxi" ? 44 : 26;
+      return { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(s), scaledSize: new g.Size(n, n), anchor: new g.Point(n / 2, n / 2) };
+    }
+    function ready() {
+      return loadMaps().then(function (G) {
+        if (!G || mapsBroken) return null;
+        g = G.maps;
+        if (!m) {
+          box.classList.add("live");
+          m = new g.Map(box, { center: C.base, zoom: 12, disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy",
+            keyboardShortcuts: false, styles: isDark() ? MAP_DARK : MAP_LIGHT, backgroundColor: isDark() ? "#121A2E" : "#F7F6F3" });
+          if (DARKQ && DARKQ.addEventListener) DARKQ.addEventListener("change", function () {
+            m.setOptions({ styles: isDark() ? MAP_DARK : MAP_LIGHT });
+            Object.keys(marks).forEach(function (k) { marks[k].setIcon(svgIcon(marks[k].kind)); });
+            if (line) line.setOptions({ strokeColor: ink() });
+          });
+        }
+        return m;
+      });
+    }
+    function mark(key, pos, kind) {
+      if (!pos) { if (marks[key]) { marks[key].setMap(null); delete marks[key]; } return; }
+      if (!marks[key]) { marks[key] = new g.Marker({ map: m, icon: svgIcon(kind), clickable: false, zIndex: kind === "taxi" ? 3 : 2 }); marks[key].kind = kind; }
+      marks[key].setPosition(pos);
+    }
+    function fit(points) {
+      var sheet = document.getElementById("g2-sheet"), bottom = sheet && window.innerWidth < 760 ? sheet.offsetHeight + 24 : 60;
+      var b = new g.LatLngBounds(); points.forEach(function (p) { b.extend(p); });
+      m.fitBounds(b, { top: 90, left: 40, right: 40, bottom: bottom });
+      if (points.length < 2) m.setZoom(15);
+    }
+    var xy = function (p) { return hasXY(p) ? { lat: +p.lat, lng: +p.lng } : null; };
+    return {
+      route: function (a, b, polyline) {
+        ready().then(function (mm) {
+          if (!mm) return;
+          mark("a", xy(a), "a"); mark("b", xy(b), "b");
+          if (line) { line.setMap(null); line = null; }
+          var pts = [xy(a), xy(b)].filter(Boolean);
+          if (!pts.length) return;
+          var path = polyline && g.geometry ? g.geometry.encoding.decodePath(polyline) : null;
+          if (path && pts.length === 2) line = new g.Polyline({ map: mm, path: path, strokeColor: ink(), strokeOpacity: 0.8, strokeWeight: 4, clickable: false });
+          fit(path && path.length ? path : pts);
+        });
+      },
+      // status page: pickup (or destination during the trip) + the live taxi
+      track: function (target, targetKind, car) {
+        ready().then(function (mm) {
+          if (!mm) return;
+          mark("a", targetKind === "a" ? xy(target) : null, "a"); mark("b", targetKind === "b" ? xy(target) : null, "b");
+          mark("t", xy(car), "taxi");
+          var pts = [xy(target), xy(car)].filter(Boolean);
+          if (pts.length && (!fitted || pts.length === 2 && !fitted.both)) { fit(pts); fitted = { both: pts.length === 2 }; }
+        });
+      },
+    };
+  }
+
+  /* ---------- G2 booking (/rezerwacja/) ---------- */
+  var g2b = $("g2-book");
+  if (g2b) initG2Book(g2b);
+
+  function initG2Book(root) {
+    var S = { pickup: null, dest: null, mode: "now", date: "", time: "", quote: null, pax: 1, which: "pickup", tsToken: "", sending: false };
+    var map = G2Map($("g2-map")), qSeq = 0;
+    var go = $("g2-go"), msg = $("g2-msg"), qBox = $("g2-quote");
+    var last = null; try { last = JSON.parse(localStorage.getItem("taxi.last") || "null"); } catch (e) {}
+    var me = Account.on && Account.get();
+
+    function say(box, text, links) {
+      box.textContent = "";
+      if (!text) { box.hidden = true; return; }
+      box.append(document.createTextNode(text));
+      if (links && links.length) {
+        var w = mk("span", "g2-links");
+        links.forEach(function (l) { var a = mk("a", null, l[0]); a.href = l[1]; if (/^https?:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener"; } w.append(a); });
+        box.append(w);
+      }
+      box.hidden = false;
+    }
+    var callLinks = function () { return [["Zadzwoń: " + (C.telLabel || C.tel), "tel:" + C.tel]]; };
+
+    // ---- when: Teraz / Później ----
+    function whenLabel() { return S.mode === "now" ? "Teraz" : (S.date && S.time ? plWhen(S.date + "T" + S.time) : "Później"); }
+    function refresh() {
+      $("g2-when-lbl").textContent = whenLabel();
+      go.textContent = S.mode === "now" ? "Zamów teraz" : "Zarezerwuj";
+      go.disabled = !(S.pickup && S.dest && (S.mode === "now" || (S.date && S.time)));
+    }
+    var nightNow = function () { return nightAtMs(Date.now()); };
+    function setRow(which, p) {
+      var v = $(which === "pickup" ? "g2-from-v" : "g2-to-v");
+      v.textContent = p ? shortAddr(p.address) : (which === "pickup" ? "Wybierz miejsce odbioru" : "Wybierz cel");
+      v.classList.toggle("ph", !p);
+    }
+    function setPoint(which, p) { S[which] = p; setRow(which, p); refresh(); quote(); }
+
+    // ---- quote ----
+    function localQuote() {
+      var R = 6371, r = Math.PI / 180, a = S.pickup, b = S.dest;
+      var s = Math.pow(Math.sin((b.lat - a.lat) * r / 2), 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.pow(Math.sin((b.lng - a.lng) * r / 2), 2);
+      var km = 2 * R * Math.asin(Math.sqrt(s)) * 1.3;
+      return { distanceM: km * 1000, durationS: km / 55 * 3600 + 120, approx: true, price: null };
+    }
+    function showQuote() {
+      var q = S.quote;
+      if (!q) { qBox.hidden = true; return; }
+      qBox.classList.remove("loading"); qBox.hidden = false;
+      $("g2-q-title").textContent = "Taxi · " + (q.price ? (q.priceKind === "fixed" ? "cena stała" : "cena orientacyjna") : "cena do ustalenia");
+      var bits = [];
+      if (S.mode === "now" && q.approachS) bits.push("Kierowca za " + Math.max(3, Math.round(q.approachS / 60) + 2) + " min");
+      if (S.mode === "later" && S.date && S.time) bits.push(plWhen(S.date + "T" + S.time));
+      if (q.distanceM) bits.push(kmTxt(q.distanceM));
+      if (q.durationS) bits.push(minTxt(q.durationS));
+      $("g2-q-sub").textContent = bits.join(" · ");
+      $("g2-q-price").textContent = q.price ? (q.priceKind === "fixed" ? "" : "~") + q.price + " zł" : "";
+    }
+    function quote() {
+      say(msg, "");
+      map.route(S.pickup, S.dest, null);
+      if (!hasXY(S.pickup) || !hasXY(S.dest)) { S.quote = null; showQuote(); return; }
+      var my = ++qSeq;
+      qBox.hidden = false; qBox.classList.add("loading");
+      api("/api/quote", { pickup: S.pickup, dest: S.dest, mode: S.mode }, 12000).then(function (q) {
+        if (my !== qSeq) return;
+        if (q._status === 429) { S.quote = localQuote(); showQuote(); say(msg, q.error || "Za dużo zapytań o cenę. Spróbuj za minutę albo zadzwoń.", callLinks()); return; }
+        S.quote = q._ok ? q : localQuote(); showQuote();
+        if (q._ok) map.route(S.pickup, S.dest, q.polyline);
+      }).catch(function () { if (my === qSeq) { S.quote = localQuote(); showQuote(); } });
+    }
+
+    // ---- address search sheet ----
+    var srch = $("g2-search"), qIn = $("g2-q"), qList = $("g2-q-list"), sMsg = $("g2-s-msg"), gpsB = $("g2-gps");
+    var token = null, timer = null, items = [], active = -1, aSeq = 0;
+    function uuid2() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 12); }
+    function optButton(icon, main, sub) {
+      var b = mk("button", "g2-opt"); b.type = "button";
+      var t = mk("span"); t.append(mk("b", null, main)); if (sub) t.append(mk("small", null, sub));
+      b.append(mk("i", null, icon), t); b.querySelector("i").setAttribute("aria-hidden", "true");
+      return b;
+    }
+    function renderSugg() {
+      qList.textContent = ""; active = -1; qIn.removeAttribute("aria-activedescendant");
+      qIn.setAttribute("aria-expanded", items.length ? "true" : "false");
+      items.forEach(function (p, i) {
+        var li = mk("li"); li.setAttribute("role", "presentation");
+        var b = optButton("📍", p.main, shortAddr(p.sub)); b.id = "g2-o-" + i; b.setAttribute("role", "option"); b.setAttribute("aria-selected", "false"); b.tabIndex = -1;
+        b.addEventListener("click", function () { pickSugg(i); });
+        li.append(b); qList.append(li);
+      });
+    }
+    function highlight(i) {
+      active = i;
+      Array.prototype.forEach.call(qList.querySelectorAll(".g2-opt"), function (b, k) { b.setAttribute("aria-selected", k === i ? "true" : "false"); });
+      if (i >= 0) qIn.setAttribute("aria-activedescendant", "g2-o-" + i);
+    }
+    function pickSugg(i) {
+      var it = items[i]; if (!it) return;
+      var label = it.main + (it.sub ? ", " + it.sub : ""), which = S.which, s = token; token = null;
+      chosen(which, { address: label, lat: null, lng: null });
+      api("/api/place?id=" + encodeURIComponent(it.id) + "&s=" + (s || ""), null, 8000).then(function (p) {
+        if (p._ok && p.lat != null && S[which] && S[which].address === label) setPoint(which, { address: p.address || label, lat: p.lat, lng: p.lng });
+        else if (S[which] && S[which].address === label) geocode(label).then(function (g) { if (g && S[which] && S[which].address === label) setPoint(which, { address: label, lat: g.lat, lng: g.lng }); });
+      }).catch(function () {});
+    }
+    function chosen(which, p) {
+      setPoint(which, p); sheetClose(srch, true);
+      // first the pickup, then straight on to the destination
+      if (which === "pickup" && !S.dest) setTimeout(function () { openSearch("dest"); }, 120);
+      else setTimeout(function () { go.focus(); }, 60);
+    }
+    function openSearch(which) {
+      S.which = which; stopGps();
+      $("g2-search-h").textContent = which === "pickup" ? "Skąd jedziesz?" : "Dokąd jedziesz?";
+      qIn.value = ""; items = []; renderSugg(); say(sMsg, "");
+      gpsB.hidden = which !== "pickup";
+      sheetOpen(srch, qIn);
+    }
+    function renderPopular() {
+      var ul = $("g2-pop"); ul.textContent = "";
+      var list = (C.sugg || []).slice();
+      if (last && last.dest && last.dest.address && hasXY(last.dest)) list.unshift({ kind: "last", address: last.dest.address, lat: last.dest.lat, lng: last.dest.lng });
+      list.forEach(function (p) {
+        var li = mk("li");
+        var icon = p.kind === "airport" ? "✈️" : p.kind === "station" ? "🚆" : p.kind === "last" ? "🕘" : "📍";
+        var sub = p.kind === "airport" ? "Lotnisko" : p.kind === "station" ? "Dworzec" : p.kind === "last" ? "Ostatnio" : "";
+        var b = optButton(icon, shortAddr(p.address), sub);
+        b.addEventListener("click", function () { chosen(S.which, { address: p.address, lat: p.lat, lng: p.lng }); });
+        li.append(b); ul.append(li);
+      });
+    }
+    qIn.addEventListener("input", function () {
+      clearTimeout(timer);
+      var q = qIn.value.trim();
+      if (q.length < 3) { items = []; renderSugg(); return; }
+      timer = setTimeout(function () {
+        if (!token) token = uuid2();
+        var my = ++aSeq;
+        api("/api/places?q=" + encodeURIComponent(q) + "&s=" + token, null, 8000).then(function (r) {
+          if (my !== aSeq) return;
+          items = r.suggestions || []; renderSugg();
+        }).catch(function () {});
+      }, 250);
+    });
+    qIn.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" && items.length) { e.preventDefault(); highlight(Math.min(items.length - 1, active + 1)); }
+      else if (e.key === "ArrowUp" && items.length) { e.preventDefault(); highlight(Math.max(0, active - 1)); }
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        if (items.length) { pickSugg(active >= 0 ? active : 0); return; }
+        var t = qIn.value.trim(); if (t.length < 3) return;
+        say(sMsg, "Szukam adresu…");
+        geocode(t).then(function (g) { if (g) chosen(S.which, g); else say(sMsg, "Nie znaleźliśmy tego adresu. Dopisz miejscowość albo wybierz podpowiedź."); });
+      }
+    });
+    $("g2-from").addEventListener("click", function () { openSearch("pickup"); });
+    $("g2-to").addEventListener("click", function () { openSearch("dest"); });
+
+    // ---- "Moja lokalizacja": a quick position at once, then sharper GPS for a few seconds ----
+    var watchId = null, gpsTimer = null;
+    function stopGps() { if (watchId != null && navigator.geolocation) navigator.geolocation.clearWatch(watchId); watchId = null; clearTimeout(gpsTimer); gpsB.disabled = false; }
+    gpsB.addEventListener("click", function () {
+      if (!navigator.geolocation) { say(sMsg, "Ta przeglądarka nie udostępnia lokalizacji. Wpisz adres."); return; }
+      stopGps(); gpsB.disabled = true; say(sMsg, "Szukam Twojej lokalizacji…");
+      var best = null, p = null, done = false;
+      function use(pos) {
+        var c = pos.coords;
+        if (best && c.accuracy >= best.accuracy) return;
+        best = { lat: c.latitude, lng: c.longitude, accuracy: c.accuracy };
+        p = { address: "Moja lokalizacja", lat: best.lat, lng: best.lng, gps: true };
+        if (!done) { done = true; chosen("pickup", p); } else { S.pickup = p; quote(); }
+        var mine = p;
+        reverse(mine).then(function (a) { if (a && S.pickup === mine) { mine.address = a; setRow("pickup", mine); } });
+        if (c.accuracy <= 40) stopGps();
+      }
+      function fail(e) {
+        if (done) return;
+        stopGps();
+        say(sMsg, e && e.code === 1 ? "Zezwól przeglądarce na dostęp do lokalizacji albo wpisz adres." : "Nie udało się ustalić lokalizacji. Wpisz adres.");
+      }
+      navigator.geolocation.getCurrentPosition(use, function () {}, { enableHighAccuracy: false, maximumAge: 300000, timeout: 4000 });
+      watchId = navigator.geolocation.watchPosition(use, fail, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+      gpsTimer = setTimeout(function () { if (!done) fail(null); stopGps(); }, 15000);
+    });
+    srch.onclosed = stopGps;
+
+    // ---- time sheet ----
+    var tSheet = $("g2-time"), dIn = $("g2-date"), hIn = $("g2-hour"), tMsg = $("g2-t-msg"), segs = tSheet.querySelectorAll(".g2-segb"), tMode = "now";
+    var pad2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    var localYmd = function (d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); };
+    function setSeg(m) {
+      tMode = m;
+      Array.prototype.forEach.call(segs, function (b) { b.setAttribute("aria-checked", b.getAttribute("data-mode") === m ? "true" : "false"); });
+      $("g2-dt").hidden = m !== "later";
+      if (m === "later" && !dIn.value) {
+        var t = new Date(Date.now() + 2 * 3600e3); t.setMinutes(Math.ceil(t.getMinutes() / 5) * 5, 0, 0);
+        dIn.value = localYmd(t); hIn.value = pad2(t.getHours()) + ":" + pad2(t.getMinutes());
+      }
+    }
+    function nightNote() {
+      var n = nightNow(), nb = tSheet.querySelector('[data-mode="now"]');
+      nb.setAttribute("aria-disabled", n ? "true" : "false");
+      var note = $("g2-night");
+      note.hidden = !n;
+      if (n) note.textContent = "W nocy (" + C.night.from + "–" + C.night.to + ") jeździmy tylko z wcześniejszą rezerwacją – wybierz godzinę odbioru (najpóźniej " + C.night.ahead_min + " min wcześniej).";
+      return n;
+    }
+    Array.prototype.forEach.call(segs, function (b) {
+      b.addEventListener("click", function () {
+        if (b.getAttribute("aria-disabled") === "true") { say(tMsg, "Teraz – tylko w dzień. W nocy wybierz godzinę odbioru."); return; }
+        say(tMsg, ""); setSeg(b.getAttribute("data-mode"));
+      });
+    });
+    function openTime() {
+      dIn.min = localYmd(new Date());
+      say(tMsg, "");
+      setSeg(nightNote() ? "later" : S.mode);
+      if (S.mode === "later" && S.date) { dIn.value = S.date; hIn.value = S.time; }
+      sheetOpen(tSheet, tSheet.querySelector('[aria-checked="true"]'));
+    }
+    $("g2-when-btn").addEventListener("click", openTime);
+    $("g2-time-ok").addEventListener("click", function () {
+      if (tMode === "now") {
+        if (nightNow()) { say(tMsg, "W nocy jeździmy tylko z rezerwacją – wybierz godzinę."); setSeg("later"); return; }
+        S.mode = "now"; S.date = S.time = "";
+      } else {
+        var d = dIn.value, t = hIn.value, at = d && t ? new Date(d + "T" + t).getTime() : 0;
+        if (!at || at < Date.now() + 14 * 60000) { say(tMsg, "Wybierz datę i godzinę odbioru – najwcześniej za 15 minut."); (d ? hIn : dIn).focus(); return; }
+        if (nightAtMs(at) && at < Date.now() + C.night.ahead_min * 60000) { say(tMsg, "Kurs nocny zarezerwuj najpóźniej " + C.night.ahead_min + " min przed odbiorem albo zadzwoń."); hIn.focus(); return; }
+        S.mode = "later"; S.date = d; S.time = t;
+      }
+      root.setAttribute("data-mode", S.mode);
+      sheetClose(tSheet); refresh(); quote();
+    });
+
+    // ---- confirmation sheet ----
+    var cf = $("g2-confirm"), cMsg = $("g2-c-msg"), send = $("g2-send"), nameIn = $("g2-name"), telIn = $("g2-tel"), fIn = $("g2-flight"), fl = $("g2-fl");
+    var nearAirport = function (p) { return hasXY(p) && (C.airports || []).some(function (a) { return Math.abs(a.lat - p.lat) + Math.abs(a.lng - p.lng) < 0.06; }); };
+    function paxSet(n) { S.pax = Math.min(C.seats || 7, Math.max(1, n)); $("g2-pax").textContent = S.pax; $("g2-pax-m").disabled = S.pax <= 1; $("g2-pax-p").disabled = S.pax >= (C.seats || 7); }
+    $("g2-pax-m").addEventListener("click", function () { paxSet(S.pax - 1); });
+    $("g2-pax-p").addEventListener("click", function () { paxSet(S.pax + 1); });
+    function summary() {
+      var s = $("g2-sum"); s.textContent = "";
+      s.append(mk("b", null, firstPart(S.pickup.address) + " → " + firstPart(S.dest.address)), document.createElement("br"),
+        document.createTextNode(whenLabel() + (S.quote && S.quote.price ? " · " + (S.quote.priceKind === "fixed" ? "" : "~") + S.quote.price + " zł" : "")));
+      send.textContent = "Potwierdzam" + (S.quote && S.quote.price ? " · " + (S.quote.priceKind === "fixed" ? "" : "~") + S.quote.price + " zł" : "");
+    }
+    // Turnstile (only when a site key is configured)
+    var tsWidget = null;
+    function turnstile() {
+      if (!C.ts) return;
+      var box = $("g2-ts"); box.hidden = false;
+      function render() { if (tsWidget != null || !window.turnstile) return; tsWidget = window.turnstile.render(box, { sitekey: C.ts, language: "pl", size: "flexible",
+        callback: function (t) { S.tsToken = t; }, "expired-callback": function () { S.tsToken = ""; }, "error-callback": function () { S.tsToken = ""; } }); }
+      if (window.turnstile) { render(); return; }
+      if (document.getElementById("cf-ts")) return;
+      window.__tsReady = render;
+      var sc = document.createElement("script"); sc.id = "cf-ts"; sc.async = true; sc.defer = true;
+      sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__tsReady";
+      document.head.appendChild(sc);
+    }
+    go.addEventListener("click", function () {
+      if (go.disabled) return;
+      if (S.mode === "now" && nightNow()) { openTime(); return; }
+      if (!nameIn.value) nameIn.value = (me && me.name) || (last && last.name) || "";
+      if (!telIn.value) telIn.value = (me && me.phone) || (last && last.phone) || "";
+      if (S.pax === 1 && last && last.pax) paxSet(parseInt(last.pax, 10) || 1); else paxSet(S.pax);
+      $("g2-flight-w").hidden = !(nearAirport(S.pickup) || nearAirport(S.dest));
+      summary(); say(cMsg, ""); turnstile();
+      sheetOpen(cf, nameIn.value ? (telIn.value ? send : telIn) : nameIn);
+    });
+
+    // flight number -> the flight's time, and a suggested pickup time
+    var fTimer = null, fSeq = 0;
+    fIn.addEventListener("input", function () {
+      clearTimeout(fTimer);
+      fTimer = setTimeout(function () {
+        var no = fIn.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        fl.textContent = "";
+        if (!/^[A-Z0-9]{2}[0-9]{1,4}[A-Z]?$/.test(no)) { fl.hidden = true; return; }
+        var my = ++fSeq; fl.hidden = false; fl.textContent = "Szukam lotu…";
+        api("/api/flight?no=" + no + (S.mode === "later" && S.date ? "&date=" + S.date : ""), null, 15000).then(function (f) {
+          if (my !== fSeq) return;
+          fl.textContent = "";
+          if (!f._ok || !f.found) { fl.hidden = !(f._ok); if (f._ok) fl.textContent = "Nie znaleźliśmy lotu " + no + " w najbliższych dniach – sprawdź numer."; return; }
+          var leg = (f.legs || [f])[0], e = leg.kind === "arr" ? leg.arr : leg.dep;
+          if (!e || !e.date) { fl.hidden = true; return; }
+          fl.append(document.createTextNode("✈ "), mk("b", null, leg.number), document.createTextNode(" · " + (leg.kind === "arr" ? "przylot " : "wylot ") +
+            new Date(e.date + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "short", day: "numeric", month: "short" }) + ", " + (e.time || "–") + (e.iata ? " (" + e.iata + ")" : "")));
+          var at = null;
+          if (leg.kind === "dep" && e.time) { var drive = S.quote && S.quote.durationS ? Math.round(S.quote.durationS / 60) + 10 : 70; at = new Date(e.date + "T" + e.time + ":00"); at.setMinutes(at.getMinutes() - 120 - drive); at.setMinutes(Math.floor(at.getMinutes() / 5) * 5); }
+          if (leg.kind === "arr" && e.time) { at = new Date(e.date + "T" + e.time + ":00"); at.setMinutes(at.getMinutes() + 20); at.setMinutes(Math.ceil(at.getMinutes() / 5) * 5); }
+          if (at && at.getTime() > Date.now() + 15 * 60000) {
+            var sd = localYmd(at), st = pad2(at.getHours()) + ":" + pad2(at.getMinutes());
+            if (!(S.mode === "later" && S.date === sd && S.time === st)) {
+              var b = mk("button", "g2-pill", "Ustaw odbiór: " + plWhen(sd + "T" + st)); b.type = "button"; b.style.marginTop = "8px";
+              b.addEventListener("click", function () { S.mode = "later"; S.date = sd; S.time = st; root.setAttribute("data-mode", "later"); refresh(); summary(); quote(); b.remove(); });
+              fl.append(document.createElement("br"), b);
+            }
+          }
+        }).catch(function () { if (my === fSeq) fl.hidden = true; });
+      }, 600);
+    });
+
+    function fallback(p) {
+      var text = ["Dzień dobry, chcę zamówić kurs:", "Trasa: " + p.pickup.address + " → " + p.dest.address, p.when ? "Termin: " + p.when.replace("T", " ") : "Termin: teraz",
+                  "Osób: " + p.pax, p.name ? "Imię: " + p.name : "", "Telefon: " + p.phone, p.flight ? "Nr lotu: " + p.flight : "", p.notes ? "Uwagi: " + p.notes : ""].filter(Boolean).join("\n");
+      var m = encodeURIComponent(text), ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      say(cMsg, "Nie udało się wysłać zamówienia online. Wyślij je jednym dotknięciem albo zadzwoń:",
+        [["WhatsApp", "https://wa.me/" + C.wa + "?text=" + m], ["SMS", "sms:" + C.tel + (ios ? "&" : "?") + "body=" + m], ["Zadzwoń", "tel:" + C.tel]]);
+    }
+    cf.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (S.sending) return;
+      say(cMsg, "");
+      if (!nameIn.value.trim()) { say(cMsg, "Podaj imię – kierowca będzie wiedział, kogo odbiera."); nameIn.focus(); return; }
+      if (telIn.value.replace(/\D/g, "").length < 9) { say(cMsg, "Podaj numer telefonu (9 cyfr) – kierowca może potrzebować zadzwonić."); telIn.focus(); return; }
+      if (C.ts && !S.tsToken) { say(cMsg, "Potwierdź, że nie jesteś robotem (pole powyżej)."); return; }
+      S.sending = true; send.classList.add("busy"); send.setAttribute("aria-busy", "true");
+      var label = send.textContent; send.textContent = ""; send.append(mk("span", "spin"), document.createTextNode(" Wysyłam do kierowcy…"));
+      function reset() { S.sending = false; send.classList.remove("busy"); send.removeAttribute("aria-busy"); send.textContent = label; }
+      var fix = [];
+      ["pickup", "dest"].forEach(function (w) { if (!hasXY(S[w])) fix.push(geocode(S[w].address).then(function (g) { if (g) S[w] = { address: S[w].address, lat: g.lat, lng: g.lng }; })); });
+      Promise.all(fix).then(function () {
+        var p = { mode: S.mode, when: S.mode === "later" ? S.date + "T" + S.time : null, pickup: S.pickup, dest: S.dest, lang: "pl",
+                  name: nameIn.value.trim(), phone: telIn.value.trim(), pax: S.pax, flight: fIn.value.trim(), notes: $("g2-notes").value.trim(),
+                  website: $("g2-website").value, turnstile: S.tsToken || undefined };
+        return api("/api/rides", p, 20000).then(function (r) {
+          if (r._ok && r.id) {
+            Rides.add({ id: r.id, token: r.token, created: Date.now(), mode: p.mode, when: p.when });
+            try { localStorage.setItem("taxi.last", JSON.stringify({ pickup: p.pickup, dest: p.dest, pax: p.pax, name: p.name, phone: p.phone, flight: p.flight })); } catch (e2) {}
+            location.href = "/przejazd/?id=" + r.id;
+            return;
+          }
+          reset();
+          if (window.turnstile && tsWidget != null) { try { window.turnstile.reset(tsWidget); } catch (e3) {} S.tsToken = ""; }
+          if (r._status === 429) say(cMsg, "Za dużo zamówień z tego urządzenia w ostatniej godzinie. Zadzwoń, proszę.", callLinks());
+          else if (r.error === "night") { say(cMsg, "W nocy (" + C.night.from + "–" + C.night.to + ") jeździmy tylko z wcześniejszą rezerwacją. Wybierz godzinę odbioru.", callLinks()); }
+          else if (r.error === "phone") { say(cMsg, "Sprawdź numer telefonu."); telIn.focus(); }
+          else if (r.error === "when") say(cMsg, "Ten termin jest już niedostępny – wybierz inną godzinę.");
+          else if (r.error === "captcha") say(cMsg, "Nie udało się potwierdzić, że nie jesteś robotem. Spróbuj ponownie.");
+          else fallback(p);
+        }, function () { reset(); fallback(p); });
+      });
+    });
+
+    // ---- start ----
+    paxSet(1);
+    renderPopular();
+    if (location.hash === "#again" && last && last.pickup && last.dest) {   // "Zamów ponownie" after a failed ride: same route
+      S.pickup = last.pickup; S.dest = last.dest; setRow("pickup", S.pickup); setRow("dest", S.dest);
+      try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    }
+    if (nightNow()) { S.mode = "later"; root.setAttribute("data-mode", "later"); }
+    refresh(); quote();
+    if (nightNow() && S.pickup && S.dest) setTimeout(openTime, 300);
+    setInterval(function () { if (S.mode === "now" && nightNow() && !g2Open) { S.mode = "later"; S.date = S.time = ""; refresh(); } }, 60000);
+  }
+
+  /* ---------- G2 ride status (/przejazd/) ---------- */
   var track = $("track");
   if (track) initTrack();
 
-  var mk = function (tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-  var ownPhoto = function (u) { return typeof u === "string" && /^\/api\/photo\/[dc]\/[a-z0-9]{12}\?t=[a-f0-9]{32}$/.test(u); };
+  // driver row: photo (only with the driver's consent – the server sends it then), name, car, car photo
   function renderDriver(dc, dv, vh) {
     var sig = JSON.stringify([dv, vh]);
-    if (dc.getAttribute("data-sig") === sig) return;   // the page polls every few seconds: don't reload the photos each time
+    if (dc.getAttribute("data-sig") === sig) return;   // polled every few seconds: don't reload the photos each time
     dc.setAttribute("data-sig", sig);
-    dc.hidden = !dv; dc.textContent = "";
+    dc.textContent = "";
     if (!dv) return;
-    var initial = function () { return mk("span", "td-ava", (dv.name || "?").charAt(0).toUpperCase()); };
+    var initial = function () { var s = mk("span", "g2-dava", (dv.name || "?").trim().charAt(0).toUpperCase()); s.setAttribute("aria-hidden", "true"); return s; };
     var ava = initial();
     if (ownPhoto(dv.photo)) {
-      ava = mk("img", "td-ava td-photo"); ava.src = dv.photo; ava.alt = "Zdjęcie kierowcy: " + (dv.name || "");
-      ava.width = 56; ava.height = 56; ava.decoding = "async"; ava.referrerPolicy = "no-referrer";
+      ava = mk("img", "g2-dava"); ava.src = dv.photo; ava.alt = "Zdjęcie kierowcy"; ava.width = 52; ava.height = 52; ava.decoding = "async"; ava.referrerPolicy = "no-referrer";
       ava.onerror = function () { ava.replaceWith(initial()); };
     }
-    ava.setAttribute("aria-hidden", ownPhoto(dv.photo) ? "false" : "true");
-    var txt = mk("span", "td-txt");
-    txt.append(mk("small", null, "Twój kierowca"), mk("b", null, dv.name || ""));
-    var model = vh ? vh.model : dv.car, color = vh ? vh.color : dv.color, plate = vh ? vh.plate : dv.plate;
+    var txt = mk("span", "g2-dtxt");
+    txt.append(mk("b", null, dv.name || "Twój kierowca"));
+    var model = vh ? vh.model : dv.car, color = vh ? vh.color : dv.color;
     if (model) txt.append(mk("span", null, [model, color].filter(Boolean).join(" · ")));
-    if (plate) { var pl = mk("em", "td-plate"); pl.setAttribute("aria-label", "Rejestracja " + plate); pl.append(mk("i", null, "PL"), document.createTextNode(plate)); txt.append(pl); }
     dc.append(ava, txt);
     if (vh && ownPhoto(vh.photo)) {
-      var ci = mk("img", "td-carimg"); ci.src = vh.photo; ci.alt = "Samochód: " + [vh.model, vh.color].filter(Boolean).join(", ");
+      var ci = mk("img", "g2-dcar"); ci.src = vh.photo; ci.alt = "Zdjęcie auta"; ci.width = 84; ci.height = 50;
       ci.loading = "lazy"; ci.decoding = "async"; ci.referrerPolicy = "no-referrer"; ci.onerror = function () { ci.remove(); };
       dc.append(ci);
     }
   }
 
   function initTrack() {
-    var id = new URLSearchParams(location.search).get("id") || (Rides.active() || {}).id;
-    var tok = new URLSearchParams(location.search).get("t");
+    var qs = new URLSearchParams(location.search);
+    var id = qs.get("id") || (Rides.active() || {}).id, tok = qs.get("t");
     if (id && tok && /^[a-z0-9]{24}$/.test(tok) && !Rides.get(id)) Rides.add({ id: id, token: tok, created: Date.now(), mode: "now" });
-    if (tok) try { history.replaceState(null, "", location.pathname + "?id=" + id + (lang === "en" ? "&lang=en" : "")); } catch (e) {}
-    var mine = id && Rides.get(id), last = null, skew = 0, total = 0, timer = null, tick = null, fails = 0;
-    var map = TripMap($("t-map")), mapDone = false;
-    if (lang === "en") {
-      document.querySelector(".track-actions .btn-call").lastChild.textContent = " " + T.call;
-      $("t-cancel").textContent = T.cancel; $("t-new").textContent = T.newRide; $("t-new").href = "/en/#booking";
-    }
-
-    function whenTxt(r) {
-      if (!r.when) return T.d.now;
-      var d = new Date(r.when);
-      return d.toLocaleString(lang === "en" ? "en-GB" : "pl-PL", { weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-    }
-    function clock(ms) { return new Date(ms).toLocaleTimeString(lang === "en" ? "en-GB" : "pl-PL", { hour: "2-digit", minute: "2-digit" }); }
-
-    function steps(r) {
-      var order = r.mode === "now" ? ["sent", "confirmed", "arrived", "ontrip", "done"] : ["sent", "scheduled", "enroute", "arrived", "ontrip", "done"];
-      var at = { pending: 0, scheduled: 1, enroute: r.mode === "now" ? 1 : 2, arrived: order.indexOf("arrived"), ontrip: order.indexOf("ontrip"), done: order.length - 1 }[r.status];
-      var failed = at == null;
-      $("t-steps").innerHTML = order.map(function (k, i) {
-        var cls = failed ? (i === 0 ? "done" : "off") : i < at || r.status === "done" ? "done" : i === at ? "now" : "";
-        return '<li class="' + cls + '"><span></span>' + escH(T.steps[k]) + "</li>";
-      }).join("");
-    }
-
-    function render(r) {
-      var key = r.status === "pending" ? (r.mode === "now" ? "pending_now" : "pending_later")
-        : r.status === "cancelled" && r.cancelledBy === "driver" ? "cancelled_driver" : r.status;
-      var waiting = r.status === "pending" && r.mode === "now" && Date.now() + skew - r.created > (r.waitMin || 3) * 60000;
-      var txt = T.st[waiting ? "waiting" : key] || T.st.notfound;
-      var o = { when: whenTxt(r), clock: r.etaAt ? clock(r.etaAt - skew) : "", dclock: destAt(r) ? clock(destAt(r) - skew) : "–" };
-      $("t-kicker").textContent = T.kicker[r.mode] || "";
-      $("t-title").textContent = fmt(txt[0], o);
-      $("t-sub").textContent = fmt(txt[1], o);
-      $("t-visual").setAttribute("data-state", waiting ? "waiting" : r.status);
-      track.setAttribute("data-state", r.status);
-      track.classList.toggle("urgent", waiting || ["declined", "expired"].indexOf(r.status) >= 0);
-      document.title = $("t-title").textContent + " | Taxi Knurów";
-      steps(r);
-      var open = ["pending", "scheduled", "enroute", "arrived", "ontrip"].indexOf(r.status) >= 0;
-      var busy = r.status === "declined" || r.status === "expired" || r.status === "noshow" || (r.status === "cancelled" && r.cancelledBy === "driver");
-      track.classList.toggle("busy", busy);
-      $("t-steps").hidden = busy;
-      $("t-later").hidden = !busy;
-      $("t-cancel").hidden = !(open && mine && mine.token);
-      $("t-cancel").textContent = r.status === "ontrip" ? T.stop : T.cancel;
-      if (map.car) map.car(r.car);
-      $("t-new").hidden = open;
-      if (r.status === "done") {
-        $("t-new").hidden = false; $("t-new").href = r.reviewUrl || C.review || C.maps; $("t-new").textContent = T.review; $("t-new").target = "_blank";
+    if (tok) try { history.replaceState(null, "", location.pathname + "?id=" + id); } catch (e) {}
+    var mine = id && Rides.get(id), last = null, skew = 0, timer = null, fails = 0;
+    var map = G2Map($("g2-map"));
+    var el = { title: $("t-title"), sub: $("t-sub"), pulse: $("t-pulse"), prog: $("t-prog"), bar: $("t-bar"), steps: $("t-steps"),
+               plate: $("t-plate"), plateNo: $("t-plate-no"), drv: $("t-driver"), call: $("t-call"), cancel: $("t-cancel"),
+               again: $("t-again"), review: $("t-review"), phone: $("t-phone"), login: $("t-login") };
+    var OPENS = ["pending", "scheduled", "enroute", "arrived", "ontrip"], FAILED = ["cancelled", "expired", "declined", "noshow"];
+    var STAGE = { enroute: 1, arrived: 2, ontrip: 3, done: 4 };
+    function text(node, t) { if (node.textContent !== t) node.textContent = t; }
+    function destAt(r) { return r.destEtaAt ? r.destEtaAt : r.startedAt && r.durationS ? r.startedAt + r.durationS * 1000 : null; }
+    function words(r) {
+      var now = Date.now() + skew, st = r.status;
+      if (st === "pending") {
+        if (r.mode === "later") return ["Rezerwacja wysłana", "Kierowca potwierdzi termin: " + (r.when ? plWhen(r.when) : "")];
+        var waiting = now - r.created > (r.waitMin || 3) * 60000;
+        return ["Szukamy kierowcy…", waiting ? "Trwa to dłużej niż zwykle – możesz do nas zadzwonić" : "Zwykle trwa to chwilę"];
       }
+      if (st === "scheduled") return ["Rezerwacja potwierdzona", r.when ? plWhen(r.when) : ""];
+      if (st === "enroute") {
+        if (!r.etaAt) return ["Kierowca jedzie do Ciebie", firstPart(r.dest && r.dest.address)];
+        var m = Math.max(1, Math.ceil((r.etaAt - now) / 60000));
+        return ["Będzie za " + m + " min", "ok. " + plClock(r.etaAt - skew) + " · " + firstPart(r.dest && r.dest.address)];
+      }
+      if (st === "arrived") return ["Kierowca czeka na Ciebie", "Auto stoi pod adresem odbioru"];
+      if (st === "ontrip") { var da = destAt(r); return ["W trasie", da ? "Na miejscu ok. " + plClock(da - skew) : "Miłej podróży!"]; }
+      if (st === "done") return ["Dojechałeś na miejsce", "Dziękujemy!"];
+      if (st === "cancelled") return r.cancelledBy === "driver" ? ["Kierowca anulował kurs", "Przepraszamy. Zamów ponownie albo zadzwoń."] : ["Kurs anulowany", "Kierowca dostał informację."];
+      if (st === "expired") return ["Nikt nie zdążył odpowiedzieć", "Kierowcy są teraz w trasie. Zamów ponownie albo zadzwoń."];
+      if (st === "declined") return ["Kierowcy są teraz zajęci", "Przepraszamy! Zamów na później albo zadzwoń."];
+      if (st === "noshow") return ["Kierowca Cię nie zastał", "Czekał pod adresem odbioru. Zamów ponownie, jeśli nadal potrzebujesz kursu."];
+      return ["Nie znaleziono kursu", "Link mógł wygasnąć."];
+    }
+    function render(r) {
+      var st = r.status, w = words(r);
+      text(el.title, w[0]); text(el.sub, w[1]);
+      document.title = w[0] + " | Taxi Knurów";
+      el.pulse.hidden = st !== "pending";
+      var stage = STAGE[st] || 0;
+      el.prog.hidden = !stage;
+      el.bar.style.setProperty("--p", stage * 25 + "%");
+      Array.prototype.forEach.call(el.steps.children, function (li, i) { li.classList.toggle("on", i < stage); });
+      var showDrv = !!r.driver && ["scheduled", "enroute", "arrived", "ontrip", "done"].indexOf(st) >= 0;
+      var plate = showDrv ? ((r.vehicle && r.vehicle.plate) || r.driver.plate || "") : "";
+      el.plate.hidden = !plate;
+      if (plate) { text(el.plateNo, plate); el.plate.setAttribute("aria-label", "Numer rejestracyjny " + plate); }
+      el.drv.hidden = !showDrv;
+      renderDriver(el.drv, showDrv ? r.driver : null, showDrv ? r.vehicle : null);
+      el.call.hidden = !showDrv || st === "done";
+      el.call.href = telHref(r.tel);
+      var open = OPENS.indexOf(st) >= 0, failed = FAILED.indexOf(st) >= 0;
+      el.cancel.hidden = !(open && mine && mine.token);
+      text(el.cancel, st === "ontrip" ? "Przerwij kurs" : "Anuluj");
+      el.again.hidden = !failed;
+      el.again.href = "/rezerwacja/" + (failed ? "#again" : "");
+      el.review.hidden = !(st === "done" && r.reviewUrl);
+      if (r.reviewUrl) el.review.href = r.reviewUrl;
+      var waiting = st === "pending" && r.mode === "now" && Date.now() + skew - r.created > (r.waitMin || 3) * 60000;
+      el.phone.hidden = !(failed || waiting);
       if (!open) Rides.close(r.id);
-
-      var dl = [[T.d.from, r.pickup && r.pickup.address], [T.d.to, r.dest && r.dest.address], [T.d.when, whenTxt(r)], [T.d.pax, r.pax]];
-      if (r.distanceM) dl.push([T.d.dist, (r.distanceM / 1000).toFixed(1).replace(".", lang === "pl" ? "," : ".") + " km · ~" + Math.round(r.durationS / 60) + " min"]);
-      if (r.price) dl.push([T.d.price, (r.priceKind === "fixed" ? "" : "~") + r.price + " zł"]);
-      if (r.flightInfo || r.flight) dl.push([T.d.flight, r.flightInfo || r.flight]);
-      // which driver and car is coming (+ the call button rings that driver)
-      // which driver and car is coming (+ the call button rings that driver). Built with DOM nodes and textContent only:
-      // names, models and plates are typed in Telegram, so they must never be parsed as HTML.
-      var dc = $("t-driver"), dv = r.driver, vh = r.vehicle;
-      if (dc) renderDriver(dc, dv, vh);
-      var cb = document.querySelector(".track-actions .btn-call");
-      if (cb && r.tel) { var tn = String(r.tel).replace(/[^\d+]/g, ""); if (/^\d{9}$/.test(tn)) tn = "+48" + tn; cb.href = "tel:" + tn; }
-      $("t-details").innerHTML = dl.map(function (x) { return "<div><dt>" + escH(x[0]) + "</dt><dd>" + escH(x[1]) + "</dd></div>"; }).join("");
-      if (!mapDone) { mapDone = true; map.show(r.pickup, r.dest, r.polyline); }
-
-      if (last && last.status !== r.status) alertChange();
-      last = r;
-      countdown();
+      // map: pickup + taxi on the way, destination + taxi during the trip
+      if (st === "ontrip") map.track(r.dest, "b", r.car);
+      else map.track(r.pickup, "a", (st === "enroute" || st === "arrived") ? r.car : null);
     }
-
-    function destAt(r) { return r && r.destEtaAt ? r.destEtaAt : r && r.startedAt && r.durationS ? r.startedAt + r.durationS * 1000 : null; }
-    // the little taxi drives along the road: by live GPS distance when the driver shares it, otherwise by time
-    function countdown() {
-      var r = last, eta = $("t-eta"), bar = $("t-progress"), note = $("t-car");
-      var trip = r && r.status === "ontrip", end = r && (trip ? destAt(r) : r.etaAt);
-      if (!r || !(r.status === "enroute" || trip) || !end) { eta.hidden = true; bar.hidden = true; note.hidden = true; return; }
-      var now = Date.now() + skew, left = end - now;
-      var start = trip ? r.startedAt : (r.enrouteAt || r.updated);
-      var p = Math.min(1, Math.max(0, (now - start) / Math.max(60000, end - start)));
-      if (r.car && r.car.km != null && r.car.startKm) p = Math.min(1, Math.max(0, 1 - r.car.km / r.car.startKm));
-      eta.hidden = false; bar.hidden = false;
-      var m = Math.ceil(left / 60000);
-      $("t-eta-min").textContent = m > 0 ? m : "0";
-      $("t-eta-lbl").textContent = m > 0 ? (trip ? T.destLbl : T.etaLbl) : T.anyMoment;
-      $("t-eta-at").textContent = fmt(T.at, { clock: clock(end - skew) });
-      bar.style.setProperty("--p", (Math.max(0.03, p) * 100).toFixed(1) + "%");
-      bar.classList.toggle("trip", trip); bar.classList.toggle("has-car", !!r.car);
-      var km = r.roadKm != null ? r.roadKm : r.car && r.car.km;
-      note.hidden = km == null;
-      if (!note.hidden) note.textContent = fmt(trip ? T.carKmDest : T.carKm, { km: String(km).replace(".", lang === "pl" ? "," : ".") }) + (r.etaSource === "google" ? T.byGoogle : "");
-    }
-
     function alertChange() {
       try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (e) {}
       try {
@@ -814,51 +1298,53 @@
         o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.5);
       } catch (e) {}
     }
-
     function poll() {
       clearTimeout(timer);
+      if (document.hidden) return;   // paused while the tab is in the background; resumes on return
       api("/api/rides/" + encodeURIComponent(id), null, 10000, { "X-Ride-Token": mine.token }).then(function (r) {
         if (r._status === 404) { notFound(); return; }
         if (!r._ok) throw 0;
-        fails = 0; $("t-sub").classList.remove("muted");
+        fails = 0;
         skew = r.now ? r.now - Date.now() : 0;
-        render(r);
+        if (last && last.status !== r.status) alertChange();
+        last = r; render(r);
         var next = { pending: 4000, enroute: 5000, arrived: 6000, ontrip: 10000, scheduled: 30000 }[r.status];
-        if (next) timer = setTimeout(poll, document.hidden ? next * 3 : next);
+        if (next) timer = setTimeout(poll, next);   // finished rides: no more polling
       }).catch(function () {
         fails++;
-        if (!last) { $("t-sub").textContent = T.offline; }
+        if (!last) text(el.sub, "Brak połączenia – próbuję ponownie…");
         timer = setTimeout(poll, Math.min(30000, 3000 * fails));
       });
     }
     function notFound() {
-      $("t-title").textContent = T.st.notfound[0]; $("t-sub").textContent = T.st.notfound[1];
-      $("t-visual").setAttribute("data-state", "declined"); $("t-new").hidden = false; $("t-steps").innerHTML = "";
+      text(el.title, "Nie znaleziono kursu"); text(el.sub, "Link mógł wygasnąć. Zamów nowy kurs albo zadzwoń.");
+      el.again.hidden = false; el.phone.hidden = false; el.pulse.hidden = true;
       if (id) Rides.close(id);
     }
-
-    $("t-cancel").addEventListener("click", function () {
-      if (!mine || !window.confirm(last && last.status === "ontrip" ? T.stopQ : T.cancelQ)) return;
-      this.disabled = true;
-      api("/api/rides/" + id + "/cancel", { token: mine.token }).then(function (r) { if (r._ok) render(r); }).finally(function () { $("t-cancel").disabled = false; });
+    var cDlg = $("t-cancel-dlg");
+    el.cancel.addEventListener("click", function () {
+      text($("t-cancel-dlg-h"), last && last.status === "ontrip" ? "Przerwać kurs?" : "Anulować kurs?");
+      text($("t-cancel-q"), last && last.status === "ontrip" ? "Kierowca dostanie informację, że kończysz kurs w trakcie jazdy." : "Kierowca dostanie informację o anulowaniu.");
+      sheetOpen(cDlg, $("t-cancel-yes"));
     });
-    document.addEventListener("visibilitychange", function () { if (!document.hidden && last) poll(); });
+    $("t-cancel-yes").addEventListener("click", function () {
+      var b = this; b.disabled = true;
+      api("/api/rides/" + id + "/cancel", { token: mine.token }).then(function (r) {
+        sheetClose(cDlg);
+        if (r._ok) { last = r; render(r); }
+      }).finally(function () { b.disabled = false; });
+    });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && mine && mine.token && (!last || OPENS.indexOf(last.status) >= 0)) poll(); });
 
     if (!id) { notFound(); return; }
     if (!mine || !mine.token) {   // someone else's link: the ride stays private
-      $("t-title").textContent = T.st.private[0]; $("t-sub").textContent = T.st.private[1];
-      $("t-visual").setAttribute("data-state", "declined"); $("t-new").hidden = false; $("t-steps").innerHTML = "";
-      if (Account.on && !Account.get()) {
-        $("t-login").hidden = false;
-        $("t-login").href = "/konto/?next=" + encodeURIComponent(location.pathname + location.search);
-      }
+      text(el.title, "Ten kurs jest prywatny"); text(el.sub, "Status kursu widać tylko na telefonie, z którego go zamówiono.");
+      el.again.hidden = false; text(el.again, "Zamów kurs");
+      if (Account.on && !Account.get()) { el.login.hidden = false; el.login.href = "/konto/?next=" + encodeURIComponent(location.pathname + location.search); }
       return;
     }
     poll();
-    tick = setInterval(function () {
-      countdown();
-      if (last && last.status === "pending") render(last);   // switches to "call us" after a few minutes
-    }, 1000);
+    setInterval(function () { if (last) render(last); }, 1000);   // the minutes count down between polls
   }
 
   /* ---------- account page ---------- */
@@ -882,15 +1368,19 @@
       else $("acct-ini").textContent = (u.name || u.email || "?").charAt(0).toUpperCase();
       $("acct-n").value = u.name || ""; $("acct-t").value = u.phone || "";
       var rides = j.rides || [];
-      $("acct-rides").innerHTML = rides.length ? rides.map(function (x) {
+      var ul = $("acct-rides"); ul.textContent = "";
+      if (!rides.length) ul.append(el("li", "ar-empty", "Nie masz jeszcze przejazdów z ostatnich 30 dni."));
+      rides.forEach(function (x) {
         var live = LIVE.indexOf(x.status) >= 0;
         var st = x.status === "cancelled" && x.cancelledBy === "driver" ? "anulowany przez kierowcę" : ST[x.status] || x.status;
-        return '<li><a href="/przejazd/?id=' + x.id + '"' + (live ? ' class="live-ride"' : "") + '>'
-          + '<span class="ar-when">' + escH(x.mode === "later" ? when(x) : when(x) + " · teraz") + '</span>'
-          + '<span class="ar-route"><b>' + escH(x.from) + '</b><i aria-hidden="true">→</i><b>' + escH(x.to) + '</b></span>'
-          + '<span class="ar-meta"><span class="ar-st st-' + escH(x.status) + '">' + escH(st) + '</span>'
-          + (x.price ? '<span>' + (x.priceKind === "fixed" ? "" : "~") + x.price + ' zł</span>' : "") + '</span></a></li>';
-      }).join("") : '<li class="ar-empty">Nie masz jeszcze przejazdów z ostatnich 30 dni.</li>';
+        var a = el("a", live ? "live-ride" : null); a.href = "/przejazd/?id=" + encodeURIComponent(x.id);
+        var route = el("span", "ar-route"), arrow = el("i", null, "→"); arrow.setAttribute("aria-hidden", "true");
+        route.append(el("b", null, x.from), arrow, el("b", null, x.to));
+        var meta = el("span", "ar-meta"); meta.append(el("span", "ar-st st-" + String(x.status).replace(/[^a-z]/g, ""), st));
+        if (x.price) meta.append(el("span", null, (x.priceKind === "fixed" ? "" : "~") + x.price + " zł"));
+        a.append(el("span", "ar-when", x.mode === "later" ? when(x) : when(x) + " · teraz"), route, meta);
+        var li = el("li"); li.append(a); ul.append(li);
+      });
     }
     function load() {
       return Account.sync().then(function (j) {
@@ -1001,17 +1491,33 @@
         else li.querySelector(".gp-num").textContent = lang === "pl" ? "brak ocen" : "no reviews yet";
         if (pl.url) li.querySelector("a").href = pl.url;
       });
-      var star = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"/></svg>';
-      rvTrack.innerHTML = d.reviews.map(function (v, i) {
-        var initial = escH((v.author || "?").trim().charAt(0).toUpperCase());
-        var av = v.photo ? '<img src="' + escH(v.photo) + '" alt="" width="44" height="44" loading="lazy" referrerpolicy="no-referrer">' : "<span>" + initial + "</span>";
-        var name = v.authorUri ? '<a href="' + escH(v.authorUri) + '" target="_blank" rel="noopener">' + escH(v.author) + "</a>" : escH(v.author);
-        var long = v.text.length > 220;
-        return '<figure class="rv" style="--i:' + i + '"><div class="rv-stars" aria-label="' + v.rating + '/5">' + new Array(v.rating + 1).join(star) + "</div>" +
-          '<blockquote class="' + (long ? "clamp" : "") + '">' + escH(v.text) + "</blockquote>" +
-          (long ? '<button type="button" class="rv-more">' + T.rvMore + "</button>" : "") +
-          '<figcaption><span class="rv-av">' + av + "</span><span><b>" + name + "</b><small>" + escH(v.when) + " · " + (v.place ? escH(v.place) : T.rvFrom) + "</small></span></figcaption></figure>";
-      }).join("");
+      var SVGNS = "http://www.w3.org/2000/svg";
+      var star = function () {
+        var sv = document.createElementNS(SVGNS, "svg"); sv.setAttribute("width", "16"); sv.setAttribute("height", "16"); sv.setAttribute("viewBox", "0 0 24 24"); sv.setAttribute("aria-hidden", "true");
+        var pa = document.createElementNS(SVGNS, "path"); pa.setAttribute("fill", "currentColor"); pa.setAttribute("d", "m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z");
+        sv.append(pa); return sv;
+      };
+      var safeUrl = function (u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; };
+      rvTrack.textContent = "";
+      d.reviews.forEach(function (v, i) {
+        var fig = el("figure", "rv"); fig.style.setProperty("--i", String(i));
+        var rating = Math.max(0, Math.min(5, parseInt(v.rating, 10) || 0));
+        var stars = el("div", "rv-stars"); stars.setAttribute("aria-label", rating + "/5");
+        for (var k = 0; k < rating; k++) stars.append(star());
+        var long = String(v.text || "").length > 220;
+        var q = el("blockquote", long ? "clamp" : null, v.text || "");
+        fig.append(stars, q);
+        if (long) { var more = el("button", "rv-more", T.rvMore); more.type = "button"; fig.append(more); }
+        var av = el("span", "rv-av");
+        if (safeUrl(v.photo)) { var im = el("img"); im.src = v.photo; im.alt = ""; im.width = 44; im.height = 44; im.loading = "lazy"; im.referrerPolicy = "no-referrer"; av.append(im); }
+        else av.append(el("span", null, (v.author || "?").trim().charAt(0).toUpperCase()));
+        var who = el("span"), nm = el("b");
+        if (safeUrl(v.authorUri)) { var an = el("a", null, v.author || ""); an.href = v.authorUri; an.target = "_blank"; an.rel = "noopener"; nm.append(an); }
+        else nm.textContent = v.author || "";
+        who.append(nm, el("small", null, (v.when || "") + " · " + (v.place || T.rvFrom)));
+        var cap = el("figcaption"); cap.append(av, who); fig.append(cap);
+        rvTrack.append(fig);
+      });
       Array.prototype.forEach.call(rvTrack.querySelectorAll(".rv-more"), function (b) {
         b.addEventListener("click", function () { var q = b.previousSibling; var c = q.classList.toggle("clamp"); b.textContent = c ? T.rvMore : T.rvLess; });
       });

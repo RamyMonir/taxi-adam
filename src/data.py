@@ -166,6 +166,9 @@ GOOGLE_PLACES = [
 ]
 # Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
 NOW_WAIT_MIN = 3
+# Cloudflare Turnstile („czy jesteś człowiekiem”) przy zamówieniu online. Klucz witryny jest publiczny.
+# Pusty = bez Turnstile. Sekret ustaw w Cloudflare jako TURNSTILE_SECRET (bez niego serwer nic nie sprawdza).
+TURNSTILE_SITE_KEY = ""
 
 # Rozliczenie kierowców (REKOMENDACJA – do potwierdzenia z Adamem i księgową).
 # Domyślnie 50% utargu brutto dla kierowcy, 50% dla firmy (firma płaci paliwo i koszty auta) – typowy model flot w PL.

@@ -3,7 +3,7 @@
 import json, os, shutil, datetime, hashlib
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION)
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -44,12 +44,17 @@ def place_of(d):
 CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balice", "Balice"), ("plane", "lotnisko-wroclaw", "Wrocław"),
          ("train", "dworzec-gliwice", "Dworzec Gliwice"), ("train", "dworzec-katowice", "Dworzec Katowice")]
 
+# suggested places in the G2 address search (/rezerwacja/)
+G2_SUGG = ["dworzec-gliwice", "lotnisko-pyrzowice", "lotnisko-balice", "lotnisko-wroclaw", "lotnisko-ostrava", "dworzec-katowice"]
+
 def client_config(lang):
     """window.TAXI – ustawienia dla app.js (formularz rezerwacji, status, opinie)."""
     return json.dumps(dict(
         lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
         places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES],
+        ts=TURNSTILE_SITE_KEY, seats=B["seats"],
+        sugg=[dict(kind=DEST_BY_SLUG[s]["kind"], **place_of(DEST_BY_SLUG[s])) for s in G2_SUGG],
         chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS],
         airports=[dict(code=d["code"], lat=d["lat"], lng=d["lng"]) for d in DESTINATIONS if d["kind"] == "airport"]), ensure_ascii=False)
 
@@ -134,19 +139,20 @@ BASE = r"""<!doctype html>
 <link rel="canonical" href="{{ site }}{{ path }}">
 <meta property="og:type" content="website"><meta property="og:title" content="{{ title }}"><meta property="og:description" content="{{ desc }}">
 <meta property="og:url" content="{{ site }}{{ path }}"><meta property="og:image" content="{{ site }}/assets/og.png"><meta property="og:locale" content="{{ 'en_GB' if lang=='en' else 'pl_PL' }}">
-<meta name="theme-color" content="#0A1430">{% if noindex %}<meta name="robots" content="noindex">{% endif %}
+{% if app %}<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121A2E" media="(prefers-color-scheme: dark)"><meta name="color-scheme" content="light dark">{% else %}<meta name="theme-color" content="#0A1430">{% endif %}{% if noindex %}<meta name="robots" content="noindex">{% endif %}
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Taxi Adam"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
-<link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
+{% if app %}<link rel="preload" href="/assets/fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/nunito-latin-ext-wght-normal.woff2" as="font" type="font/woff2" crossorigin>{% else %}<link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>{% endif %}
 <link rel="stylesheet" href="/assets/style.css?v={{ av }}">
 <script>(function(h){var m=h.match(/^[0-9a-f]{8}\.([^.]+\.pages\.dev)$/);if(m)location.replace("https://"+m[1]+location.pathname+location.search+location.hash);})(location.hostname);
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;});</script>
 {% for s in schema %}<script type="application/ld+json">{{ s }}</script>
 {% endfor %}</head>
-<body>
+<body{% if app %} class="app-g2 {{ app }}"{% endif %}>
 <a class="skip" href="#main">{{ 'Skip to content' if lang=='en' else 'Przejdź do treści' }}</a>
-<header class="top"><div class="wrap">
+{% if not app %}<header class="top"><div class="wrap">
   <a class="brand" href="{{ '/en/' if lang=='en' else '/' }}" aria-label="{{ B.name }}">{{ logo }}</a>
   <button class="menu-btn" aria-expanded="false" aria-controls="nav"><span class="menu-ico" aria-hidden="true"></span><span class="menu-lbl">Menu</span></button>
   <nav class="nav" id="nav" aria-label="Menu główne">
@@ -155,11 +161,12 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
     <a class="call-top" href="tel:{{ B.phone_e164 }}">{{ icon.phone }} {{ B.phone }}</a>
   </nav>
 </div></header>
-<a class="ride-banner" id="ride-banner" href="/przejazd/" hidden></a>
+<a class="ride-banner" id="ride-banner" href="/przejazd/" hidden></a>{% endif %}
 <main id="main">
 {{ body }}
 </main>
-<footer><div class="wrap">
+{% if app %}<footer class="g2-foot"><a href="/polityka-prywatnosci/">Polityka prywatności</a><span aria-hidden="true"> · </span><a href="/kontakt/">Kontakt</a></footer>
+{% else %}<footer><div class="wrap">
   <img class="foot-logo" src="/assets/img/logo-wide.webp" alt="{{ B.name }}" width="900" height="298" loading="lazy">
   <div class="cols">
     <div><h3>{{ B.name }}</h3>
@@ -199,7 +206,7 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
   </div>
   <span class="ios-arrow" aria-hidden="true">↓</span>
 </div>
-<dialog class="lightbox" id="lightbox"><button type="button" class="lb-x" aria-label="Zamknij">×</button><img alt=""><p></p></dialog>
+<dialog class="lightbox" id="lightbox"><button type="button" class="lb-x" aria-label="Zamknij">×</button><img alt=""><p></p></dialog>{% endif %}
 <script>window.TAXI={{ config|safe }};</script>
 <script src="/assets/app.js?v={{ av }}" defer></script>
 </body></html>"""
@@ -352,14 +359,14 @@ def board(groups):
 
 pages = []
 NOINDEX = set()
-def page(path, title, desc, body, schema=(), lang="pl", noindex=False):
+def page(path, title, desc, body, schema=(), lang="pl", noindex=False, app=None):
     pages.append(path)
     if noindex: NOINDEX.add(path)
     body = body.replace('<section class="hero" style="padding:0">', '<section class="hero">' + STREAKS)
     html = env.get_template("base").render(
         lang=lang, title=title, desc=desc, path=path, site=SITE_URL, body=body, schema=[ld(s) for s in schema],
         B=B, icon=ICON, logo=LOGO_HEAD, nav=NAV, kinds=[KIND[k] for k in KIND], villages=VILLAGES, year=datetime.date.today().year,
-        config=client_config(lang), noindex=noindex)
+        config=client_config(lang), noindex=noindex, app=app)
     target = os.path.join(OUT, path.strip("/"), "index.html") if path.endswith("/") else os.path.join(OUT, path.strip("/"))
     os.makedirs(os.path.dirname(target), exist_ok=True)
     open(target, "w", encoding="utf-8").write(html)
@@ -573,12 +580,105 @@ page("/cennik/", f"Cennik taxi Knurów – lotniska, sanatoria, kliniki | {B['na
      f"Pełny cennik {B['name']}: kursy lokalne od {VILLAGES[0][4]} zł, Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł, Balice od {DEST['lotnisko-balice']['price']} zł, sanatoria, kliniki i dworce.",
      body, [org(), crumbs_ld([("Strona główna", "/"), ("Cennik", "/cennik/")])])
 
+# ================= G2: app-like booking (/rezerwacja/) and ride status (/przejazd/) =================
+# Mobile-first: full-screen map (or a calm background without a Maps key) and a bottom sheet. Polish only.
+G2_BRAND = '<a class="g2-brand" href="/"><span class="g2-dot" aria-hidden="true"></span>Taxi Knurów</a>'
+G2_MAP = ('<div class="g2-map" id="g2-map" aria-hidden="true"><div class="g2-mapbg"><i></i><i></i><i></i><i></i></div></div>')
+G2_SHEET_OPEN = '<section class="g2-sheet" id="g2-sheet"{attrs}><div class="g2-handle" aria-hidden="true"></div>'
+
+def g2_dialog(id_, title, inner, tag="div", extra=""):
+    """A sheet that slides over the page (address search, time, confirmation, cancel)."""
+    return (f'<div class="g2-over" id="{id_}" hidden><div class="g2-scrim" data-close></div>'
+            f'<{tag} class="g2-sheet g2-dlg" role="dialog" aria-modal="true" aria-labelledby="{id_}-h"{extra}>'
+            f'<div class="g2-handle" aria-hidden="true"></div>'
+            f'<div class="g2-dhead"><h2 id="{id_}-h">{title}</h2><button type="button" class="g2-x" data-close aria-label="Zamknij">'
+            '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7l-1.4-1.4L9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3z"/></svg></button></div>'
+            f'{inner}</{tag}></div>')
+
+G2_BOOK = (G2_MAP + G2_BRAND +
+    '<div class="g2-app" id="g2-book" data-mode="now">'
+    + G2_SHEET_OPEN.format(attrs=' aria-labelledby="g2-h"') +
+    '<div class="g2-top"><h1 id="g2-h">Dokąd jedziemy?</h1>'
+    '<button type="button" class="g2-pill g2-when" id="g2-when-btn" aria-haspopup="dialog"><span id="g2-when-lbl">Teraz</span> <span aria-hidden="true">▾</span></button></div>'
+    '<div class="g2-addr">'
+    '<button type="button" class="g2-row" id="g2-from" aria-haspopup="dialog"><span class="g2-pin ring" aria-hidden="true"></span>'
+    '<span class="g2-rt"><span class="g2-lbl">Skąd</span><span class="g2-val ph" id="g2-from-v">Wybierz miejsce odbioru</span></span></button>'
+    '<span class="g2-join" aria-hidden="true"></span>'
+    '<button type="button" class="g2-row" id="g2-to" aria-haspopup="dialog"><span class="g2-pin fill" aria-hidden="true"></span>'
+    '<span class="g2-rt"><span class="g2-lbl">Dokąd</span><span class="g2-val ph" id="g2-to-v">Wybierz cel</span></span></button>'
+    '</div>'
+    '<div class="g2-quote" id="g2-quote" aria-live="polite" hidden>'
+    '<div class="g2-qtxt"><b id="g2-q-title">Taxi</b><span id="g2-q-sub"></span></div><b class="g2-price" id="g2-q-price"></b></div>'
+    '<p class="g2-msg" id="g2-msg" role="alert" hidden></p>'
+    '<button type="button" class="g2-main" id="g2-go" disabled>Zamów teraz</button>'
+    '<p class="g2-alt">albo zadzwoń: <a href="tel:' + B["phone_e164"] + '">' + B["phone"] + '</a></p>'
+    '</section></div>'
+    # address search
+    + g2_dialog("g2-search", "Skąd jedziesz?",
+        '<label class="sr-only" for="g2-q">Adres</label>'
+        '<input class="g2-input" id="g2-q" type="text" inputmode="search" enterkeyhint="search" placeholder="Wpisz adres lub miejsce" autocomplete="off" '
+        'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="g2-q-list">'
+        '<button type="button" class="g2-pill g2-gps" id="g2-gps">📍 Moja lokalizacja</button>'
+        '<p class="g2-msg" id="g2-s-msg" role="status" hidden></p>'
+        '<ul class="g2-list" id="g2-q-list" role="listbox" aria-label="Podpowiedzi adresów"></ul>'
+        '<h3 class="g2-cap" id="g2-pop-h">Popularne</h3><ul class="g2-list" id="g2-pop" aria-labelledby="g2-pop-h"></ul>')
+    # time
+    + g2_dialog("g2-time", "Kiedy jedziesz?",
+        '<div class="g2-seg" role="radiogroup" aria-label="Kiedy">'
+        '<button type="button" role="radio" class="g2-segb" data-mode="now" aria-checked="true">Teraz</button>'
+        '<button type="button" role="radio" class="g2-segb" data-mode="later" aria-checked="false">Później</button></div>'
+        '<p class="g2-note" id="g2-night" hidden></p>'
+        '<div class="g2-dt" id="g2-dt" hidden>'
+        '<label class="g2-field"><span>Data</span><input class="g2-input" type="date" id="g2-date"></label>'
+        '<label class="g2-field"><span>Godzina</span><input class="g2-input" type="time" id="g2-hour" step="300"></label></div>'
+        '<p class="g2-msg" id="g2-t-msg" role="alert" hidden></p>'
+        '<button type="button" class="g2-main" id="g2-time-ok">Gotowe</button>')
+    # confirmation
+    + g2_dialog("g2-confirm", "Potwierdź zamówienie",
+        '<p class="g2-sum" id="g2-sum"></p>'
+        '<label class="g2-field"><span>Imię</span><input class="g2-input" id="g2-name" autocomplete="given-name" maxlength="60" required></label>'
+        '<label class="g2-field"><span>Telefon</span><input class="g2-input" id="g2-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="np. 600 100 200" maxlength="30" required></label>'
+        '<div class="g2-field"><span id="g2-pax-l">Pasażerowie</span><div class="g2-step" role="group" aria-labelledby="g2-pax-l">'
+        '<button type="button" class="g2-round" id="g2-pax-m" aria-label="Mniej pasażerów">−</button>'
+        '<output id="g2-pax" aria-live="polite">1</output>'
+        '<button type="button" class="g2-round" id="g2-pax-p" aria-label="Więcej pasażerów">+</button></div></div>'
+        '<label class="g2-field" id="g2-flight-w" hidden><span>Numer lotu (opcjonalnie)</span>'
+        '<input class="g2-input" id="g2-flight" placeholder="np. FR 1234" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10"></label>'
+        '<p class="g2-fl" id="g2-fl" aria-live="polite" hidden></p>'
+        '<label class="g2-field"><span>Uwagi dla kierowcy (opcjonalnie)</span><textarea class="g2-input g2-ta" id="g2-notes" maxlength="500" rows="2" placeholder="np. fotelik dla dziecka, brama od podwórza"></textarea></label>'
+        '<div class="hp" aria-hidden="true"><label>Website<input id="g2-website" tabindex="-1" autocomplete="off"></label></div>'
+        '<div class="g2-ts" id="g2-ts" hidden></div>'
+        '<p class="g2-msg" id="g2-c-msg" role="alert" hidden></p>'
+        '<button type="submit" class="g2-main" id="g2-send">Potwierdzam</button>'
+        '<button type="button" class="g2-soft" data-close>Wróć</button>',
+        tag="form", extra=' novalidate'))
+
+G2_TRACK = (G2_MAP + G2_BRAND +
+    '<div class="g2-app" id="track">'
+    + G2_SHEET_OPEN.format(attrs=' aria-labelledby="t-title"') +
+    '<div class="g2-status"><span class="g2-pulse" id="t-pulse" aria-hidden="true" hidden></span>'
+    '<div aria-live="polite"><h1 id="t-title">Ładuję status…</h1><p id="t-sub"></p></div></div>'
+    '<div class="g2-prog" id="t-prog" hidden><div class="g2-bar"><span id="t-bar"></span></div>'
+    '<ol class="g2-steps" id="t-steps"><li>Jedzie</li><li>Na miejscu</li><li>W trasie</li><li>Koniec</li></ol></div>'
+    '<div class="plate" id="t-plate" role="img" hidden><span class="plate-eu" aria-hidden="true"><span class="plate-stars"></span><b>PL</b></span><span class="plate-no" id="t-plate-no"></span></div>'
+    '<div class="g2-driver" id="t-driver" hidden></div>'
+    '<div class="g2-acts">'
+    '<a class="g2-main" id="t-call" href="tel:' + B["phone_e164"] + '" hidden>Zadzwoń</a>'
+    '<button type="button" class="g2-soft" id="t-cancel" hidden>Anuluj</button>'
+    '<a class="g2-main" id="t-again" href="/rezerwacja/" hidden>Zamów ponownie</a>'
+    '<a class="g2-soft" id="t-review" href="#" target="_blank" rel="noopener" hidden>Dodaj opinię w Google</a>'
+    '<a class="g2-soft" id="t-phone" href="tel:' + B["phone_e164"] + '" hidden>Zadzwoń: ' + B["phone"] + '</a>'
+    '<a class="g2-soft" id="t-login" href="/konto/" hidden>Zaloguj się przez Google</a>'
+    '</div></section></div>'
+    + g2_dialog("t-cancel-dlg", "Anulować kurs?",
+        '<p class="g2-sum" id="t-cancel-q">Kierowca dostanie informację o anulowaniu.</p>'
+        '<button type="button" class="g2-main" id="t-cancel-yes">Tak, anuluj</button>'
+        '<button type="button" class="g2-soft" data-close>Nie, zostaw</button>'))
+
 # ================= REZERWACJA =================
-body = hero("Zamów taxi", "Kurs teraz albo rezerwacja na wybrany dzień. Zgłoszenie trafia od razu do kierowcy, a status śledzisz na żywo na tej stronie.", book(),
-            crumbs_html([("Strona główna", "/"), ("Rezerwacja", "/rezerwacja/")]))
-body += f'<section><div class="wrap"><h2>Jak to działa</h2>{STEPS}</div></section>'
 page("/rezerwacja/", f"Zamów taxi Knurów online – teraz lub na później | {B['name']}",
-     "Zamów taxi z Knurowa i Gierałtowic i okolic online: Twoja lokalizacja, cena i czas przejazdu od razu, potwierdzenie kierowcy i status kursu na żywo.", body, [org()])
+     "Zamów taxi z Knurowa i Gierałtowic i okolic online: Twoja lokalizacja, cena i czas przejazdu od razu, potwierdzenie kierowcy i status kursu na żywo.",
+     G2_BOOK, [org()], app="g2-book")
 
 # ================= DLA FIRM =================
 firm_faq = [("Czy wystawiacie faktury?", "Tak, za każdy kurs lub zbiorczo na koniec miesiąca."),
@@ -652,28 +752,7 @@ body = ('<section><div class="wrap"><h1>Nie ma takiej strony</h1><p>Adres mógł
 page("/404.html", f"Nie znaleziono strony | {B['name']}", "Strona nie istnieje.", body)
 
 # ================= STATUS KURSU =================
-body = ('<section class="hero track-hero" style="padding:0"><div class="wrap track" id="track">'
-        '<div class="track-card" aria-live="polite">'
-        '<div class="track-visual" id="t-visual" data-state="loading" aria-hidden="true">'
-        '<span class="radar"></span><span class="radar r2"></span><span class="busy-ring"></span><span class="busy-sign">ZAJĘTY</span>'
-        '<img src="/assets/img/logo-emblem.webp" alt="" width="480" height="377"></div>'
-        '<p class="track-kicker" id="t-kicker">Twój kurs</p>'
-        '<h1 id="t-title">Ładuję status…</h1>'
-        '<p class="lead" id="t-sub"></p>'
-        '<div class="eta" id="t-eta" hidden><b id="t-eta-min">–</b><span><small id="t-eta-lbl">min</small><small id="t-eta-at"></small></span></div>'
-        '<div class="eta-road" id="t-progress" hidden><span class="er-fill"></span><span class="er-car">' + CAR + '</span><span class="er-pin"></span></div>'
-        '<p class="eta-note" id="t-car" hidden></p>'
-        '<div class="t-driver" id="t-driver" hidden></div>'
-        '<ol class="tl" id="t-steps"></ol>'
-        f'<div class="track-actions"><a class="btn btn-call" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zadzwoń do kierowcy</a>'
-        '<button type="button" class="btn btn-line" id="t-cancel" hidden>Anuluj kurs</button>'
-        '<a class="btn btn-ink" id="t-later" href="/rezerwacja/#again" hidden>Zarezerwuj na później</a>'
-        '<a class="btn btn-line" id="t-new" href="/rezerwacja/" hidden>Zamów nowy kurs</a>'
-        '<a class="btn btn-ink" id="t-login" href="/konto/" hidden>Zaloguj się przez Google</a></div>'
-        '</div>'
-        '<div class="track-side"><div class="map map-lg" id="t-map" hidden></div><dl class="t-details" id="t-details"></dl></div>'
-        '</div></section>')
-page("/przejazd/", f"Status kursu | {B['name']}", "Status Twojego kursu na żywo.", body, noindex=True)
+page("/przejazd/", f"Status kursu | {B['name']}", "Status Twojego kursu na żywo.", G2_TRACK, noindex=True, app="g2-track")
 
 # ================= KONTO KLIENTA =================
 body = ('<section class="hero acct-hero" style="padding:0"><div class="wrap"><div class="acct-card" id="acct">'
