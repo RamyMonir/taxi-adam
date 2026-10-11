@@ -12,7 +12,8 @@ import { db, notifyDriver, tgFile, load, save, saveIfUnchanged, transition, tg, 
 import { driverByChat, listDrivers, saveDriverPos, markHint, addDriver, bindDriver, updateDriver, deactivateDriver, newInviteCode,
          busyDriverIds, botUsername, escalate, ensureOwner } from "../../server/fleet.js";
 import { currentCar, vehicleSnapshot, carName, carLabel, carLong, isDemo } from "../../server/cars.js";
-import { fleetCallback, fleetCommand, onPhotoMessage, sendCarPicker, FLEET_OWNER_HELP } from "../../server/botfleet.js";
+import { fleetCallback, fleetCommand, onPhotoMessage, sendCarPicker, FLEET_OWNER_HELP, todayLine } from "../../server/botfleet.js";
+import { ensureFleetSynced } from "../../server/fleetsync.js";
 import { modelOf, modelLabel } from "../../server/settle.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
@@ -40,6 +41,19 @@ const SHIFT_HOW =
   "2. Wybierz <b>Lokalizacja</b>\n" +
   "3. <b>Udostępniaj lokalizację na żywo</b> → najlepiej „Do wyłączenia”\n\n" +
   "Potem wybierzesz auto jednym dotknięciem. Koniec zmiany = zatrzymaj udostępnianie.";
+const hello = (drv) => {
+  const h = +new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Warsaw", hour: "2-digit", hourCycle: "h23" });
+  const first = String(drv && drv.name || "").split(" ")[0];
+  return (h >= 5 && h < 18 ? "Dzień dobry" : h >= 18 && h < 23 ? "Dobry wieczór" : "Cześć") + (first ? ", " + esc(first) : "") + "! 👋";
+};
+// one line: on duty or not, which car, what's missing
+async function statusLine(env, drv) {
+  const car = await currentCar(env, drv.id).catch(() => null), live = isLive(drv);
+  if (live && (car || drv.owner)) return `🟢 Jesteś na zmianie${car ? " · 🚗 " + esc(carLabel(car)) : ""}`;
+  if (live) return "🟡 Masz lokalizację na żywo, ale <b>bez auta</b> – wybierz je („🚗 Moje auto”).";
+  if (car) return `🟡 Masz auto ${esc(carLabel(car))}, ale <b>bez lokalizacji na żywo</b> – udostępnij ją, żeby dostawać kursy.`;
+  return "⚪ Nie jesteś na zmianie – dotknij „🟢 Zmiana”, żeby zacząć.";
+}
 function helpText(drv) {
   const L = [
     "❓ <b>Jak to działa</b>", "",
@@ -264,12 +278,17 @@ async function command(env, request, drv, text) {
   }
   if (cmd === "pomoc" || cmd === "help" || cmd === "menu") return say(env, chat, helpText(drv), { reply_markup: menu(drv) });
   if (cmd === "zmiana") {
-    if (!isLive(drv)) return say(env, chat, SHIFT_HOW, { reply_markup: menu(drv) });
-    const car = await currentCar(env, drv.id).catch(() => null);
+    const car = await currentCar(env, drv.id).catch(() => null), live = isLive(drv);
+    // step 1: a car (Adam may drive without picking one)
+    if (!car && !drv.owner) return sendCarPicker(env, drv, live
+      ? "🟢 <b>Masz lokalizację na żywo</b> – brakuje tylko auta. Którym dziś jeździsz?"
+      : "🟢 <b>Zaczynamy zmianę!</b>\n<b>Krok 1/2:</b> wybierz auto (potem poproszę o lokalizację).");
+    // step 2: live location
+    if (!live) return say(env, chat, (car ? `🚗 Auto: <b>${esc(carLong(car))}</b>\n\n` : "") + "<b>Krok 2/2:</b> " + SHIFT_HOW.replace(/^⚪ .*?\n\n/s, ""),
+      car ? { reply_markup: { inline_keyboard: [[btn("🔁 Zmień auto", "carlist|-"), btn("🔴 Zakończ zmianę", "shift|end")]] } } : { reply_markup: menu(drv) });
     const ago = Math.max(0, Math.round((Date.now() - drv.ts) / 60000));
-    if (!car && !drv.owner) return sendCarPicker(env, drv, `🟢 <b>Jesteś na zmianie</b> (lokalizacja ${ago} min temu), ale <b>bez auta</b> – wybierz je, żeby dostawać kursy:`);
-    return say(env, chat, `🟢 <b>Jesteś na zmianie</b> – lokalizacja ${ago} min temu.\n🚗 Auto: ${car ? "<b>" + esc(carLong(car)) + "</b>" : "<i>nie wybrane</i>"}\n\nKoniec zmiany: zatrzymaj udostępnianie lokalizacji w tym czacie.`,
-      car ? { reply_markup: { inline_keyboard: [[btn("🔁 Zmień auto", "carlist|-"), btn("🔓 Oddaj auto", "carrel|-")]] } } : {});
+    return say(env, chat, `🟢 <b>Jesteś na zmianie</b> – lokalizacja ${ago} min temu.\n🚗 Auto: ${car ? "<b>" + esc(carLong(car)) + "</b>" : "<i>bez auta</i>"}\n${await todayLine(env, drv)}`,
+      { reply_markup: { inline_keyboard: [car ? [btn("🔁 Zmień auto", "carlist|-"), btn("🔴 Zakończ zmianę", "shift|end")] : [btn("🚗 Wybierz auto", "carlist|-")]] } });
   }
   if (cmd === "imie" || cmd === "imię") {
     if (!arg) return say(env, chat, "Napisz: <code>/imie Marek</code>");
@@ -335,6 +354,7 @@ async function firstDelivery(env, updateId) {
 }
 
 async function handle(request, env, u) {
+  await ensureFleetSynced(env).catch((e) => console.log("fleet sync", e.message));
   const msg = u.message || u.edited_message;
   const drv = msg ? await driverByChat(env, msg.chat?.id).catch(() => null) : null;
 
@@ -354,11 +374,10 @@ async function handle(request, env, u) {
       if (owner.chat_id) await say(env, owner.chat_id, `✅ Kierowca <b>${esc(joined.name)}</b> dołączył do bota.`);
       return json({ ok: true });
     }
-    await say(env, chatId, drv
-      ? (drv.owner
-          ? "✅ Bot działa. Tutaj przychodzą kursy ze strony.\n\n👥 Kierowcy: /kierowcy, dodaj kierowcę: <code>/dodaj Imię 600100200</code>\n📞 Kurs z telefonu: /kurs\n📊 Raport: /raport\n🚗 Auta: /auta, Twoje auto: /auto\n💰 Rozliczenie: /prowizja\n\n📡 Udostępniaj mi lokalizację na żywo – wtedy też dostajesz kursy jak kierowca."
-          : JOIN_HELP)
-      : `Ten bot jest dla kierowców Taxi Adam. Poproś Adama o link zaproszenia.\n(chat ID: ${chatId})`, drv ? { reply_markup: menu(drv) } : {});
+    if (!drv) { await say(env, chatId, `Ten bot jest dla kierowców Taxi Adam. Poproś Adama o link zaproszenia.\n(chat ID: ${chatId})`); return json({ ok: true }); }
+    await say(env, chatId, `${hello(drv)}\n${await statusLine(env, drv)}\n${await todayLine(env, drv)}\n\n` +
+      (drv.owner ? "Kursy ze strony przychodzą tutaj. Kierowcy, auta i raporty – przyciski na dole." : "Kursy przychodzą tutaj. Wszystko masz pod przyciskami na dole.") +
+      "\n❓ <b>Pomoc</b> pokaże, jak wszystko działa.", { reply_markup: menu(drv) });
     return json({ ok: true });
   }
   if (text && drv) {

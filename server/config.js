@@ -43,6 +43,78 @@ export const CONFIG = {
    "gotówka"
   ]
  },
+ "fleet": {
+  "cars": [
+   {
+    "plate": "SGL 1A234",
+    "make": "Toyota",
+    "model": "Corolla",
+    "color": "biała",
+    "seats": 4
+   },
+   {
+    "plate": "SGL 2B567",
+    "make": "Škoda",
+    "model": "Octavia",
+    "color": "czarna",
+    "seats": 4
+   },
+   {
+    "plate": "SGL 3C890",
+    "make": "Toyota",
+    "model": "Camry",
+    "color": "grafitowa",
+    "seats": 4
+   },
+   {
+    "plate": "SGL 4D123",
+    "make": "Kia",
+    "model": "Ceed",
+    "color": "srebrna",
+    "seats": 4
+   },
+   {
+    "plate": "SGL 5E456",
+    "make": "Volkswagen",
+    "model": "Touran",
+    "color": "niebieski",
+    "seats": 7
+   }
+  ],
+  "drivers": [
+   {
+    "key": "k1",
+    "name": "Marek Nowak",
+    "phone": "+48 500 000 001",
+    "pay": {
+     "percent": 50
+    }
+   },
+   {
+    "key": "k2",
+    "name": "Katarzyna Wójcik",
+    "phone": "+48 500 000 002",
+    "pay": {
+     "daily_fee": 120
+    }
+   },
+   {
+    "key": "k3",
+    "name": "Tomasz Kowalczyk",
+    "phone": "+48 500 000 003",
+    "pay": null
+   },
+   {
+    "key": "k4",
+    "name": "Paweł Zieliński",
+    "phone": "+48 500 000 004",
+    "pay": {
+     "percent": 55
+    }
+   }
+  ],
+  "hash": "bbbe04f72575"
+ },
  "zoneKm": {
   "0": 4.5,
   "A": 9,
