@@ -5,6 +5,7 @@
 //  3. a driver's live location ran out: remind him once (daytime only)
 //  4. cars left checked out (45 min without live location) are released
 //  5. 23:00 (Warsaw): each driver gets his day + settlement, Adam gets the whole company + settlement buttons + CSV
+import { ensureFleetSynced } from "../../../server/fleetsync.js";
 import { json, nowWarsaw, clockWarsaw, esc } from "../../../server/util.js";
 import { db, load, transition, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
 import { escalate, listDrivers, busyDriverIds, markReminded } from "../../../server/fleet.js";
@@ -25,6 +26,7 @@ export async function onRequestPost({ request, env }) {
   if (!(env.CRON_KEY && key === env.CRON_KEY) && !(env.ADMIN_KEY && key === env.ADMIN_KEY)) return new Response("forbidden", { status: 403 });
   const out = { dispatched: 0, expired: 0, reminders: 0, locationReminders: 0, report: null };
   const d = await db(env);
+  await ensureFleetSynced(env).catch((e) => console.log("fleet sync", e.message));   // src/fleet.py -> database
 
   await d.prepare("DELETE FROM tg_updates WHERE ts < ?").bind(Date.now() - 2 * 864e5).run().catch(() => {});
 

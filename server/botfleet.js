@@ -1,6 +1,7 @@
 // Telegram bot: cars (check-in per shift), photos, Adam's car / commission commands, settlement buttons.
 // Button-first: picking, switching and giving back a car is one tap. Texts in Polish only.
-import { tg, db } from "./rides.js";
+import { tg, db, isLive } from "./rides.js";
+import { buildReport } from "./report.js";
 import { esc } from "./util.js";
 import { listDrivers, updateDriver } from "./fleet.js";
 import { listCars, freeCars, checkIn, hasOpenRide, release, releaseCar, addCar, updateCar, parseCarArgs, carLabel, carLong, isDemo } from "./cars.js";
@@ -35,6 +36,16 @@ export async function sendCarPicker(env, drv, header = "🚗 <b>Auto na zmianę<
 const editMsg = (env, q, text, rows = []) => tg(env, "editMessageText", { chat_id: q.message.chat.id, message_id: q.message.message_id, text,
   parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } });
 
+// "Dziś: 5 kursów · 420 zł" for this driver (Adam: his own rides)
+export async function todayLine(env, drv) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Warsaw" });
+  const rep = await buildReport(env, today, today, drv.owner ? null : drv.id).catch(() => null);
+  const done = rep ? rep.rows.filter((x) => x.status === "done" && (!drv.owner || (x.driver_id || "owner") === "owner")) : [];
+  const money = done.reduce((s, x) => s + Number(x.paid != null ? x.paid : x.price || 0), 0);
+  const n = done.length, word = n === 1 ? "kurs" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "kursy" : "kursów";
+  return `📊 Dziś: <b>${n} ${word}</b>${n ? ` · ${Math.round(money)} zł` : ""}`;
+}
+
 async function tellOwner(env, me, text) {
   if (me.owner) return;
   const owner = (await listDrivers(env)).find((x) => x.owner);
@@ -55,8 +66,11 @@ export async function fleetCallback(env, q, me, answer) {
       return true;
     }
     await answer(`✅ Jeździsz: ${carLabel(res.car)}`);
-    await editMsg(env, q, `🚗 <b>Twoje auto:</b> ${esc(carLong(res.car))}\nKlient zobaczy to auto i rejestrację. Kursy z okolicy przychodzą tutaj.`,
-                  [[btn("🔁 Zmień auto", "carlist|-"), btn("🔓 Oddaj auto", "carrel|-")]]);
+    // the shift needs two things: a car and live location – say clearly what's still missing
+    const next = isLive(me) ? "🟢 <b>Jesteś na zmianie</b> – kursy z okolicy przychodzą tutaj."
+      : "<b>Krok 2/2:</b> udostępnij mi lokalizację na żywo: 📎 → <b>Lokalizacja</b> → <b>Udostępniaj lokalizację na żywo</b> (najlepiej „Do wyłączenia”). Dopiero wtedy dostaniesz kursy.";
+    await editMsg(env, q, `🚗 <b>Twoje auto:</b> ${esc(carLong(res.car))}\nKlient zobaczy to auto i rejestrację.\n\n${next}`,
+                  [[btn("🔁 Zmień auto", "carlist|-"), btn("🔴 Zakończ zmianę", "shift|end")]]);
     if (!res.same) await tellOwner(env, me, `🚗 ${esc(me.name)} ${res.from ? `zmienił auto: ${esc(carLabel(res.from))} → ` : "wziął "}<b>${esc(carLabel(res.car))}</b>`);
     return true;
   }
@@ -78,6 +92,16 @@ export async function fleetCallback(env, q, me, answer) {
     await answer("OK – auto zostaje przy Tobie");
     await editMsg(env, q, "☕ Przerwa – auto zostaje przy Tobie. Gdy wrócisz, udostępnij lokalizację na żywo.\n<i>Bez lokalizacji przez 45 min auto zwolni się samo.</i>",
                   [[btn("🔓 Jednak oddaję auto", "carrel|-")]]);
+    return true;
+  }
+  if (act === "shift" && id === "end") {   // end of shift: give the car back + today's summary
+    if (await hasOpenRide(env, me.id)) { await answer("Najpierw zakończ kurs.", true); return true; }
+    const car = await release(env, me.id, "release");
+    await answer("Zmiana zakończona 👋");
+    await editMsg(env, q, `🔴 <b>Zmiana zakończona.</b>${car ? ` Oddałeś <b>${esc(carLabel(car))}</b>.` : ""}\n${await todayLine(env, me)}\n\n` +
+      "Ostatni krok: zatrzymaj udostępnianie lokalizacji (pasek z mapką u góry czatu → <b>Zatrzymaj</b>).\nDziękuję i do zobaczenia! 🚕",
+      [[btn("🟢 Zacznij nową zmianę", "carlist|-")]]);
+    await tellOwner(env, me, `🔴 ${esc(me.name)} zakończył zmianę${car ? ` (oddał <b>${esc(carLabel(car))}</b>)` : ""}`);
     return true;
   }
   if (act === "ph") return photoCallback(env, q, me, id, answer);

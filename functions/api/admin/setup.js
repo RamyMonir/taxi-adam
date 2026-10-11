@@ -3,6 +3,7 @@
 import { json, canonicalOrigin } from "../../../server/util.js";
 import { db, tg, isLive } from "../../../server/rides.js";
 import { listDrivers } from "../../../server/fleet.js";
+import { ensureFleetSynced } from "../../../server/fleetsync.js";
 import { reviews, autocomplete, reverseGeocode } from "../../../server/google.js";
 import { lookupFlight } from "../../../server/flights.js";
 import { CONFIG } from "../../../server/config.js";
@@ -38,7 +39,9 @@ export async function onRequestGet({ request, env }) {
       { command: "kurs", description: "Dodaj kurs przyjęty przez telefon" },
       { command: "raport", description: "Raport i rozliczenie (np. /raport tydzień)" },
       { command: "zdjecie", description: "Moje zdjęcie dla klienta" },
-      { command: "start", description: "Sprawdź, czy bot działa" },
+      { command: "zmiana", description: "Czy jestem na zmianie? Jak zacząć zmianę" },
+      { command: "pomoc", description: "Jak to działa – wszystko w jednym miejscu" },
+      { command: "start", description: "Pokaż menu z przyciskami" },
     ];
     const cmds = await tg(env, "setMyCommands", { commands: driverCmds });
     // Adam's chat: + fleet and settlement commands
@@ -49,7 +52,8 @@ export async function onRequestGet({ request, env }) {
       { command: "prowizja", description: "Rozliczenie kierowców: procent albo opłata dzienna" },
       { command: "dodaj", description: "Dodaj kierowcę: /dodaj Imię telefon" },
       { command: "dodajauto", description: "Dodaj auto: Marka Model; kolor; rejestracja; miejsca" },
-      { command: "start", description: "Sprawdź, czy bot działa" },
+      { command: "pomoc", description: "Jak to działa – wszystko w jednym miejscu" },
+      { command: "start", description: "Pokaż menu z przyciskami" },
     ] });
     report.bot_menu = !!(cmds && cmds.ok);
     const me = await tg(env, "getMe", {});
@@ -59,6 +63,8 @@ export async function onRequestGet({ request, env }) {
       report.test_message = !!(t && t.ok);
     }
   }
+  // fleet from src/fleet.py: cars + drivers, invite links for drivers who haven't joined yet
+  try { report.fleet = await ensureFleetSynced(env, { force: true }); } catch (e) { report.fleet = "ERROR " + e.message; }
   // Google + flight checks: show Google's own error message when something isn't enabled
   const check = async (name, fn) => { try { report[name] = await fn(); } catch (e) { report[name] = "ERROR " + e.message; } };
   await check("google_reviews", async () => { const r = await reviews(env); return `${r.place}: ${r.rating}★, ${r.count} opinii, pobrano ${r.fetched}, pokazane ${r.reviews.length}`; });
