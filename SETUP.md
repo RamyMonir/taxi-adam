@@ -69,6 +69,8 @@ Note: Google returns at most **5 reviews** and chooses them itself. The site kee
      | `GOOGLE_PLACE_ID` | place ID from step 2 |
      | `TELEGRAM_CHAT_ID` | added in step 4 |
      | `MAX_BOOKINGS_PER_HOUR` | optional (type *Text*): bookings allowed per device per hour, default 8. Set e.g. `100` while testing, then delete it |
+     | `MAX_QUOTES_PER_MIN` | optional (type *Text*): price quotes (`/api/quote`, each one a paid Google Routes call) allowed per IP per minute, default 30. Above it the page shows a polite "try again in a minute" |
+     | `TURNSTILE_SECRET` | optional (type *Secret*): Cloudflare Turnstile secret key. When set, every online booking must pass Turnstile (see §7). When not set, nothing is checked |
      | `AERODATABOX_KEY` | optional: flight times. Sign up at rapidapi.com, subscribe to **AeroDataBox** (free Basic plan), copy your `X-RapidAPI-Key` |
 5. **Deployments → Retry deployment** so the settings take effect.
 6. Custom domain: **Custom domains → Set up a custom domain**.
@@ -161,6 +163,33 @@ Wtedy klient widzi, ile km jesteś od niego, a gdy dojedziesz pod adres, bot **s
 Po dojechaniu do celu bot zapyta, czy zakończyć kurs.
 
 > Po aktualizacji strony otwórz raz `…/api/admin/setup?key=ADMIN_KEY` – to włącza odbieranie lokalizacji na żywo.
+
+## 7. Booking and status pages (G2) – what changed, Turnstile, map
+
+`/rezerwacja/` and `/przejazd/` are app-like screens (design "G2"): a full-screen map with a bottom sheet,
+mobile-first, Polish only. The landing pages (home, airports, cities, `/en/` …) are unchanged and keep the
+classic booking form.
+
+- **Booking:** "Skąd / Dokąd" panel → address search (our Places proxy, "📍 Moja lokalizacja", popular places),
+  "Teraz ▾" → Teraz / Później (at night only Później), quote row, then a confirmation sheet (name, phone,
+  passengers, flight number for airport rides, notes). The night rule, `taxi.last` and `taxi.rides` work as before.
+- **Status:** one sheet that changes per status, progress pill, Polish number plate, driver row (photo only with
+  the driver's consent), Zadzwoń / Anuluj.
+- **No site header, sticky call bar or ride banner** on these two pages; one footer line (Polityka prywatności · Kontakt).
+- **Font:** Nunito, self-hosted in `src/assets/fonts/` (Polish characters included).
+- **Dark mode** follows the phone's setting automatically (no toggle on these two pages).
+
+**Map.** The map needs the browser key: `src/data.py` → `GOOGLE_MAPS_BROWSER_KEY` (see §2). Without it the pages
+show a calm background instead of the map and everything else works. The map uses its own muted light/dark style,
+so `GOOGLE_MAP_ID` isn't needed for it.
+
+**Turnstile (optional, recommended before going public):**
+1. Cloudflare dashboard → **Turnstile → Add widget**: name "Taxi booking", hostnames `taxi-adam.pages.dev`
+   (and later your own domain), mode **Managed**.
+2. Copy the **site key** into `src/data.py` → `TURNSTILE_SITE_KEY` (it's public), rebuild and deploy.
+3. Copy the **secret key** into the Pages project as the secret `TURNSTILE_SECRET`, then redeploy.
+   Set both together: with only the secret, bookings fail (the page has no widget); with only the site key, the
+   widget shows but nothing is checked.
 
 ## 6. Fleet: shared cars, settlement, photos
 
