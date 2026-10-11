@@ -209,7 +209,8 @@ export function renderReport({ from, to, rows: all, drivers = [], sessions = [],
   } else {
     L.push(`💰 <b>Utarg brutto: ${zl2(tot.gross)}</b>`);
     L.push(`   💵 gotówka ${zl2(tot.cash)} · 💳 karta / BLIK / przelew ${zl2(tot.noncash)} (już na koncie firmy)`);
-    if (Object.keys(byMethod).length > 1) L.push(`   ${Object.entries(byMethod).map(([m, v]) => `${PAY_ICON[m] || ""} ${m} ${zl2(v)}`).join(" · ")}`);
+    const nonCash = Object.entries(byMethod).filter(([m]) => !(cfg.cash_methods || ["gotówka"]).includes(m));
+    if (nonCash.length > 1) L.push(`   w tym: ${nonCash.map(([m, v]) => `${PAY_ICON[m] || ""} ${m} ${zl2(v)}`).join(" · ")}`);
     L.push(`   Udział kierowców: ${zl2(drvShare)} · <b>Udział firmy: ${zl2(ownShare)}</b>`);
     if (tot.unpaid) L.push(`   ⚠️ ${kursy(tot.unpaid)} bez wpisanej kwoty – liczę cenę z wyceny`);
   }
