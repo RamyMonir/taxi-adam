@@ -3,7 +3,7 @@
 import json, os, shutil, datetime, hashlib
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION)
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -49,7 +49,7 @@ def client_config(lang):
     return json.dumps(dict(
         lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
-        places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES],
+        places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES], ts=TURNSTILE_SITE_KEY,
         chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS],
         airports=[dict(code=d["code"], lat=d["lat"], lng=d["lng"]) for d in DESTINATIONS if d["kind"] == "airport"]), ensure_ascii=False)
 
@@ -262,6 +262,7 @@ BOOK = r"""<form class="book" id="booking" data-mode="{{ mode }}"{% if dest %} d
     <div class="field"><label for="notes">{{ t.notes }}</label><textarea id="notes" placeholder="{{ t.notes_ph }}"></textarea></div>
   </details>
   <div class="hp" aria-hidden="true"><label>Website<input id="website" tabindex="-1" autocomplete="off"></label></div>
+  <div class="ts-box" id="ts-box" hidden></div>
   <p class="form-error" id="form-error" role="alert"></p>
   <button type="submit" class="btn btn-book" id="book-btn"><span class="for-now">{{ t.book_now }}</span><span class="for-later">{{ t.book_later }}</span><span class="arrow" aria-hidden="true">→</span></button>
   <p class="alt-contact"><span class="alt-lbl">{{ t.or_ }}</span> <a href="tel:{{ B.phone_e164 }}">{{ icon.phone }} {{ B.phone }}</a> <a id="send-wa" href="https://wa.me/{{ B.whatsapp }}" target="_blank" rel="noopener">{{ icon.wa }} WhatsApp</a></p>

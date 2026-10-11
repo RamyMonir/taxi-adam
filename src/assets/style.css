@@ -986,3 +986,6 @@ section:not(.hero) .wrap>p+h2,section:not(.hero) .wrap>ul+h2{margin-top:1.4em}
 .t-driver img.td-ava{object-fit:cover;padding:0}
 .t-driver{flex-wrap:wrap}
 .td-carimg{display:block;width:100%;max-height:170px;object-fit:cover;border-radius:12px;margin-top:10px;flex-basis:100%}
+
+/* Cloudflare Turnstile box in the booking form (only when enabled) */
+.ts-box{margin:4px 0 10px;min-height:65px}
