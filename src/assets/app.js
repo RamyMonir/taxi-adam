@@ -362,6 +362,11 @@
     T.fromPh = pIn.placeholder;
     var me = Account.on && Account.get();
     if (me) { if (me.name && !$("name").value) $("name").value = me.name; if (me.phone && !$("tel").value) $("tel").value = me.phone; }
+    // returning customer on this phone: name, phone and passengers from the last booking (the route stays empty)
+    try {
+      var prev = JSON.parse(localStorage.getItem("taxi.last") || "null");
+      if (prev) { if (prev.name && !$("name").value) $("name").value = prev.name; if (prev.phone && !$("tel").value) $("tel").value = prev.phone; if (prev.pax && $("pax")) $("pax").value = String(prev.pax); }
+    } catch (e) {}
     var map = $("map") ? TripMap($("map")) : null, qSeq = 0, warmed = false;
 
     // Cloudflare Turnstile (only when a site key is configured): loaded once the visitor starts using the form
@@ -434,7 +439,10 @@
       (which === "pickup" ? pIn : dIn).value = p ? p.address : "";
       quote();
     }
-    Autocomplete(pIn, $("pickup-list"), function (p) { S.pickup = p; quote(); });
+    Autocomplete(pIn, $("pickup-list"), function (p) {
+      S.pickup = p; quote();
+      if (p.pending && !dIn.value.trim()) setTimeout(function () { dIn.focus(); }, 60);   // next step: the destination
+    });
     Autocomplete(dIn, $("dest-list"), function (p) { S.dest = p; quote(); });
     [[pIn, "pickup"], [dIn, "dest"]].forEach(function (x) {
       var el = x[0], which = x[1];
@@ -643,16 +651,21 @@
         website: $("website").value, turnstile: tsToken || undefined,
       };
     }
+    // the field that needs attention gets a red outline (and aria-invalid) until it's changed
+    function bad(elm) { elm.setAttribute("aria-invalid", "true"); elm.focus(); }
+    Array.prototype.forEach.call(form.querySelectorAll("input,select,textarea"), function (elm) {
+      elm.addEventListener("input", function () { elm.removeAttribute("aria-invalid"); });
+    });
     function validate() {
-      if (!S.pickup || !S.pickup.address) { pIn.focus(); return T.errFrom; }
-      if (!S.dest || !S.dest.address) { dIn.focus(); return T.errTo; }
+      if (!S.pickup || !S.pickup.address) { bad(pIn); return T.errFrom; }
+      if (!S.dest || !S.dest.address) { bad(dIn); return T.errTo; }
       if (S.mode === "later") {
         var d = $("date").value, t = $("time").value;
-        if (!d || !t || new Date(d + "T" + t).getTime() < Date.now() + 14 * 60000) { (d ? $("time") : $("date")).focus(); return T.errWhen; }
+        if (!d || !t || new Date(d + "T" + t).getTime() < Date.now() + 14 * 60000) { bad(d ? $("time") : $("date")); return T.errWhen; }
         var at = new Date(d + "T" + t).getTime();
-        if (NI && nightAt(at) && at < Date.now() + NI.ahead_min * 60000) { $("time").focus(); return fmt(T.errNight, nightTxt); }
+        if (NI && nightAt(at) && at < Date.now() + NI.ahead_min * 60000) { bad($("time")); return fmt(T.errNight, nightTxt); }
       }
-      if ($("tel").value.replace(/\D/g, "").length < 9) { $("tel").focus(); return T.errPhone; }
+      if ($("tel").value.replace(/\D/g, "").length < 9) { bad($("tel")); return T.errPhone; }
       if (C.ts && !tsToken) { turnstile(); return T.errCaptcha; }
       return null;
     }

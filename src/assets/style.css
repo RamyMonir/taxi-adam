@@ -989,3 +989,6 @@ section:not(.hero) .wrap>p+h2,section:not(.hero) .wrap>ul+h2{margin-top:1.4em}
 
 /* Cloudflare Turnstile box in the booking form (only when enabled) */
 .ts-box{margin:4px 0 10px;min-height:65px}
+
+/* booking form: the field that needs attention */
+.book input[aria-invalid=true],.book select[aria-invalid=true],.book textarea[aria-invalid=true]{box-shadow:0 0 0 2px #FF5A6E;border-color:#FF5A6E}
