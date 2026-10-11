@@ -8,6 +8,7 @@ import { save, saveIfUnchanged, transition, OPEN, recentByIp, purgeOld, publicVi
 import { dispatchNew } from "../../../server/fleet.js";
 import { currentUser, updateProfile } from "../../../server/auth.js";
 import { lookupCustomer, recordOrder, purgeCustomers } from "../../../server/customers.js";
+import { verifyTurnstile } from "../../../server/turnstile.js";
 
 const MAX_PER_HOUR = 8;   // override with the Cloudflare variable MAX_BOOKINGS_PER_HOUR (e.g. 100 while testing)
 const GPS_LABEL = /^(moja lokalizacja|my location|-?\d+\.\d+,\s*-?\d+\.\d+)$/i;
@@ -25,6 +26,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
   let b;
   try { b = await request.json(); } catch { return bad("invalid json"); }
   if (b.website) return bad("spam");   // honeypot field, invisible to people
+  // Cloudflare Turnstile – only when TURNSTILE_SECRET is set (local runs and tests work without it)
+  if (!(await verifyTurnstile(env, b.turnstile, request.headers.get("cf-connecting-ip")))) return bad("captcha", 403);
 
   const mode = b.mode === "later" ? "later" : "now";
   let pickup = point(b.pickup), dest = point(b.dest);
