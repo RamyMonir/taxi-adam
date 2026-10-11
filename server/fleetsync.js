@@ -20,7 +20,8 @@ export function payFields(pay) {
 const same = (a, b) => (a ?? null) === (b ?? null) || String(a ?? "") === String(b ?? "");
 
 // file (cfg) vs database rows -> what to change
-export function planFleetSync(cfg, carRows, driverRows) {
+// removed = file drivers Adam removed in Telegram (🗑): left alone until they get a new key in the file
+export function planFleetSync(cfg, carRows, driverRows, removed = new Set()) {
   const plan = { addCars: [], updateCars: [], retireCars: [], addDrivers: [], updateDrivers: [], retireDrivers: [] };
   const filePlates = new Set();
   for (const c of cfg.cars || []) {
@@ -42,6 +43,7 @@ export function planFleetSync(cfg, carRows, driverRows) {
   for (const d of cfg.drivers || []) {
     const id = fileDriverId(d.key); if (id === "f_" || fileIds.has(id)) continue;
     fileIds.add(id);
+    if (removed.has(id)) continue;
     const want = { name: String(d.name || "").trim().slice(0, 30), phone: String(d.phone || "").trim() || null, ...payFields(d.pay) };
     const row = driverRows.find((r) => r.id === id);
     if (!row) { plan.addDrivers.push({ id, ...want }); continue; }
@@ -71,8 +73,9 @@ export async function ensureFleetSynced(env, { force = false } = {}) {
     if (row && row.v === f.hash) { syncedHash = f.hash; return null; }
   }
   await ensureOwner(env);   // creates the drivers table + Adam's row
-  const [cars, drivers] = await Promise.all([d.prepare("SELECT * FROM cars").all(), d.prepare("SELECT * FROM drivers").all()]);
-  const plan = planFleetSync(f, cars.results || [], drivers.results || []);
+  const [cars, drivers, rm] = await Promise.all([d.prepare("SELECT * FROM cars").all(), d.prepare("SELECT * FROM drivers").all(),
+    d.prepare("SELECT v FROM meta WHERE k = 'fleet_removed'").first()]);
+  const plan = planFleetSync(f, cars.results || [], drivers.results || [], new Set(JSON.parse((rm && rm.v) || "[]")));
   // claim the change, so two requests at the same moment don't both send Adam the links
   const claim = await d.prepare("INSERT INTO meta (k, v) VALUES ('fleet_hash', ?1) ON CONFLICT(k) DO UPDATE SET v = ?1 WHERE v IS NOT ?1").bind(f.hash).run();
   const mine = force || !!(claim && claim.meta && claim.meta.changes);

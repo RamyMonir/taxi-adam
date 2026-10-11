@@ -10,7 +10,7 @@ import { route } from "./google.js";
 import { customerWaUrl } from "./phone.js";
 import { customerLine } from "./customers.js";
 import { FINAL, recordTrip } from "./report.js";
-import { ownerInfoText } from "./fleet.js";
+import { ownerInfoText, availability, availabilityText, ownerPanel } from "./fleet.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
 const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
@@ -353,7 +353,12 @@ export async function syncDriverMessage(env, r) {
   const d = r.data, offers = d.offers || {}, jobs = [];
   const edit = (chat, msg, text, kb) => tg(env, "editMessageText", { chat_id: chat, message_id: msg, text, parse_mode: "HTML",
     disable_web_page_preview: true, reply_markup: { inline_keyboard: kb } });
-  if (d.driverId || !Object.keys(offers).length) {
+  if (r.status === "draft" && d.driverId === "owner" && r.tg_msg) {
+    // Adam's phone ride before he decides: preview + who is free + the panel
+    const a = await availability(env, r).catch(() => null);
+    jobs.push(edit(d.chat || env.TELEGRAM_CHAT_ID, r.tg_msg, driverText(r) + (a ? "\n\n" + availabilityText(a) + "\n\n<b>Kto jedzie?</b>" : ""),
+      a ? await ownerPanel(env, r, a) : keyboard(r)));
+  } else if (d.driverId || !Object.keys(offers).length) {
     if (r.tg_msg) jobs.push(edit(d.chat || env.TELEGRAM_CHAT_ID, r.tg_msg, driverText(r), keyboard(r)));
   } else {
     for (const o of Object.values(offers)) {
@@ -362,7 +367,11 @@ export async function syncDriverMessage(env, r) {
     }
   }
   if (d.ownerInfo) {
-    jobs.push(tg(env, "editMessageText", { chat_id: env.TELEGRAM_CHAT_ID, message_id: d.ownerInfo, text: ownerInfoText(r), parse_mode: "HTML" }));
+    // while nobody has the ride, Adam's copy keeps the panel (who is free, give it to someone, take it himself)
+    const open = r.status === "pending" && !d.driverId;
+    const a = open ? await availability(env, r).catch(() => null) : null;
+    jobs.push(tg(env, "editMessageText", { chat_id: env.TELEGRAM_CHAT_ID, message_id: d.ownerInfo, text: ownerInfoText(r) + (a ? "\n\n" + availabilityText(a) : ""),
+      parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: a ? await ownerPanel(env, r, a) : [] } }));
   }
   await Promise.all(jobs);
 }

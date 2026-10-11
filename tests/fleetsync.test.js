@@ -61,6 +61,16 @@ test("a car added by hand (/dodajauto) with the same plate is the same car, not 
   assert.ok(planIsEmpty(p2));
 });
 
+test("a file driver Adam removed in Telegram (🗑) stays removed after the next sync", () => {
+  const { cars, drivers } = asRows(planFleetSync(file, [], []));
+  const after = drivers.map((d) => (d.id === "f_k2" ? { ...d, active: 0 } : d));
+  const edited = { ...file, drivers: file.drivers.map((d) => ({ ...d, name: d.name + "!" })) };
+  const p = planFleetSync(edited, cars, after, new Set(["f_k2"]));
+  assert.deepEqual(p.updateDrivers.map((u) => u.id), ["f_k1"], "only Marek is updated, Kasia is not reactivated");
+  assert.equal(p.retireDrivers.length, 0);
+  assert.ok(planFleetSync(edited, cars, after).updateDrivers.some((u) => u.id === "f_k2" && u.fields.active === 1), "without the mark she would come back");
+});
+
 test("helpers", () => {
   assert.equal(plateKey(" sgl-1a 234 "), "SGL1A234");
   assert.equal(fileCarId("SGL 1A234"), "f_sgl1a234");

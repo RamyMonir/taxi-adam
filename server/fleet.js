@@ -112,7 +112,14 @@ export async function updateDriver(env, id, f) {
 }
 export async function deactivateDriver(env, id) {
   await release(env, id, "admin").catch(() => null);   // his car is free again
-  await (await fdb(env)).prepare("UPDATE drivers SET active = 0, chat_id = NULL, code = NULL WHERE id = ? AND owner = 0").bind(id).run();
+  const d = await fdb(env);
+  await d.prepare("UPDATE drivers SET active = 0, chat_id = NULL, code = NULL WHERE id = ? AND owner = 0").bind(id).run();
+  if (String(id).startsWith("f_")) {   // from src/fleet.py: Adam removed him, the next file sync must not bring him back
+    await d.prepare("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)").run();
+    const row = await d.prepare("SELECT v FROM meta WHERE k = 'fleet_removed'").first();
+    const ids = new Set(JSON.parse((row && row.v) || "[]")); ids.add(id);
+    await d.prepare("INSERT INTO meta (k, v) VALUES ('fleet_removed', ?1) ON CONFLICT(k) DO UPDATE SET v = ?1").bind(JSON.stringify([...ids])).run();
+  }
 }
 export async function newInviteCode(env, id) {
   const code = randomId(10);
@@ -174,7 +181,10 @@ const shortA = (a) => String(a || "").split(",").slice(0, 2).join(",");
 
 async function ownerInfo(env, r, owner) {
   if (r.data.offers?.owner || r.data.driverId === "owner" || !owner?.chat_id) return;
-  const j = await tg(env, "sendMessage", { chat_id: owner.chat_id, text: ownerInfoText(r), parse_mode: "HTML", disable_notification: true });
+  // with the panel: Adam can take it himself or give it to someone else while nobody has accepted yet
+  const a = await availability(env, r).catch(() => null);
+  const j = await tg(env, "sendMessage", { chat_id: owner.chat_id, text: ownerInfoText(r) + (a ? "\n\n" + availabilityText(a) : ""), parse_mode: "HTML",
+    disable_notification: true, reply_markup: { inline_keyboard: a ? await ownerPanel(env, r, a) : [] } });
   if (j && j.ok) r.data.ownerInfo = j.result.message_id;
 }
 
@@ -236,6 +246,7 @@ export async function escalate(env, r) {
         if (d.stage === "nearest") { d.stage = "all"; d.stageAt = Date.now(); if (await saveIfUnchanged(env, r, prev)) return r; r = await load(env, r.id); continue; }
         return r;
       }
+      if (d.stage === "manual" && d.ownerInfo) return r;   // Adam picked the driver: his panel stays open, he decides again
       r.status = "declined"; d.declinedBy = "all";
       if (await saveIfUnchanged(env, r, prev)) return r;
       r = await load(env, r.id); continue;
@@ -254,4 +265,60 @@ export async function escalate(env, r) {
     return r;
   }
   return r;
+}
+
+/* ---------------- Adam's dispatch panel ---------------- */
+// Adam takes calls on his number: for a phone ride (and for website rides nobody has taken yet) he decides who drives –
+// himself, the free drivers (nearest first), or one chosen driver. The panel shows who is free right now.
+const pbtn = (text, data) => ({ text, callback_data: data });
+const firstName = (n) => String(n || "").trim().split(/\s+/)[0] || "kierowca";
+const kmShort = (k) => (k == null ? "" : (k < 10 ? k.toFixed(1) : String(Math.round(k))).replace(".", ",") + " km");
+
+// the team right now: free (car + live location, nearest first), on a ride, off duty / no car
+export async function availability(env, r) {
+  const [all, busy] = await Promise.all([listDrivers(env), busyDriverIds(env)]);
+  const p = r && r.data ? r.data.pickup : null, pax = (r && r.data && r.data.pax) || 1;
+  const team = all.filter((x) => !x.owner && x.chat_id && !isDemo(x));
+  const free = team.filter((x) => canDrive(x, busy, pax))
+    .map((x) => ({ x, km: hasXY(p) && x.lat != null ? kmBetween(x, p) : null }))
+    .sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
+  const onRide = team.filter((x) => busy.has(x.id));
+  const off = team.filter((x) => !busy.has(x.id) && !canDrive(x, busy, pax));
+  return { free, onRide, off, team };
+}
+export function availabilityText(a) {
+  const L = [a.free.length
+    ? "🟢 <b>Wolni:</b> " + a.free.map(({ x, km }) => esc(firstName(x.name)) + (x.car_model || km != null ? ` (${[x.car_model, kmShort(km)].filter(Boolean).map(esc).join(", ")})` : "")).join(", ")
+    : "🟢 <b>Wolni:</b> nikt w tej chwili"];
+  if (a.onRide.length) L.push("🚕 W kursie: " + a.onRide.map((x) => esc(firstName(x.name))).join(", "));
+  if (a.off.length) L.push("⚪ Poza zmianą / bez auta: " + a.off.map((x) => esc(firstName(x.name))).join(", "));
+  return L.join("\n");
+}
+export async function ownerPanel(env, r, a) {
+  a = a || (await availability(env, r));
+  const id = r.id, rows = [[pbtn(r.mode === "now" ? "🙋 Jadę sam" : "🙋 Biorę sam", `dpo|${id}`)]];
+  if (r.mode === "now") {
+    if (a.free.length) rows.push([pbtn(`📨 Wyślij do wolnych kierowców (${a.free.length})`, `dps|${id}`)]);
+    for (const { x, km } of a.free.slice(0, 6)) rows.push([pbtn(`🟢 ${firstName(x.name)}${x.car_model ? " · " + x.car_model : ""}${km != null ? " · " + kmShort(km) : ""}`, `dpa|${id}|${x.id}`)]);
+  } else {
+    for (const x of a.team.slice(0, 8)) rows.push([pbtn(`👤 Przydziel: ${x.name}`, `dpa|${id}|${x.id}`)]);
+  }
+  rows.push([r.status === "draft" ? pbtn("🗑 Usuń", `del|${id}`) : pbtn("❌ Odrzuć kurs", `x|${id}`)]);
+  return rows;
+}
+// "📨 Wyślij do wolnych kierowców": nearest free driver first, then (after a minute / a "no") all free ones
+export async function offerToFree(env, r) {
+  const a = await availability(env, r);
+  if (!a.free.length) return 0;
+  const sent = await offerTo(env, r, [a.free[0].x]);
+  r.data.offers = { ...(r.data.offers || {}), ...sent };
+  r.data.stage = a.free.length > 1 ? "nearest" : "all"; r.data.stageAt = Date.now();
+  return Object.keys(sent).length;
+}
+// "🟢 Marek": offer it to one driver; if he says no, it comes back to Adam
+export async function offerToDriver(env, r, drv) {
+  const sent = await offerTo(env, r, [drv]);
+  r.data.offers = { ...(r.data.offers || {}), ...sent };
+  r.data.stage = "manual"; r.data.stageAt = Date.now();
+  return Object.keys(sent).length;
 }
