@@ -69,6 +69,8 @@ Note: Google returns at most **5 reviews** and chooses them itself. The site kee
      | `GOOGLE_PLACE_ID` | place ID from step 2 |
      | `TELEGRAM_CHAT_ID` | added in step 4 |
      | `MAX_BOOKINGS_PER_HOUR` | optional (type *Text*): bookings allowed per device per hour, default 8. Set e.g. `100` while testing, then delete it |
+     | `MAX_QUOTES_PER_MIN` | optional (type *Text*): price quotes (`/api/quote`, each one a paid Google Routes call) per IP per minute, default 30 |
+     | `TURNSTILE_SECRET` | optional (type *Secret*): Cloudflare Turnstile secret – set together with `TURNSTILE_SITE_KEY` in `src/data.py` (see §7) |
      | `AERODATABOX_KEY` | optional: flight times. Sign up at rapidapi.com, subscribe to **AeroDataBox** (free Basic plan), copy your `X-RapidAPI-Key` |
 5. **Deployments → Retry deployment** so the settings take effect.
 6. Custom domain: **Custom domains → Set up a custom domain**.
@@ -122,6 +124,8 @@ Telegram can't reach `localhost`, so button taps don't work locally unless you s
 
 ## Instrukcja dla kierowcy (Telegram)
 
+**Menu z przyciskami** (na dole czatu, po /start): 🟢 Zmiana · 🚗 Moje auto · 📞 Kurs z telefonu · 📊 Mój dzień · 👤 Ja · ❓ Pomoc (Adam ma też 👥 Kierowcy, 🚗 Auta, 📊 Raport dziś). Kurs z telefonu można wpisać bez /kurs – wystarczy linijka ze strzałką, np. `Rynek 1 Knurów > Pyrzowice, 600100200`. Pod każdym raportem są przyciski Dziś / Wczoraj / Ten tydzień / Ten miesiąc.
+
 Każde zamówienie przychodzi jako wiadomość z adresami (kliknij adres → nawigacja w Mapach Google), telefonem klienta, ceną, lotem i przyciskami:
 
 - **Kurs TERAZ**: wiadomość pokazuje adres klienta, ile km i minut masz do niego (Google Maps, z korkami, liczone od Twojej lokalizacji na żywo). Kliknij **✅ Przyjmuję** albo **❌ Odrzuć** – czas dojazdu liczy się sam.
@@ -161,6 +165,13 @@ Wtedy klient widzi, ile km jesteś od niego, a gdy dojedziesz pod adres, bot **s
 Po dojechaniu do celu bot zapyta, czy zakończyć kurs.
 
 > Po aktualizacji strony otwórz raz `…/api/admin/setup?key=ADMIN_KEY` – to włącza odbieranie lokalizacji na żywo.
+
+## 7. Turnstile (optional bot protection on online bookings)
+
+1. Cloudflare dashboard → **Turnstile → Add widget**: hostnames `taxi-adam.pages.dev` (and later your domain), mode **Managed**.
+2. **Site key** → `src/data.py` → `TURNSTILE_SITE_KEY` (public), rebuild and deploy. The box appears in the booking form once
+   the visitor starts filling it in.
+3. **Secret key** → Pages secret `TURNSTILE_SECRET`, then redeploy. Set both together: with only the secret, bookings fail.
 
 ## 6. Fleet: shared cars, settlement, photos
 
