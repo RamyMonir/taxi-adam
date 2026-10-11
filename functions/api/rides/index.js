@@ -4,7 +4,7 @@ import { route, reverseGeocode, findPlace } from "../../../server/google.js";
 import { lookupFlight, flightLine, normFlight, validFlight } from "../../../server/flights.js";
 import { price } from "../../../server/pricing.js";
 import { CONFIG } from "../../../server/config.js";
-import { save, recentByIp, purgeOld, publicView } from "../../../server/rides.js";
+import { save, saveIfUnchanged, transition, OPEN, recentByIp, purgeOld, publicView } from "../../../server/rides.js";
 import { dispatchNew } from "../../../server/fleet.js";
 import { currentUser, updateProfile } from "../../../server/auth.js";
 import { lookupCustomer, recordOrder, purgeCustomers } from "../../../server/customers.js";
@@ -92,8 +92,18 @@ export async function onRequestPost({ request, env, waitUntil }) {
     },
   };
   await save(env, r);
+  const prev = r.updated;
   if (!(await dispatchNew(env, r))) return bad("driver could not be notified, please call", 502);
-  await save(env, r);
+  // a driver may have accepted while the offers were still going out: never overwrite his tap
+  if (!(await saveIfUnchanged(env, r, prev))) {
+    const sent = r.data;
+    await transition(env, r.id, OPEN, (x) => {
+      x.data.offers = { ...(sent.offers || {}), ...(x.data.offers || {}) };
+      for (const k of ["stage", "stageAt", "assignable", "approachS", "approachM", "approachFrom", "approachApprox", "ownerInfo"]) {
+        if (x.data[k] == null && sent[k] != null) x.data[k] = sent[k];
+      }
+    });
+  }
   waitUntil(purgeOld(env));
   waitUntil(recordOrder(env, r).then(() => purgeCustomers(env)).catch((e) => console.log("customers", e.message)));
   // remember name and phone for the next booking

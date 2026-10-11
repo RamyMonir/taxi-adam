@@ -161,3 +161,46 @@ Wtedy klient widzi, ile km jesteś od niego, a gdy dojedziesz pod adres, bot **s
 Po dojechaniu do celu bot zapyta, czy zakończyć kurs.
 
 > Po aktualizacji strony otwórz raz `…/api/admin/setup?key=ADMIN_KEY` – to włącza odbieranie lokalizacji na żywo.
+
+## 6. Fleet: shared cars, settlement, photos
+
+Cars are not tied to drivers. At the start of a shift (when a driver shares live location) the bot shows the free cars as
+buttons, and one tap checks him in. A driver without a car gets no rides. Each ride and each trip in the report stores
+which car was used.
+
+**Database.** An existing database upgrades itself on the first request after deploy (new tables and columns), so
+nothing needs to be run. For a **new** database, run the migrations before the first deploy:
+```bash
+npx wrangler d1 migrations apply taxi-knurow --remote      # migrations/0001_baseline.sql, 0002_fleet_cars.sql
+```
+
+**Demo data (optional).** `migrations/seed_demo.sql` adds 4 fictional drivers and 5 cars, all with ids starting with
+`demo_`. It never overwrites real rows, and demo drivers never get rides.
+```bash
+npx wrangler d1 execute taxi-knurow --remote --file=migrations/seed_demo.sql
+# remove it again:
+npx wrangler d1 execute taxi-knurow --remote --command="DELETE FROM car_sessions WHERE car_id LIKE 'demo_%' OR driver_id LIKE 'demo_%'; DELETE FROM cars WHERE id LIKE 'demo_%'; DELETE FROM drivers WHERE id LIKE 'demo_%';"
+```
+Real data comes from Telegram: drivers via `/dodaj Imię telefon` (invite link), cars via
+`/dodajauto Toyota Corolla; biała; SGL 1A234; 4`.
+
+**Photos (optional).**
+1. Cloudflare → **R2** → create a bucket, e.g. `taxi-photos` (private; no public access needed).
+2. Pages project → Settings → **Bindings → R2 bucket**: variable name `PHOTOS`, bucket `taxi-photos`.
+3. Settings → Variables and Secrets → secret **`PHOTO_SECRET`** (a long random string; it signs the photo links).
+4. Redeploy. `/api/admin/setup?key=…` shows `"photos": true`.
+
+Without these two settings everything works, just without photos.
+
+**Settlement.** The default is 50% for the driver and 50% for the company (`src/data.py` → `COMMISSION`; this is a
+recommendation, confirm it with Adam). Per driver: `/prowizja 2 55`, `/prowizja 2 dzienna 120`, `/prowizja 2 domyślna`.
+The 23:00 report shows, for each driver, the cash he holds, card/BLIK/transfer money already on the company account, his
+share, and what he hands in (or receives). It has a "✅ Rozliczono" button per driver.
+
+**Telegram menu.** Open `/api/admin/setup?key=…` once after deploy. It sets the new "/" menus (drivers, and Adam's own).
+
+**Bot commands.** Drivers: `/auto` (pick or switch car), `/oddaj` (give the car back), `/zdjecie`, `/ja`, `/raport`,
+`/kurs`. Adam also has `/auta`, `/dodajauto`, `/edytujauto`, `/serwis NR [powód|koniec]`, `/usunauto`, `/zwolnij NR`,
+`/zdjecieauta NR` and `/prowizja`.
+
+**Tests.** Run `npm test` (unit tests and the SQL check). `tests/e2e/README.md` describes a full local day using wrangler.

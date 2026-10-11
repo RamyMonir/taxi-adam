@@ -167,6 +167,11 @@ GOOGLE_PLACES = [
 # Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
 NOW_WAIT_MIN = 3
 
+# Rozliczenie kierowców (REKOMENDACJA – do potwierdzenia z Adamem i księgową).
+# Domyślnie 50% utargu brutto dla kierowcy, 50% dla firmy (firma płaci paliwo i koszty auta) – typowy model flot w PL.
+# Alternatywa na kierowcę: stała opłata dzienna za auto (/prowizja NR dzienna 120). 120 zł to przykład, nie dane rynkowe.
+COMMISSION = {"default_driver_pct": 50, "default_daily_fee": 120, "cash_methods": ["gotówka"]}
+
 KIND = {
     "airport": dict(hub="lotniska", hub_name="Transfery lotniskowe", plural="Lotniska"),
     "spa":     dict(hub="sanatoria", hub_name="Przejazdy do sanatoriów", plural="Sanatoria"),

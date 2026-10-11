@@ -28,15 +28,27 @@ export async function onRequestGet({ request, env }) {
       allowed_updates: ["message", "edited_message", "callback_query"], drop_pending_updates: true,
     });
     report.webhook = hook && hook.ok ? `${site}/api/telegram` : hook;
-    report.code_version = "2026-10-10 fleet";
+    report.code_version = "2026-10-11 fleet-cars";
+    report.photos = !!(env.PHOTOS && env.PHOTO_SECRET);
     // the "/" menu in Telegram
-    const cmds = await tg(env, "setMyCommands", { commands: [
-      { command: "ja", description: "Moje dane: auto, rejestracja, telefon, zmiana" },
+    const driverCmds = [
+      { command: "auto", description: "Wybierz / zmień auto na zmianę" },
+      { command: "oddaj", description: "Oddaj auto (koniec zmiany)" },
+      { command: "ja", description: "Moje dane: auto, telefon, zdjęcie, rozliczenie" },
       { command: "kurs", description: "Dodaj kurs przyjęty przez telefon" },
-      { command: "raport", description: "Raport: kursy, km, godziny, pieniądze (np. /raport miesiąc)" },
-      { command: "auto", description: "Twoje auto: model; kolor; rejestracja; miejsca" },
-      { command: "kierowcy", description: "Kierowcy: kto jest na zmianie (Adam)" },
-      { command: "dodaj", description: "Dodaj kierowcę: /dodaj Imię telefon (Adam)" },
+      { command: "raport", description: "Raport i rozliczenie (np. /raport tydzień)" },
+      { command: "zdjecie", description: "Moje zdjęcie dla klienta" },
+      { command: "start", description: "Sprawdź, czy bot działa" },
+    ];
+    const cmds = await tg(env, "setMyCommands", { commands: driverCmds });
+    // Adam's chat: + fleet and settlement commands
+    if (env.TELEGRAM_CHAT_ID) await tg(env, "setMyCommands", { scope: { type: "chat", chat_id: Number(env.TELEGRAM_CHAT_ID) }, commands: [
+      ...driverCmds.slice(0, 5),
+      { command: "kierowcy", description: "Kierowcy: kto jest na zmianie i jakim autem" },
+      { command: "auta", description: "Auta: wolne, zajęte, w serwisie" },
+      { command: "prowizja", description: "Rozliczenie kierowców: procent albo opłata dzienna" },
+      { command: "dodaj", description: "Dodaj kierowcę: /dodaj Imię telefon" },
+      { command: "dodajauto", description: "Dodaj auto: Marka Model; kolor; rejestracja; miejsca" },
       { command: "start", description: "Sprawdź, czy bot działa" },
     ] });
     report.bot_menu = !!(cmds && cmds.ok);

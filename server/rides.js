@@ -20,6 +20,22 @@ const EXPIRE_NOW_MIN = 15;   // unanswered "now" request closes after this
 const KEEP_DAYS = 30;        // ride data is deleted after this (privacy policy says so)
 
 let schemaReady = false;
+const FLEET_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS cars (
+     id TEXT PRIMARY KEY, make TEXT NOT NULL, model TEXT NOT NULL, color TEXT, plate TEXT NOT NULL UNIQUE,
+     seats INTEGER NOT NULL DEFAULT 4, status TEXT NOT NULL DEFAULT 'active', note TEXT, photo_key TEXT, created INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS car_sessions (
+     id TEXT PRIMARY KEY, car_id TEXT NOT NULL, driver_id TEXT NOT NULL,
+     started INTEGER NOT NULL, ended INTEGER, end_reason TEXT)`,
+  // at most ONE open session per car and per driver: this is what makes "two drivers pick the same car" safe
+  "CREATE UNIQUE INDEX IF NOT EXISTS one_open_per_car ON car_sessions (car_id) WHERE ended IS NULL",
+  "CREATE UNIQUE INDEX IF NOT EXISTS one_open_per_driver ON car_sessions (driver_id) WHERE ended IS NULL",
+  "CREATE INDEX IF NOT EXISTS car_sessions_time ON car_sessions (started)",
+  `CREATE TABLE IF NOT EXISTS settlements (
+     day TEXT NOT NULL, driver_id TEXT NOT NULL, model TEXT, pct REAL, fee REAL,
+     gross REAL, cash REAL, noncash REAL, driver_share REAL, owner_share REAL, hand_in REAL,
+     settled_at INTEGER, settled_by TEXT, PRIMARY KEY (day, driver_id))`,
+];
 export async function db(env) {
   if (!env.DB) throw new Error("D1 binding DB is missing");
   if (!schemaReady) {
@@ -35,6 +51,10 @@ export async function db(env) {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS driver (id INTEGER PRIMARY KEY, lat REAL, lng REAL, ts INTEGER, hint_ts INTEGER)").run();
     // end of the driver's Telegram live-location window (added later: add the column to older databases)
     try { await env.DB.prepare("ALTER TABLE driver ADD COLUMN until INTEGER").run(); } catch (e) { /* already there */ }
+    // Telegram update ids already handled (webhook idempotency); purged by the cron after 2 days
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS tg_updates (update_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL)").run();
+    // fleet: cars are shared, a driver checks one out per shift (server/cars.js); same as migrations/0002_fleet_cars.sql
+    for (const q of FLEET_SCHEMA) await env.DB.prepare(q).run();
     schemaReady = true;
   }
   return env.DB;
@@ -80,14 +100,27 @@ export async function purgeOld(env) {
   await (await db(env)).prepare("DELETE FROM rides WHERE created < ?").bind(Date.now() - KEEP_DAYS * 864e5).run();
 }
 
+// Status change with a re-check: the ride must still be in one of allowedFrom and unchanged since it was read.
+// mutate(r) sets the new status / fields on a fresh copy. Returns the saved ride, or null if the ride moved on
+// (cancelled meanwhile, another driver tapped…). Send Telegram messages only after it returned a ride.
+export async function transition(env, id, allowedFrom, mutate) {
+  for (let i = 0; i < 3; i++) {
+    const r = await load(env, id);
+    if (!r || !allowedFrom.includes(r.status)) return null;
+    const prev = r.updated;
+    if ((await mutate(r)) === false) return null;
+    if (await saveIfUnchanged(env, r, prev)) return r;
+  }
+  return null;
+}
+
 // A "now" request nobody answered: close it so the driver can't confirm a ride the customer gave up on.
 export async function expireIfStale(env, r) {
-  if (r.status === "pending" && r.mode === "now" && Date.now() - (r.data.pendingSince || r.created) > EXPIRE_NOW_MIN * 60000) {
-    r.status = "expired";
-    await save(env, r);
-    await syncDriverMessage(env, r);
-  }
-  return r;
+  if (r.status !== "pending" || r.mode !== "now") return r;
+  if (Date.now() - (r.data.pendingSince || r.created) <= EXPIRE_NOW_MIN * 60000) return r;
+  const next = await transition(env, r.id, ["pending"], (x) => { x.status = "expired"; });
+  if (next) { await syncDriverMessage(env, next); return next; }
+  return (await load(env, r.id)) || r;
 }
 
 /* ---------------- drivers' live location (rows live in server/fleet.js) ---------------- */
@@ -148,6 +181,9 @@ export function publicView(r, car, drv) {
     reviewUrl: r.status === "done" && reviewPlace(r) ? `https://search.google.com/local/writereview?placeid=${reviewPlace(r).id}` : null,
     reviewName: r.status === "done" && reviewPlace(r) ? reviewPlace(r).name : null,
     driver: showDriver(r) && d.driver ? { name: d.driver.name, car: d.driver.car, color: d.driver.color, plate: d.driver.plate } : null,
+    // the car he drives on this ride (snapshot); photo URLs are added by server/photos.js withPhotos()
+    vehicle: showDriver(r) && d.vehicle ? { model: `${d.vehicle.make} ${d.vehicle.model}`.trim(), color: d.vehicle.color || "", plate: d.vehicle.plate || "",
+                                           seats: d.vehicle.seats || null } : null,
   };
 }
 

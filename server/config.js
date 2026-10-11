@@ -36,6 +36,13 @@ export const CONFIG = {
   "lng": 18.7271
  },
  "center2Km": 2.5,
+ "commission": {
+  "default_driver_pct": 50,
+  "default_daily_fee": 120,
+  "cash_methods": [
+   "gotówka"
+  ]
+ },
  "zoneKm": {
   "0": 4.5,
   "A": 9,

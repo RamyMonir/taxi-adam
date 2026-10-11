@@ -3,11 +3,13 @@
 //  1. "now" rides nobody has taken: next dispatch step / expire (also when the customer closed the page)
 //  2. reservations: reminder to the driver 60 min before pickup
 //  3. a driver's live location ran out: remind him once (daytime only)
-//  4. 23:00 (Warsaw): each driver gets his day, Adam gets the whole company + CSV
+//  4. cars left checked out (45 min without live location) are released
+//  5. 23:00 (Warsaw): each driver gets his day + settlement, Adam gets the whole company + settlement buttons + CSV
 import { json, nowWarsaw, clockWarsaw, esc } from "../../../server/util.js";
-import { db, load, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
+import { db, load, transition, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
 import { escalate, listDrivers, busyDriverIds, markReminded } from "../../../server/fleet.js";
-import { buildReport, dayWarsaw } from "../../../server/report.js";
+import { buildReport, dayWarsaw, chunks, saveSettlements, purgeTrips } from "../../../server/report.js";
+import { openSessions, release, hasOpenRide, currentCar, carLabel, isDemo } from "../../../server/cars.js";
 
 const REPORT_AT = "23:00";
 
@@ -23,6 +25,8 @@ export async function onRequestPost({ request, env }) {
   if (!(env.CRON_KEY && key === env.CRON_KEY) && !(env.ADMIN_KEY && key === env.ADMIN_KEY)) return new Response("forbidden", { status: 403 });
   const out = { dispatched: 0, expired: 0, reminders: 0, locationReminders: 0, report: null };
   const d = await db(env);
+
+  await d.prepare("DELETE FROM tg_updates WHERE ts < ?").bind(Date.now() - 2 * 864e5).run().catch(() => {});
 
   // 1. open "now" requests
   const pend = (await d.prepare("SELECT id FROM rides WHERE status = 'pending' AND mode = 'now'").all()).results || [];
@@ -42,8 +46,9 @@ export async function onRequestPost({ request, env }) {
     const r = await load(env, id); if (!r) continue;
     const w = r.data.when;
     if (!w || w > soon || w < now || r.data.remindedAt) continue;
-    r.data.remindedAt = Date.now();
-    await d.prepare("UPDATE rides SET data = ? WHERE id = ?").bind(JSON.stringify(r.data), r.id).run();
+    // conditional write: a driver tapping "Wyjeżdżam" at this moment must not be overwritten
+    const ok = await transition(env, id, ["scheduled"], (x) => { if (x.data.remindedAt) return false; x.data.remindedAt = Date.now(); });
+    if (!ok) continue;
     await tg(env, "sendMessage", { chat_id: r.data.chat || env.TELEGRAM_CHAT_ID, reply_to_message_id: r.tg_msg || undefined, parse_mode: "HTML",
       text: `⏰ Za niecałą godzinę (${esc(w.slice(11, 16))}): <b>${esc(r.data.pickup.address)}</b>\nGdy ruszasz, kliknij „🚕 Wyjeżdżam do klienta”.` });
     out.reminders++;
@@ -62,23 +67,46 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // 4. end-of-day reports
+  // 4. cars left checked out: no live location for 45 min and no open ride -> the car is free again
+  out.carsReleased = 0;
+  for (const x of await openSessions(env).catch(() => [])) {
+    const lastSeen = Math.max(x.until && x.until < Date.now() ? x.until : 0, x.ts || 0, x.started || 0);
+    const live = x.until ? Date.now() < x.until : x.ts && Date.now() - x.ts < 5 * 60000;
+    if (live || Date.now() - lastSeen < 45 * 60000 || (await hasOpenRide(env, x.driver_id))) continue;
+    await release(env, x.driver_id, "auto");
+    out.carsReleased++;
+    const label = esc(`${x.make} ${x.model}`.trim() + " · " + x.plate);
+    if (x.chat_id && !String(x.driver_id).startsWith("demo_")) await tg(env, "sendMessage", { chat_id: x.chat_id, parse_mode: "HTML",
+      text: `🔓 Auto <b>${label}</b> zwolnione automatycznie (brak lokalizacji od 45 min). Na następnej zmianie wybierzesz auto jednym kliknięciem.` });
+  }
+
+  // 5. end-of-day reports: Adam = whole company + settlement buttons + CSV, each driver = his full day
   const today = dayWarsaw(Date.now());
   if (hm >= REPORT_AT && (await meta(env, "report_day")) !== today) {
     await meta(env, "report_day", today);
     const all = await listDrivers(env);
     for (const x of all) {
-      if (!x.chat_id) continue;
+      if (!x.chat_id || isDemo(x)) continue;
       if (x.owner) {
         const rep = await buildReport(env, today, today, null);
-        await tg(env, "sendMessage", { chat_id: x.chat_id, text: "🌙 <b>Podsumowanie dnia</b>\n\n" + rep.text, parse_mode: "HTML" });
+        await saveSettlements(env, today, rep.settlements).catch((e) => console.log("settlements", e.message));
+        const parts = chunks("🌙 <b>Podsumowanie dnia</b>\n\n" + rep.text);
+        const kb = rep.settlements.filter((s) => s.rides).map((s) => [{ text: `✅ Rozliczono: ${s.name}`, callback_data: `stl|${today}|${s.driverId}` }]);
+        for (let i = 0; i < parts.length; i++) {
+          await tg(env, "sendMessage", { chat_id: x.chat_id, text: parts[i], parse_mode: "HTML",
+            ...(i === parts.length - 1 && kb.length ? { reply_markup: { inline_keyboard: kb } } : {}) });
+        }
         if (rep.rows.length) await tgFile(env, `raport_${today}.csv`, rep.csv, `Wszystkie kursy: ${rep.title}`, x.chat_id);
       } else {
         const rep = await buildReport(env, today, today, x.id);
-        if (rep.rows.length) await tg(env, "sendMessage", { chat_id: x.chat_id, text: "🌙 <b>Twój dzień</b>\n\n" + rep.text, parse_mode: "HTML" });
+        if (rep.rows.length) for (const part of chunks("🌙 <b>Twój dzień</b>\n\n" + rep.text)) await tg(env, "sendMessage", { chat_id: x.chat_id, text: part, parse_mode: "HTML" });
+        const car = x.current_car_id ? await currentCar(env, x.id).catch(() => null) : null;
+        if (car && !isLive(x)) await tg(env, "sendMessage", { chat_id: x.chat_id, parse_mode: "HTML", text: `🔓 Masz jeszcze auto <b>${esc(carLabel(car))}</b>.`,
+          reply_markup: { inline_keyboard: [[{ text: "🔓 Oddaję auto", callback_data: "carrel|-" }]] } });
       }
     }
     out.report = today;
+    await purgeTrips(env).catch(() => {});
   }
   return json(out);
 }
