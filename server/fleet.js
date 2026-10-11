@@ -22,6 +22,11 @@ async function fdb(env) {
     await d.prepare("CREATE INDEX IF NOT EXISTS drivers_chat ON drivers (chat_id)").run();
     // which Google listing (0..2 in GOOGLE_PLACES) his customers are asked to review; NULL = in turn
     try { await d.prepare("ALTER TABLE drivers ADD COLUMN listing INTEGER").run(); } catch (e) { /* there */ }
+    // fleet cars, photo, commission (migrations/0002_fleet_cars.sql does the same for new databases)
+    for (const col of ["current_car_id TEXT", "photo_key TEXT", "photo_ok INTEGER NOT NULL DEFAULT 0", "await_photo TEXT",
+                       "pay_model TEXT", "driver_pct REAL", "daily_fee REAL"]) {
+      try { await d.prepare(`ALTER TABLE drivers ADD COLUMN ${col}`).run(); } catch (e) { /* there */ }
+    }
     ready = true;
   }
   return d;

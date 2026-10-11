@@ -19,7 +19,9 @@ async function ldb(env) {
       price REAL, price_kind TEXT, paid REAL, method TEXT, pax INTEGER, pay_msg INTEGER)`).run();
     await d.prepare("CREATE INDEX IF NOT EXISTS trips_day ON trips (day)").run();
     // which driver drove it (added with several drivers)
-    for (const col of ["driver_id TEXT", "driver_name TEXT"]) { try { await d.prepare(`ALTER TABLE trips ADD COLUMN ${col}`).run(); } catch (e) { /* there */ } }
+    for (const col of ["driver_id TEXT", "driver_name TEXT", "car_id TEXT", "car_label TEXT", "pay_bucket TEXT"]) { try { await d.prepare(`ALTER TABLE trips ADD COLUMN ${col}`).run(); } catch (e) { /* there */ } }
+    await d.prepare("CREATE INDEX IF NOT EXISTS trips_driver_day ON trips (driver_id, day)").run();
+    await d.prepare("CREATE INDEX IF NOT EXISTS trips_car_day ON trips (car_id, day)").run();
     ready = true;
   }
   return d;

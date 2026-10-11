@@ -20,6 +20,22 @@ const EXPIRE_NOW_MIN = 15;   // unanswered "now" request closes after this
 const KEEP_DAYS = 30;        // ride data is deleted after this (privacy policy says so)
 
 let schemaReady = false;
+const FLEET_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS cars (
+     id TEXT PRIMARY KEY, make TEXT NOT NULL, model TEXT NOT NULL, color TEXT, plate TEXT NOT NULL UNIQUE,
+     seats INTEGER NOT NULL DEFAULT 4, status TEXT NOT NULL DEFAULT 'active', note TEXT, photo_key TEXT, created INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS car_sessions (
+     id TEXT PRIMARY KEY, car_id TEXT NOT NULL, driver_id TEXT NOT NULL,
+     started INTEGER NOT NULL, ended INTEGER, end_reason TEXT)`,
+  // at most ONE open session per car and per driver: this is what makes "two drivers pick the same car" safe
+  "CREATE UNIQUE INDEX IF NOT EXISTS one_open_per_car ON car_sessions (car_id) WHERE ended IS NULL",
+  "CREATE UNIQUE INDEX IF NOT EXISTS one_open_per_driver ON car_sessions (driver_id) WHERE ended IS NULL",
+  "CREATE INDEX IF NOT EXISTS car_sessions_time ON car_sessions (started)",
+  `CREATE TABLE IF NOT EXISTS settlements (
+     day TEXT NOT NULL, driver_id TEXT NOT NULL, model TEXT, pct REAL, fee REAL,
+     gross REAL, cash REAL, noncash REAL, driver_share REAL, owner_share REAL, hand_in REAL,
+     settled_at INTEGER, settled_by TEXT, PRIMARY KEY (day, driver_id))`,
+];
 export async function db(env) {
   if (!env.DB) throw new Error("D1 binding DB is missing");
   if (!schemaReady) {
@@ -37,6 +53,8 @@ export async function db(env) {
     try { await env.DB.prepare("ALTER TABLE driver ADD COLUMN until INTEGER").run(); } catch (e) { /* already there */ }
     // Telegram update ids already handled (webhook idempotency); purged by the cron after 2 days
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS tg_updates (update_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL)").run();
+    // fleet: cars are shared, a driver checks one out per shift (server/cars.js); same as migrations/0002_fleet_cars.sql
+    for (const q of FLEET_SCHEMA) await env.DB.prepare(q).run();
     schemaReady = true;
   }
   return env.DB;
