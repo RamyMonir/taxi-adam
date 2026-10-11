@@ -1,6 +1,7 @@
 // POST /api/quote  {pickup:{lat,lng}, dest:{lat,lng}, mode}
 // -> distance, duration, route line, price and (for "now") how long the driver needs to get to the pickup.
-import { json, bad, point, hasXY } from "../../server/util.js";
+import { json, bad, point, hasXY, sha } from "../../server/util.js";
+import { hit } from "../../server/ratelimit.js";
 import { route } from "../../server/google.js";
 import { price } from "../../server/pricing.js";
 import { CONFIG } from "../../server/config.js";
@@ -8,7 +9,12 @@ import { isLive } from "../../server/rides.js";
 import { listDrivers, busyDriverIds, canDrive } from "../../server/fleet.js";
 import { kmBetween } from "../../server/util.js";
 
+const QUOTES_PER_MIN = 30;   // per IP; every quote is a paid Google Routes call
+
 export async function onRequestPost({ request, env }) {
+  const ip = await sha((request.headers.get("cf-connecting-ip") || "") + (env.TELEGRAM_WEBHOOK_SECRET || ""));
+  const rl = await hit(env, "quote", ip, { limit: parseInt(env.MAX_QUOTES_PER_MIN, 10) || QUOTES_PER_MIN, windowS: 60 });
+  if (!rl.allowed) return json({ error: "Za dużo zapytań o cenę. Spróbuj ponownie za minutę albo zadzwoń." }, 429, { "retry-after": "60" });
   let b;
   try { b = await request.json(); } catch { return bad("invalid json"); }
   const pickup = point(b.pickup), dest = point(b.dest);
