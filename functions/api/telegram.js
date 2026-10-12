@@ -18,6 +18,7 @@ import { modelOf, modelLabel } from "../../server/settle.js";
 import { aiOn, voiceOn, aiParse, missingOf, understoodText, transcribe } from "../../server/ai.js";
 import { rideBoard } from "../../server/board.js";
 import { assign, setVehicle } from "../../server/assign.js";
+import { askReports, looksLikeQuestion } from "../../server/ask.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
 
@@ -90,6 +91,7 @@ function ownerHelpText(env) {
     "  🗑 <b>Usuń</b> – pomyłka, kasujesz",
     "",
     "🌐 <b>Kursy ze strony</b> idą same do kierowcy, który najszybciej dojedzie. Ty dostajesz cichą kopię z tymi samymi przyciskami – możesz przejąć albo dać komuś innemu.",
+    ...(ai ? ["💬 <b>Pytaj o raporty</b> zwykłym zdaniem" + (voiceOn(env) ? " albo głosówką" : "") + ": <i>Ile zarobił Marek w październiku?</i> · <i>Ile kursów na lotnisko w tym tygodniu?</i>"] : []),
     "🗂 <b>Kursy w toku</b> – tablica: co czeka na kierowcę (z przyciskiem „👥 Kto jedzie?”), kto teraz wiezie klienta i kiedy się zwolni, rezerwacje.",
     "👥 <b>Kierowcy</b> – kto wolny, kto w kursie, kto poza zmianą, kto jeszcze nie dołączył (z linkiem). 🗑 usuwa kierowcę.",
     "  Dodaj: <code>/dodaj Imię 600100200</code> · link: <code>/link 3</code> · wizytówka: <code>/wizytowka 2 3</code>",
@@ -260,6 +262,12 @@ async function rideText(env, request, drv, text, replyTo) {
   }
   const a = awaiting(drv);
   if (a) return smartRide(env, request, drv, a.text ? `${a.text}\n${text}` : text);
+  if (aiOn(env) && looksLikeQuestion(text)) {   // "Ile zarobił Marek w październiku?" -> answered from the reports
+    tg(env, "sendChatAction", { chat_id: drv.chat_id, action: "typing" }).catch(() => {});
+    const ans = await askReports(env, drv, text);
+    await tg(env, "sendMessage", { chat_id: drv.chat_id, text: ans ? "📊 " + ans : "📊 Nie udało się teraz policzyć – spróbuj „📊 Raport dziś” albo zapytaj za chwilę." });
+    return true;
+  }
   if (looksLikeRide(text)) return smartRide(env, request, drv, text);
   if (drv.owner && aiOn(env) && text.trim().length >= 12) return smartRide(env, request, drv, text, { soft: true });
   return false;

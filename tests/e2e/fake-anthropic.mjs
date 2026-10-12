@@ -31,6 +31,16 @@ http.createServer((req, res) => {
     log.push({ url: req.url, beta: req.headers["anthropic-beta"] || "", key: req.headers["x-api-key"] || "", body: j });
     const text = j.messages?.[0]?.content || "";
     res.setHeader("content-type", "application/json");
+    if (j.tools && j.tools.length) {   // report questions (server/ask.js): ask for today's report, then answer from it
+      const last = j.messages[j.messages.length - 1];
+      const tr = Array.isArray(last.content) && last.content.find((b) => b.type === "tool_result");
+      const day = (String(j.system).match(/Today in Poland: (\d{4}-\d{2}-\d{2})/) || [])[1];
+      const content = tr
+        ? [{ type: "text", text: (() => { const r = JSON.parse(tr.content); return `Dziś (${r.period}): ${r.ridesTotal} kursów, kierowca: ${r.driver}.`; })() }]
+        : [{ type: "tool_use", id: "tu_1", name: "get_report", input: { from: day, to: day, driver: /Kasi/i.test(text) ? "Katarzyna" : undefined } }];
+      return res.end(JSON.stringify({ id: "msg_t", type: "message", role: "assistant", model: j.model, stop_reason: tr ? "end_turn" : "tool_use",
+        stop_sequence: null, content, usage: { input_tokens: 10, output_tokens: 10 } }));
+    }
     if (/AWARIA/.test(text)) { res.statusCode = 500; return res.end(JSON.stringify({ type: "error", error: { type: "api_error", message: "test outage" } })); }
     const now = (String(j.system).match(/Now in Poland: (\S+)/) || [])[1] || new Date().toISOString().slice(0, 16);
     res.end(JSON.stringify({ id: "msg_test", type: "message", role: "assistant", model: j.model, stop_reason: "end_turn", stop_sequence: null,

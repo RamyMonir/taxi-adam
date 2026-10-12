@@ -99,4 +99,12 @@ ok(/Kursy w toku/.test(two[0]?.text || "") && /nazywa się teraz/.test(two[1]?.t
 await reset(); await hook({ message: { message_id: 991, date: Math.floor(Date.now() / 1000), chat: { id: OWNER }, from: { id: OWNER }, voice: { file_id: "v1", duration: 5 } } });
 ok(/Głosówki nie są jeszcze włączone/.test((await last(OWNER)).text || ""), "voice without Workers AI -> 'Głosówki nie są jeszcze włączone'");
 
+// 9. questions about the reports in plain words; a driver only gets his own numbers
+await reset(); await msg(OWNER, "Ile kursów było dzisiaj?");
+m = await last(OWNER);
+ok(/^📊 Dziś \(\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}\): \d+ kursów, kierowca: all/.test(m.text || ""), "Adam asks 'Ile kursów było dzisiaj?' -> answer from the report", m.text);
+await reset(); await msg(MAREK, "Ile zarobiła Kasia dzisiaj?");
+m = await last(MAREK);
+ok(/kierowca: Marek Nowak/.test(m.text || ""), "a driver asking about someone else gets only his own report", m.text);
+
 console.log(fails ? fails + " FAILED" : "ALL PASS");
