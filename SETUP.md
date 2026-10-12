@@ -129,6 +129,10 @@ no) goes to the fastest free driver. Adam gets a "🤖 …" message each time. C
 landing + 20 min; a cancelled or delayed departure is reported. The driver and Adam get a message, and the customer's
 status page shows the new time.
 
+**Questions about the reports** (with the key): Adam or a driver writes or says e.g. *„Ile zarobił Marek w październiku?”* or
+*„Ile kursów na lotnisko w tym tygodniu?”* and Claude answers from the same read-only report as 📊 Raport. A driver only ever
+gets his own rides.
+
 What Adam writes or says is sent to Anthropic (or Cloudflare for voice) only to understand the ride – addresses,
 the customer's name and phone number. Mention it in the privacy policy if you list processors there.
 
