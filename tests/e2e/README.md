@@ -21,7 +21,7 @@ Start with an empty `--persist-to` directory each time.
 
 ## Adam as dispatcher (`dispatch.mjs`)
 
-Phone ride → "Kto jedzie?" panel → give it to one driver / send to the free ones / take it himself, "📋 Kursy teraz",
+Phone ride → "Kto jedzie?" panel → give it to one driver / send to the free ones / take it himself, "🗂 Kursy w toku",
 grouped "👥 Kierowcy" with 🗑, a hand-picked driver saying no, reservations. Uses the cars and drivers from `src/fleet.py`,
 so start wrangler on a fresh `--persist-to` **without** `FLEET_FROM_FILE=0`, plus a fake Google for the addresses:
 
@@ -31,3 +31,23 @@ wrangler pages dev dist ... (same bindings, no FLEET_FROM_FILE) GOOGLE_SERVER_KE
   PLACES_API_BASE=http://127.0.0.1:8998 ROUTES_API_BASE=http://127.0.0.1:8998 &
 node tests/e2e/dispatch.mjs
 ```
+
+## "➕ Nowy kurs" in plain words + smart "Kto jedzie?" + the board (`smart.mjs`)
+
+Adam writes a ride in his own words (understood by a **fake** Claude API, so no key and no cost), the bot asks for a
+missing phone number, a reply corrects the preview, the panel ranks drivers by drive time and shows when a busy one is
+free, "🗂 Kursy w toku" groups waiting / in progress / reservations, the old "📋 Kursy teraz" button still works, and
+with the Claude API down the one-line format still works. Same setup as `dispatch.mjs`, plus:
+
+```bash
+node tests/e2e/fake-anthropic.mjs &        # fake Claude API on :8997
+wrangler pages dev dist ... (as for dispatch.mjs) ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:8997 &
+node tests/e2e/smart.mjs
+```
+
+## Auto-assign + flight watch (`auto.mjs`)
+
+Through the minute timer: a ride left with Adam goes to a driver who just became free, an unassigned reservation goes
+to the ⭐ driver, a delayed landing moves the pickup. Same setup as `dispatch.mjs` (its fake Google also fakes AeroDataBox), plus
+`AUTO_ASSIGN_MIN=0.01 AUTO_NOW_MIN=0.01 AERODATABOX_KEY=fake AERODATABOX_BASE=http://127.0.0.1:8998`, then `node tests/e2e/auto.mjs`.
+Note: website "now" bookings are refused at night (22:00–05:00), so `run.mjs`, `dispatch.mjs` and `smart.mjs` need a daytime run.

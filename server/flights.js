@@ -34,7 +34,7 @@ export async function lookupFlightNext(env, number, todayWarsaw, nowWarsawStr) {
   if (!env.AERODATABOX_KEY) return { error: "not configured" };
   const d = new Date(todayWarsaw + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 6);
   const to = d.toISOString().slice(0, 10);
-  const r = await fetch(`https://aerodatabox.p.rapidapi.com/flights/number/${number}/${todayWarsaw}/${to}?withAircraftImage=false&withLocation=false&dateLocalRole=Both`, {
+  const r = await fetch(`${env.AERODATABOX_BASE || "https://aerodatabox.p.rapidapi.com"}/flights/number/${number}/${todayWarsaw}/${to}?withAircraftImage=false&withLocation=false&dateLocalRole=Both`, {
     headers: { "X-RapidAPI-Key": env.AERODATABOX_KEY, "X-RapidAPI-Host": "aerodatabox.p.rapidapi.com" },
   });
   if (r.status === 204 || r.status === 404) return { found: false };
@@ -52,7 +52,7 @@ export async function lookupFlightNext(env, number, todayWarsaw, nowWarsawStr) {
 
 export async function lookupFlight(env, number, date) {
   if (!env.AERODATABOX_KEY) return { error: "not configured" };
-  const r = await fetch(`https://aerodatabox.p.rapidapi.com/flights/number/${number}/${date}?withAircraftImage=false&withLocation=false&dateLocalRole=Both`, {
+  const r = await fetch(`${env.AERODATABOX_BASE || "https://aerodatabox.p.rapidapi.com"}/flights/number/${number}/${date}?withAircraftImage=false&withLocation=false&dateLocalRole=Both`, {
     headers: { "X-RapidAPI-Key": env.AERODATABOX_KEY, "X-RapidAPI-Host": "aerodatabox.p.rapidapi.com" },
   });
   if (r.status === 204 || r.status === 404) return { found: false };

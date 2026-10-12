@@ -101,6 +101,46 @@ location runs out, and sends the end-of-day reports at 23:00. Free plan is enoug
 Without this Worker everything still works, except: the "nearest driver first" minute only moves on while
 the customer's status page is open, and there are no automatic 23:00 reports (use `/raport`).
 
+## 4c. "➕ Nowy kurs" with AI (optional)
+
+With this on, Adam taps **➕ Nowy kurs** and writes the ride in his own words, e.g. *„Pani Ewa, Rynek 1 do dworca
+w Gliwicach, za 20 minut, 600 100 200”*. Claude (Anthropic) picks out the addresses, time, phone, name, passengers and
+luggage. The bot asks only for what's missing, and Adam corrects the preview by **replying** to it (*„o 15:30”*). Without
+the key, the one-line format `SKĄD > DOKĄD, KIEDY, TELEFON` keeps working as before.
+
+1. Create an API key at <https://console.anthropic.com> → **API Keys** (add a little credit under Billing). Each message
+   Adam sends costs roughly 2–5 groszy: one short request to `claude-opus-5-5` at low effort.
+2. Pages project → **Settings → Variables and Secrets** → **secret** `ANTHROPIC_API_KEY` = the key.
+   Optional text variable `AI_MODEL` to use another Claude model.
+3. **Voice messages** 🎤 (also optional): Pages project → **Settings → Bindings → Add → Workers AI**, variable name `AI`.
+   Voice notes are turned into text with Whisper (Workers AI, free daily allowance) and then handled like typed text.
+4. The site now has one npm package (`@anthropic-ai/sdk`, in `package.json`). Cloudflare Pages installs it before the
+   build. If a deploy ever fails with *Could not resolve "@anthropic-ai/sdk"*, set the build command to
+   `npm ci && pip install jinja2 && python3 src/build.py`.
+5. **Deployments → Retry deployment**. Adam's **❓ Pomoc** then explains the new way.
+
+**When Adam is busy** (needs the taxi-cron Worker, §4b): a website reservation nobody assigned for 10 minutes goes to
+the ⭐ driver free at that time, and a "now" ride left with Adam for 2 minutes (nobody was free, or his chosen driver said
+no) goes to the fastest free driver. Adam gets a "🤖 …" message each time. Change the minutes with the text variables
+`AUTO_ASSIGN_MIN` / `AUTO_NOW_MIN`; `0` turns a rule off.
+
+**Flight watch** (needs `AERODATABOX_KEY` + the taxi-cron Worker): reservations with a flight number are checked every
+15 minutes (5 in the last 3 hours). If the plane lands 10+ minutes later or earlier, the airport pickup moves to
+landing + 20 min; a cancelled or delayed departure is reported. The driver and Adam get a message, and the customer's
+status page shows the new time.
+
+**Questions about the reports** (with the key): Adam or a driver writes or says e.g. *„Ile zarobił Marek w październiku?”* or
+*„Ile kursów na lotnisko w tym tygodniu?”* and Claude answers from the same read-only report as 📊 Raport. A driver only ever
+gets his own rides.
+
+What Adam writes or says is sent to Anthropic (or Cloudflare for voice) only to understand the ride – addresses,
+the customer's name and phone number. Mention it in the privacy policy if you list processors there.
+
+The **"Kto jedzie?"** hints work with or without AI: every free driver's drive time to the customer with traffic
+(Google Routes from his live location), ⭐ for the fastest, ⚠️ when the ride would collide with his reservation,
+🚫 when his car has too few seats, and for drivers on a ride when they'll be free. Website rides are offered first
+to the driver who is there soonest by the same calculation.
+
 ## 5. Before going live (check with Adam)
 
 In `src/data.py`:

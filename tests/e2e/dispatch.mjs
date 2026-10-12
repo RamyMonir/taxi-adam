@@ -24,7 +24,7 @@ for (const [chat, plate, lat] of [[MAREK, "f_sgl1a234", 50.2215], [KASIA, "f_sgl
 // 1. Adam's menu + the driver list grouped by availability
 await reset(); await msg(OWNER, "/start");
 const kb = (await sentTo(OWNER)).pop().reply_markup?.keyboard?.flat().map((b) => b.text) || [];
-ok(kb[0] === "➕ Nowy kurs" && kb[1] === "📋 Kursy teraz", "Adam's menu starts with ➕ Nowy kurs / 📋 Kursy teraz", kb.join(" | "));
+ok(kb[0] === "➕ Nowy kurs" && kb[1] === "🗂 Kursy w toku", "Adam's menu starts with ➕ Nowy kurs / 🗂 Kursy w toku", kb.join(" | "));
 await reset(); await msg(OWNER, "👥 Kierowcy");
 let m = (await sentTo(OWNER)).pop();
 ok(/Wolni[\s\S]*Marek Nowak[\s\S]*Katarzyna Wójcik[\s\S]*Poza zmianą[\s\S]*Tomasz[\s\S]*Nie dołączyli[\s\S]*Paweł Zieliński[\s\S]*start=d_/.test(m.text),
@@ -35,7 +35,7 @@ ok(inl(m).filter((b) => /^drm\|/.test(b.callback_data)).length === 4, "a 🗑 bu
 await reset(); await msg(OWNER, "/kurs Rynek 1 Knurów > Dworzec Gliwice, 600100200, Pani Ewa");
 m = (await sentTo(OWNER)).pop();
 const id1 = inl(m).find((b) => /^dpo\|/.test(b.callback_data))?.callback_data.split("|")[1];
-ok(/Kto jedzie\?/.test(m.text) && /Wolni:.*Marek.*Katarzyna/.test(m.text), "phone ride -> 'Kto jedzie?' + free drivers nearest first", m.text.split("\n").slice(-4).join(" / "));
+ok(/Kto jedzie\?/.test(m.text) && /⭐ <b>Marek<\/b>[\s\S]*🟢 Katarzyna/.test(m.text), "phone ride -> 'Kto jedzie?' + free drivers, fastest first (⭐)", m.text.split("\n").slice(-6).join(" / "));
 ok(inl(m).some((b) => /^dps\|/.test(b.callback_data)) && inl(m).filter((b) => /^dpa\|/.test(b.callback_data)).length === 2 && inl(m).some((b) => /^del\|/.test(b.callback_data)),
    "buttons: 🙋 Jadę sam / 📨 Wyślij do wolnych / one per free driver / 🗑", inl(m).map((b) => b.text).join(" | "));
 
@@ -53,9 +53,9 @@ await reset(); await msg(OWNER, "/kurs Rynek 1 Knurów > Dworzec Gliwice, 600100
 const id2 = inl((await sentTo(OWNER)).pop()).find((b) => /^dps\|/.test(b.callback_data))?.callback_data.split("|")[1];
 await reset(); await tap(OWNER, "dps|" + id2);
 ok((await sentTo(MAREK)).some((x) => /KURS TERAZ/.test(x.text || "")), "'📨 Wyślij do wolnych' -> the nearest free driver (Marek) gets it");
-await reset(); await msg(OWNER, "📋 Kursy teraz");
+await reset(); await msg(OWNER, "🗂 Kursy w toku");
 m = (await sentTo(OWNER)).pop();
-ok(/czeka na kierowcę/.test(m.text) && inl(m).some((b) => b.callback_data === "dpl|" + id2), "'📋 Kursy teraz' lists the waiting ride with 👥 Przydziel", m.text.replace(/\n/g, " / "));
+ok(/Czeka na kierowcę/.test(m.text) && inl(m).some((b) => b.callback_data === "dpl|" + id2), "'🗂 Kursy w toku' lists the waiting ride with 👥 Kto jedzie?", m.text.replace(/\n/g, " / "));
 await reset(); await tap(OWNER, "dpl|" + id2);
 m = (await sentTo(OWNER)).pop();
 ok(/Wysłano do: Marek/.test(m.text) && inl(m).some((b) => /^dpo\|/.test(b.callback_data)), "👥 Przydziel -> a fresh panel for that ride");
