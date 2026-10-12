@@ -9,8 +9,8 @@ http.createServer((req, res) => {
     if (req.url.startsWith("/file/")) { res.setHeader("content-type", "image/jpeg"); res.end(jpeg); return; }
     const method = req.url.split("/").pop();
     let j = {}; try { j = JSON.parse(body || "{}"); } catch { j = { raw: "multipart" }; }
-    log.push({ method, ...j });
     let result = { message_id: ++mid };
+    log.push({ method, ...j, _mid: result.message_id });   // _mid = the message_id this call created (for replies / edits in tests)
     if (method === "getMe") result = { username: "taxi_test_bot" };
     if (method === "getFile") result = { file_id: j.file_id, file_path: "photos/p.jpg", file_size: jpeg.length };
     if (method === "getUserProfilePhotos") result = { total_count: 1, photos: [[{ file_id: "PROF_S", width: 160, height: 160 }, { file_id: "PROF_M", width: 640, height: 640 }]] };

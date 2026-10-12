@@ -68,6 +68,14 @@ export function nowWarsaw(offsetMin = 0) {
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
 
+// "YYYY-MM-DDTHH:MM" Polish local time -> epoch ms (summer and winter time)
+export function warsawMs(local) {
+  const guess = Date.parse(String(local).slice(0, 16) + ":00Z");
+  if (Number.isNaN(guess)) return NaN;
+  const seen = Date.parse(nowWarsaw((guess - Date.now()) / 60000) + ":00Z");   // that instant read on a Polish clock
+  return guess - (seen - guess);
+}
+
 export function clockWarsaw(ms) {
   return new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
 }

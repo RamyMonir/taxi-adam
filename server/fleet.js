@@ -4,9 +4,9 @@
 // "Now" rides: offered to the nearest free driver on duty first; if he doesn't accept within a minute
 // (or declines), to every free driver on duty – the first to accept gets it. Nobody on duty -> Adam.
 // Reservations: go to Adam, who confirms and gives them to himself or to a driver.
-import { db, tg, isLive, saveIfUnchanged, load, driverText, keyboard } from "./rides.js";
+import { db, tg, isLive, saveIfUnchanged, load, driverText, keyboard, OPEN } from "./rides.js";
 import { route } from "./google.js";
-import { kmBetween, hasXY, randomId, esc } from "./util.js";
+import { kmBetween, hasXY, randomId, esc, warsawMs, whenLabel, clockWarsaw } from "./util.js";
 import { CONFIG } from "./config.js";
 import { isDemo, release } from "./cars.js";
 
@@ -34,7 +34,7 @@ async function fdb(env) {
     try { await d.prepare("ALTER TABLE drivers ADD COLUMN listing INTEGER").run(); } catch (e) { /* there */ }
     // fleet cars, photo, commission (migrations/0002_fleet_cars.sql does the same for new databases)
     for (const col of ["current_car_id TEXT", "photo_key TEXT", "photo_ok INTEGER NOT NULL DEFAULT 0", "await_photo TEXT",
-                       "pay_model TEXT", "driver_pct REAL", "daily_fee REAL"]) {
+                       "pay_model TEXT", "driver_pct REAL", "daily_fee REAL", "await_ride TEXT"]) {
       try { await d.prepare(`ALTER TABLE drivers ADD COLUMN ${col}`).run(); } catch (e) { /* there */ }
     }
     ready = true;
@@ -105,7 +105,7 @@ export async function bindDriver(env, code, chatId) {
   return { ...drv, chat_id: String(chatId), code: null };
 }
 export async function updateDriver(env, id, f) {
-  const cols = ["name", "phone", "car", "color", "plate", "seats", "listing", "photo_key", "photo_ok", "await_photo", "pay_model", "driver_pct", "daily_fee"].filter((k) => f[k] !== undefined);
+  const cols = ["name", "phone", "car", "color", "plate", "seats", "listing", "photo_key", "photo_ok", "await_photo", "await_ride", "pay_model", "driver_pct", "daily_fee"].filter((k) => f[k] !== undefined);
   if (!cols.length) return;
   await (await fdb(env)).prepare(`UPDATE drivers SET ${cols.map((k, i) => `${k} = ?${i + 1}`).join(", ")} WHERE id = ?${cols.length + 1}`)
     .bind(...cols.map((k) => f[k]), id).run();
@@ -198,13 +198,13 @@ export async function dispatchNew(env, r) {
     r.data.assignable = all.filter((x) => !x.owner && x.chat_id && !isDemo(x)).map((x) => ({ id: x.id, name: x.name || "kierowca" }));
   }
   else {
-    const free = all.filter((x) => canDrive(x, busy, r.data.pax || 1));
+    // the driver who is there soonest with traffic (a colliding reservation counts against him); Adam too when he's on duty
+    const a = await availability(env, r);
+    const free = a.free.map((w) => ({ x: w.x, s: w.etaS, clash: !!w.clash }));
+    if (a.me) free.push({ x: a.me.x, s: a.me.etaS, clash: false });
+    free.sort((p, q) => (p.clash - q.clash) || ((p.s ?? 1e9) - (q.s ?? 1e9)));
     if (!free.length) { to = [owner]; stage = "owner"; }
-    else {
-      const p = r.data.pickup;
-      if (hasXY(p)) free.sort((a, b) => kmBetween(a, p) - kmBetween(b, p));
-      to = [free[0]]; stage = free.length > 1 ? "nearest" : "all";
-    }
+    else { to = [free[0].x]; stage = free.length > 1 ? "nearest" : "all"; }
   }
   r.data.offers = await offerTo(env, r, to.filter((x) => x && x.chat_id));
   r.data.stage = stage; r.data.stageAt = Date.now();
@@ -274,39 +274,149 @@ const pbtn = (text, data) => ({ text, callback_data: data });
 const firstName = (n) => String(n || "").trim().split(/\s+/)[0] || "kierowca";
 const kmShort = (k) => (k == null ? "" : (k < 10 ? k.toFixed(1) : String(Math.round(k))).replace(".", ",") + " km");
 
-// the team right now: free (car + live location, nearest first), on a ride, off duty / no car
-export async function availability(env, r) {
-  const [all, busy] = await Promise.all([listDrivers(env), busyDriverIds(env)]);
-  const p = r && r.data ? r.data.pickup : null, pax = (r && r.data && r.data.pax) || 1;
-  const team = all.filter((x) => !x.owner && x.chat_id && !isDemo(x));
-  const free = team.filter((x) => canDrive(x, busy, pax))
-    .map((x) => ({ x, km: hasXY(p) && x.lat != null ? kmBetween(x, p) : null }))
-    .sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
-  const onRide = team.filter((x) => busy.has(x.id));
-  const off = team.filter((x) => !busy.has(x.id) && !canDrive(x, busy, pax));
-  return { free, onRide, off, team };
+/* ---------------- who should drive: the ranking behind "Kto jedzie?" and the website dispatch ----------------
+   Free drivers are ranked by Google's drive time WITH traffic from their live position (not the straight line),
+   a reservation that would collide pushes a driver down, a car with too few seats is left out, and for drivers on a
+   ride we estimate when they'll be free and how soon they could then be at this customer. */
+const ETA_TTL_MS = 90000, etaCache = new Map();
+async function driveEta(env, from, to) {
+  const key = `${from.lat.toFixed(4)},${from.lng.toFixed(4)}>${to.lat.toFixed(4)},${to.lng.toFixed(4)}`;
+  const c = etaCache.get(key);
+  if (c && Date.now() - c.at < ETA_TTL_MS) return c.x;   // the panel is re-drawn on every change: don't ask Google each time
+  const x = await route(env, from, to, true).catch(() => null);
+  if (x) { etaCache.set(key, { x, at: Date.now() }); if (etaCache.size > 300) etaCache.delete(etaCache.keys().next().value); }
+  return x;
 }
+async function openRides(env) {
+  const rs = await (await db(env)).prepare(`SELECT * FROM rides WHERE status IN (${OPEN.map((s) => `'${s}'`).join(",")})`).all();
+  return (rs.results || []).map((row) => ({ ...row, data: JSON.parse(row.data) }));
+}
+const roughS = (km) => Math.round((km * 1.3 / 45) * 3600) + 120;   // no Google: road ≈ 1.3 × straight line at 45 km/h + 2 min
+const RIDING = ["enroute", "arrived", "ontrip"];
+
+// when a driver on this ride will be free (his drop-off)
+export function freeAtOf(ride, now = Date.now()) {
+  const d = ride.data, trip = (d.durationS || 1200) * 1000;
+  let at;
+  if (ride.status === "enroute") at = Math.max(ride.eta_at || now + 5 * 60000, now) + 2 * 60000 + trip;
+  else if (ride.status === "arrived") at = now + 3 * 60000 + trip;
+  else at = d.liveEtaAt || (d.startedAt || now) + trip;
+  return Math.max(at, now + 60000);
+}
+// a reservation of this driver that overlaps [startMs, endMs] (20 min to get there before it, 20 min after it)
+function clashOf(x, open, startMs, endMs, selfId) {
+  for (const o of open) {
+    if (o.status !== "scheduled" || o.id === selfId || (o.data.driverId || "owner") !== x.id || !o.data.when) continue;
+    const at = warsawMs(o.data.when), end = at + ((o.data.durationS || 1800) + 20 * 60) * 1000;
+    if (at - 20 * 60000 < endMs && end > startMs) return { at, ride: o };
+  }
+  return null;
+}
+
+// pure: the team sorted for this ride. etas = {driverId: Google route} for the nearest few.
+export function rankTeam({ all, busy, open, r, etas = {}, now = Date.now() }) {
+  const d = (r && r.data) || {}, p = d.pickup, pax = d.pax || 1, later = !!r && r.mode === "later";
+  const team = all.filter((x) => !x.owner && x.chat_id && !isDemo(x));
+  const owner = all.find((x) => x.owner) || null;
+  const tripMs = (d.durationS || 1800) * 1000;
+  const startMs = later && d.when ? warsawMs(d.when) : now;
+  const km = (x) => (hasXY(p) && x.lat != null ? kmBetween(x, p) : null);
+  const arriveS = (x) => (etas[x.id] ? etas[x.id].durationS : km(x) != null ? roughS(km(x)) : null);
+  const rows = team.map((x) => {
+    const w = { x, km: km(x) };
+    if (later) {   // a reservation: anyone in the team, unless he already drives at that time
+      w.state = "ok";
+      w.clash = clashOf(x, open, startMs, startMs + tripMs, r && r.id);
+      return w;
+    }
+    if (busy.has(x.id)) {
+      w.state = "busy";
+      const o = open.find((y) => RIDING.includes(y.status) && (y.data.driverId || "owner") === x.id);
+      if (o) {
+        w.ride = o; w.freeAt = freeAtOf(o, now);
+        if (hasXY(o.data.dest) && hasXY(p)) w.atPickup = w.freeAt + roughS(kmBetween(o.data.dest, p)) * 1000;
+      }
+      return w;
+    }
+    if (!isLive(x) || !x.current_car_id) { w.state = "off"; return w; }
+    const seats = x.car_seats ?? x.seats;
+    if (seats && seats < pax) { w.state = "seats"; w.seats = seats; return w; }
+    w.state = "free"; w.etaS = arriveS(x); w.approx = !etas[x.id] || !!etas[x.id].approx;
+    w.clash = clashOf(x, open, now, now + (w.etaS || 900) * 1000 + tripMs, r && r.id);
+    return w;
+  });
+  const free = rows.filter((w) => w.state === (later ? "ok" : "free"))
+    .sort((a, b) => (!!a.clash - !!b.clash) || ((a.etaS ?? 1e9) - (b.etaS ?? 1e9)) || ((a.km ?? 1e9) - (b.km ?? 1e9)));
+  const best = free.find((w) => !w.clash) || null;
+  const onRide = rows.filter((w) => w.state === "busy").sort((a, b) => (a.atPickup ?? a.freeAt ?? 9e15) - (b.atPickup ?? b.freeAt ?? 9e15));
+  const me = owner && !later && isLive(owner) && !busy.has(owner.id) ? { x: owner, etaS: arriveS(owner) } : null;
+  // a driver finishing a ride nearby can be at the customer sooner than anyone free
+  const soon = later ? null : onRide.find((w) => w.atPickup && (!best || w.atPickup < now + (best.etaS ?? 1e9) * 1000 - 3 * 60000)) || null;
+  return { later, pax, team, free, best, onRide, soon, me,
+           seatsShort: rows.filter((w) => w.state === "seats"), off: rows.filter((w) => w.state === "off") };
+}
+
+// the team right now for this ride (the nearest few get a real Google drive time with traffic)
+export async function availability(env, r) {
+  const [all, busy, open] = await Promise.all([listDrivers(env), busyDriverIds(env), openRides(env)]);
+  const p = r && r.data ? r.data.pickup : null, etas = {};
+  if (r && r.mode !== "later" && hasXY(p)) {
+    const near = all.filter((x) => canDrive(x, busy, r.data.pax || 1)).sort((a, b) => kmBetween(a, p) - kmBetween(b, p)).slice(0, 4);
+    await Promise.all(near.map(async (x) => { const e = await driveEta(env, { lat: x.lat, lng: x.lng }, p); if (e) etas[x.id] = e; }));
+  }
+  return rankTeam({ all, busy, open, r, etas });
+}
+
+const mins = (s) => `~${Math.max(1, Math.round(s / 60))} min`;
+const rideShort = (o) => `${shortA(o.data.pickup.address).split(",")[0]} → ${shortA(o.data.dest.address).split(",")[0]}`;
 export function availabilityText(a) {
-  const L = [a.free.length
-    ? "🟢 <b>Wolni:</b> " + a.free.map(({ x, km }) => esc(firstName(x.name)) + (x.car_model || km != null ? ` (${[x.car_model, kmShort(km)].filter(Boolean).map(esc).join(", ")})` : "")).join(", ")
-    : "🟢 <b>Wolni:</b> nikt w tej chwili"];
-  if (a.onRide.length) L.push("🚕 W kursie: " + a.onRide.map((x) => esc(firstName(x.name))).join(", "));
-  if (a.off.length) L.push("⚪ Poza zmianą / bez auta: " + a.off.map((x) => esc(firstName(x.name))).join(", "));
+  const nm = (w, bold) => (bold ? `<b>${esc(firstName(w.x.name))}</b>` : esc(firstName(w.x.name)));
+  const L = [];
+  if (a.later) {
+    L.push("🧠 <b>Kto może pojechać o tej porze?</b>");
+    for (const w of a.free) {
+      L.push(w.clash ? `⚠️ ${nm(w)} · ma już kurs ${esc(whenLabel(w.clash.ride.data.when))} (${esc(rideShort(w.clash.ride))})`
+                     : `${w === a.best ? "⭐" : "🟢"} ${nm(w, w === a.best)} · wolny o tej porze`);
+    }
+    if (!a.free.length) L.push("Nie masz jeszcze kierowców – dodaj ich w „👥 Kierowcy”.");
+    return L.join("\n");
+  }
+  L.push("🧠 <b>Kto najszybciej u klienta?</b> <i>(dojazd z korkami)</i>");
+  for (const w of a.free) {
+    const car = w.x.car_model ? ` · ${esc(w.x.car_model)}` : "";
+    const t = w.etaS != null ? ` · ${mins(w.etaS)}${w.km != null ? ` (${kmShort(w.km)})` : ""}${w.approx ? " ≈" : ""}` : "";
+    const warn = w.clash ? ` ⚠️ rezerwacja ${clockWarsaw(w.clash.at)} (${esc(rideShort(w.clash.ride))})` : "";
+    L.push(`${w === a.best ? "⭐" : "🟢"} ${nm(w, w === a.best)}${car}${t}${warn}`);
+  }
+  if (!a.free.length) L.push("🟢 Wolni: <b>nikt w tej chwili</b>");
+  if (a.me) L.push(`🙋 Ty${a.me.etaS != null ? ": " + mins(a.me.etaS) : " – jesteś na zmianie"}`);
+  for (const w of a.seatsShort) L.push(`🚫 ${nm(w)} · za mało miejsc (${w.seats}, potrzeba ${a.pax})`);
+  for (const w of a.onRide) {
+    L.push(`🚕 ${nm(w)} · w kursie${w.freeAt ? `, wolny ok. ${clockWarsaw(w.freeAt)}` : ""}${w.atPickup ? ` → u klienta ok. ${clockWarsaw(w.atPickup)}` : ""}`);
+  }
+  if (a.soon) L.push(`💡 ${nm(a.soon, true)} kończy kurs niedaleko – byłby u klienta ok. ${clockWarsaw(a.soon.atPickup)}, szybciej niż wolni.`);
+  if (a.off.length) L.push("⚪ Poza zmianą / bez auta: " + a.off.map((w) => nm(w)).join(", "));
+  if (a.free.some((w) => w.approx && w.etaS != null)) L.push("<i>≈ = szacunek bez Google</i>");
   return L.join("\n");
 }
 export async function ownerPanel(env, r, a) {
   a = a || (await availability(env, r));
-  const id = r.id, rows = [[pbtn(r.mode === "now" ? "🙋 Jadę sam" : "🙋 Biorę sam", `dpo|${id}`)]];
+  const id = r.id, rows = [];
   if (r.mode === "now") {
-    if (a.free.length) rows.push([pbtn(`📨 Wyślij do wolnych kierowców (${a.free.length})`, `dps|${id}`)]);
-    for (const { x, km } of a.free.slice(0, 6)) rows.push([pbtn(`🟢 ${firstName(x.name)}${x.car_model ? " · " + x.car_model : ""}${km != null ? " · " + kmShort(km) : ""}`, `dpa|${id}|${x.id}`)]);
+    for (const w of a.free.slice(0, 6)) {
+      const what = `${firstName(w.x.name)}${w.x.car_model ? " · " + w.x.car_model : ""}${w.etaS != null ? " · " + mins(w.etaS) : ""}`;
+      rows.push([pbtn(w === a.best ? `⭐ Daj: ${what}` : `${w.clash ? "⚠️" : "🟢"} ${what}`, `dpa|${id}|${w.x.id}`)]);
+    }
+    if (a.free.length > 1) rows.push([pbtn(`📨 Wyślij do wolnych – najbliższy pierwszy (${a.free.length})`, `dps|${id}`)]);
+    rows.push([pbtn(`🙋 Jadę sam${a.me && a.me.etaS != null ? " · " + mins(a.me.etaS) : ""}`, `dpo|${id}`)]);
   } else {
-    for (const x of a.team.slice(0, 8)) rows.push([pbtn(`👤 Przydziel: ${x.name}`, `dpa|${id}|${x.id}`)]);
+    for (const w of a.free.slice(0, 8)) rows.push([pbtn(`${w === a.best ? "⭐" : w.clash ? "⚠️" : "👤"} Przydziel: ${w.x.name}`, `dpa|${id}|${w.x.id}`)]);
+    rows.push([pbtn("🙋 Biorę sam", `dpo|${id}`)]);
   }
   rows.push([r.status === "draft" ? pbtn("🗑 Usuń", `del|${id}`) : pbtn("❌ Odrzuć kurs", `x|${id}`)]);
   return rows;
 }
-// "📨 Wyślij do wolnych kierowców": nearest free driver first, then (after a minute / a "no") all free ones
+// "📨 Wyślij do wolnych kierowców": the best free driver first, then (after a minute / a "no") all free ones
 export async function offerToFree(env, r) {
   const a = await availability(env, r);
   if (!a.free.length) return 0;

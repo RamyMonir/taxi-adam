@@ -289,7 +289,7 @@ export function driverText(r, o) {
   L.push(r.mode === "now" ? "🚖 <b>KURS TERAZ</b>" : `📅 <b>REZERWACJA: ${esc(whenLabel(d.when))}</b>`);
   if (d.source === "phone") L.push("📞 <i>kurs przyjęty telefonicznie</i>");
   L.push("");
-  if (r.status === "draft") L.push(`✍️ Wpisałeś: ${esc(d.typed.pickup)} &gt; ${esc(d.typed.dest)}`);
+  if (r.status === "draft") L.push(d.said ? `🗣 <i>„${esc(String(d.said).replace(/\nPoprawka: /g, " → ").slice(0, 220))}”</i>` : `✍️ Wpisałeś: ${esc(d.typed.pickup)} &gt; ${esc(d.typed.dest)}`);
   L.push(`📍 <b>Skąd:</b> <a href="${mapLink(d.pickup)}">${esc(d.pickup.address)}</a>${d.pickup.gps ? (d.pickup.near ? " (GPS klienta – w pobliżu, zadzwoń)" : " (GPS klienta)") : ""}`);
   L.push(`🏁 <b>Dokąd:</b> <a href="${mapLink(d.dest)}">${esc(d.dest.address)}</a>`);
   L.push("");
@@ -313,6 +313,7 @@ export function driverText(r, o) {
   }
   if (d.returnTrip) L.push(`🔁 Powrót: ${esc(d.returnTrip)}`);
   if (d.notes) L.push(`📝 ${esc(d.notes)}`);
+  if (r.status === "draft" && d.said) L.push("✏️ Coś się nie zgadza? <b>Odpowiedz</b> na tę wiadomość poprawką, np. <i>o 15:30</i> albo <i>z Lipowej 5</i>.");
   L.push("");
   let st = `<b>Status:</b> ${(STATUS_PL[r.status === "cancelled" && d.cancelledBy === "driver" ? "cancelled_driver" : r.status]) || r.status}`;
   if (r.status === "enroute" && r.eta_at) st += ` – u klienta ok. ${clockWarsaw(r.eta_at)}`;

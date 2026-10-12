@@ -8,6 +8,11 @@ http.createServer((req, res) => {
     if (req.url.includes("searchText")) {
       const [, address, lat, lng] = PLACES.find(([re]) => re.test(j.textQuery || ""));
       res.end(JSON.stringify({ places: [{ formattedAddress: address, displayName: { text: "" }, location: { latitude: lat, longitude: lng } }] }));
-    } else res.end(JSON.stringify({ routes: [{ distanceMeters: 12000, duration: "900s", polyline: { encodedPolyline: "" } }] }));
+    } else {   // Routes: road = 1.3 × straight line at 45 km/h, so nearer drivers really are faster
+      const o = j.origin?.location?.latLng || {}, d = j.destination?.location?.latLng || {}, r = Math.PI / 180;
+      const h = Math.sin((d.latitude - o.latitude) * r / 2) ** 2 + Math.cos(o.latitude * r) * Math.cos(d.latitude * r) * Math.sin((d.longitude - o.longitude) * r / 2) ** 2;
+      const km = 2 * 6371 * Math.asin(Math.sqrt(h)) * 1.3 || 12;
+      res.end(JSON.stringify({ routes: [{ distanceMeters: Math.round(km * 1000), duration: Math.round(km / 45 * 3600 + 60) + "s", polyline: { encodedPolyline: "" } }] }));
+    }
   });
 }).listen(8998, () => console.log("fake google on 8998"));

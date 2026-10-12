@@ -6,5 +6,8 @@
     "test": "node --test tests/*.test.js && python3 tests/schema_check.py",
     "demo:report": "node scripts/demo-report.js",
     "check": "for f in $(find server functions cron-worker src/assets -name '*.js'); do node --check \"$f\" || exit 1; done"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0"
   }
 }

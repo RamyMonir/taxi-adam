@@ -47,7 +47,7 @@ export async function onRequestGet({ request, env }) {
     // Adam's chat: + fleet and settlement commands
     if (env.TELEGRAM_CHAT_ID) await tg(env, "setMyCommands", { scope: { type: "chat", chat_id: Number(env.TELEGRAM_CHAT_ID) }, commands: [
       { command: "kurs", description: "Nowy kurs z telefonu – potem wybierasz, kto jedzie" },
-      { command: "kursy", description: "Kursy teraz: kto jedzie, co czeka na kierowcę" },
+      { command: "kursy", description: "Kursy w toku: co czeka na kierowcę, kto jedzie, rezerwacje" },
       { command: "kierowcy", description: "Kierowcy: kto wolny, kto w kursie, usuń kierowcę" },
       ...driverCmds.slice(0, 5).filter((c) => c.command !== "kurs"),
       { command: "auta", description: "Auta: wolne, zajęte, w serwisie" },
