@@ -87,3 +87,30 @@ test("normalize: the AI's answer is checked, not trusted", () => {
   assert.equal(normalize({ when: "2026-10-13T05:30", phone: "+48 600 100 200" }, now).when, "2026-10-13T05:30");
   assert.deepEqual(missingOf(normalize({ pickup: "Rynek 1", phone: "600100200" }, now)), ["dokąd"]);
 });
+
+// flight watch (server/auto.js)
+import { flightDecision, shiftLocal } from "../server/auto.js";
+const fl = (kind, end, status = "Expected") => ({ found: true, number: "FR1234", airline: "Ryanair", status, kind,
+  dep: kind === "dep" ? end : { iata: "STN", time: "10:00", date: "2026-10-20" }, arr: kind === "arr" ? end : { iata: "STN", time: "16:00", date: "2026-10-20" } });
+
+test("flight watch: a later landing moves the airport pickup (+20 min, rounded to 5)", () => {
+  assert.equal(shiftLocal("2026-10-20", "14:52", 20), "2026-10-20T15:15");
+  const d = { when: "2026-10-20T14:30" };
+  const late = flightDecision(d, fl("arr", { iata: "KTW", date: "2026-10-20", time: "14:55", scheduled: "14:10" }, "Delayed"), "2026-10-20T08:00");
+  assert.equal(late.when, "2026-10-20T15:15"); assert.equal(late.alert, "later");
+  const small = flightDecision(d, fl("arr", { iata: "KTW", date: "2026-10-20", time: "14:15", scheduled: "14:10" }), "2026-10-20T08:00");
+  assert.equal(small.when, undefined, "under 10 min: leave it");
+  const early = flightDecision(d, fl("arr", { iata: "KTW", date: "2026-10-20", time: "13:40", scheduled: "14:10" }), "2026-10-20T08:00");
+  assert.equal(early.when, "2026-10-20T14:00"); assert.equal(early.alert, "earlier");
+});
+
+test("flight watch: cancelled / delayed departure only alert (once), pickup stays", () => {
+  const d = { when: "2026-10-20T07:00" };
+  const c = flightDecision(d, fl("dep", { iata: "KTW", date: "2026-10-20", time: "10:00", scheduled: "10:00" }, "Canceled"));
+  assert.equal(c.alert, "cancelled"); assert.equal(c.when, undefined);
+  assert.equal(flightDecision({ ...d, flightSeen: c.seen }, fl("dep", { iata: "KTW", date: "2026-10-20", time: "10:00", scheduled: "10:00" }, "Canceled")).alert, undefined);
+  const late = flightDecision(d, fl("dep", { iata: "KTW", date: "2026-10-20", time: "11:30", scheduled: "10:00" }, "Delayed"));
+  assert.equal(late.alert, "depDelay"); assert.equal(late.when, undefined);
+  assert.equal(flightDecision({ ...d, flightSeen: late.seen }, fl("dep", { iata: "KTW", date: "2026-10-20", time: "11:30", scheduled: "10:00" }, "Delayed")).alert, undefined);
+  assert.equal(flightDecision(d, null).alert, undefined);
+});

@@ -17,6 +17,7 @@ import { ensureFleetSynced } from "../../server/fleetsync.js";
 import { modelOf, modelLabel } from "../../server/settle.js";
 import { aiOn, voiceOn, aiParse, missingOf, understoodText, transcribe } from "../../server/ai.js";
 import { rideBoard } from "../../server/board.js";
+import { assign, setVehicle } from "../../server/assign.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
 
@@ -105,21 +106,6 @@ async function ask(env, r, text, buttons) {
   return j && j.ok ? j.result.message_id : null;
 }
 
-// the driver who takes the ride + the car he holds right now (snapshot: what the customer sees, what the report shows)
-function assign(r, drv, car) {
-  const d = r.data;
-  d.driverId = drv.id; d.chat = drv.chat_id;
-  setVehicle(r, drv, car);
-  d.listing = drv.listing ?? null;   // his Google listing for the review link after the ride
-  const o = d.offers && d.offers[drv.id];
-  if (o && o.msg) r.tg_msg = o.msg;
-}
-function setVehicle(r, drv, car) {
-  const d = r.data, v = vehicleSnapshot(car);
-  d.vehicle = v;
-  d.driver = { name: drv.name || "", car: v ? carName(v) : drv.car || "", color: v ? v.color : drv.color || "", plate: v ? v.plate : drv.plate || "",
-               phone: drv.phone || "", photo: !!(drv.photo_key && drv.photo_ok) };
-}
 function unassign(r) {
   const d = r.data;
   d.driverId = null; d.chat = null; d.driver = null; d.vehicle = null; r.tg_msg = null; r.eta_at = null;

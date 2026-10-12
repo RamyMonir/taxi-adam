@@ -5,12 +5,14 @@
 //  3. a driver's live location ran out: remind him once (daytime only)
 //  4. cars left checked out (45 min without live location) are released
 //  5. 23:00 (Warsaw): each driver gets his day + settlement, Adam gets the whole company + settlement buttons + CSV
+//  + auto-assign of rides waiting for Adam, flight watch for airport reservations (server/auto.js)
 import { ensureFleetSynced } from "../../../server/fleetsync.js";
 import { json, nowWarsaw, clockWarsaw, esc } from "../../../server/util.js";
 import { db, load, transition, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
 import { escalate, listDrivers, busyDriverIds, markReminded } from "../../../server/fleet.js";
 import { buildReport, dayWarsaw, chunks, saveSettlements, purgeTrips } from "../../../server/report.js";
 import { openSessions, release, hasOpenRide, currentCar, carLabel, isDemo } from "../../../server/cars.js";
+import { autoAssign, watchFlights } from "../../../server/auto.js";
 
 const REPORT_AT = "23:00";
 
@@ -40,6 +42,10 @@ export async function onRequestPost({ request, env }) {
     r = (await escalate(env, r).catch((e) => { console.log("cron escalate", e.message); return r; })) || r;
     if (r.status !== st || JSON.stringify(r.data.offers || {}) !== before) { out.dispatched++; await syncDriverMessage(env, r); }
   }
+
+  // rides waiting for Adam while he's busy -> the best driver; flights of airport reservations (a later landing moves the pickup)
+  out.auto = await autoAssign(env, d).catch((e) => { console.log("cron auto", e.message); return null; });
+  out.flights = await watchFlights(env, d).catch((e) => { console.log("cron flights", e.message); return null; });
 
   // 2. reservations starting within the hour
   const soon = nowWarsaw(60), now = nowWarsaw();
