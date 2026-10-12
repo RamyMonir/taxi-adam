@@ -119,6 +119,16 @@ the key, the one-line format `SKĄD > DOKĄD, KIEDY, TELEFON` keeps working as b
    `npm ci && pip install jinja2 && python3 src/build.py`.
 5. **Deployments → Retry deployment**. Adam's **❓ Pomoc** then explains the new way.
 
+**When Adam is busy** (needs the taxi-cron Worker, §4b): a website reservation nobody assigned for 10 minutes goes to
+the ⭐ driver free at that time, and a "now" ride left with Adam for 2 minutes (nobody was free, or his chosen driver said
+no) goes to the fastest free driver. Adam gets a "🤖 …" message each time. Change the minutes with the text variables
+`AUTO_ASSIGN_MIN` / `AUTO_NOW_MIN`; `0` turns a rule off.
+
+**Flight watch** (needs `AERODATABOX_KEY` + the taxi-cron Worker): reservations with a flight number are checked every
+15 minutes (5 in the last 3 hours). If the plane lands 10+ minutes later or earlier, the airport pickup moves to
+landing + 20 min; a cancelled or delayed departure is reported. The driver and Adam get a message, and the customer's
+status page shows the new time.
+
 What Adam writes or says is sent to Anthropic (or Cloudflare for voice) only to understand the ride – addresses,
 the customer's name and phone number. Mention it in the privacy policy if you list processors there.
 

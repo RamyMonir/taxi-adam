@@ -44,3 +44,10 @@ node tests/e2e/fake-anthropic.mjs &        # fake Claude API on :8997
 wrangler pages dev dist ... (as for dispatch.mjs) ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:8997 &
 node tests/e2e/smart.mjs
 ```
+
+## Auto-assign + flight watch (`auto.mjs`)
+
+Through the minute timer: a ride left with Adam goes to a driver who just became free, an unassigned reservation goes
+to the ⭐ driver, a delayed landing moves the pickup. Same setup as `dispatch.mjs` (its fake Google also fakes AeroDataBox), plus
+`AUTO_ASSIGN_MIN=0.01 AUTO_NOW_MIN=0.01 AERODATABOX_KEY=fake AERODATABOX_BASE=http://127.0.0.1:8998`, then `node tests/e2e/auto.mjs`.
+Note: website "now" bookings are refused at night (22:00–05:00), so `run.mjs`, `dispatch.mjs` and `smart.mjs` need a daytime run.
