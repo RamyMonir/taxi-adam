@@ -35,7 +35,8 @@ export async function rideBoard(env, now = Date.now()) {
     L.push("", `❗ <b>Czeka na kierowcę</b> (${waiting.length}) – zdecyduj, kto jedzie:`);
     for (const r of waiting.slice(0, 8)) {
       const d = r.data, offers = Object.values(d.offers || {}).filter((o) => o.name && o.chat !== String(env.TELEGRAM_CHAT_ID));
-      const sent = offers.length ? "wysłano do: " + offers.map((o) => first(o.name) + (o.rejected ? " (odrzucił)" : "")).join(", ") : r.mode === "later" ? "rezerwacja – przydziel kierowcę" : "nikt jeszcze nie dostał";
+      const sent = offers.length ? "wysłano do: " + offers.map((o) => first(o.name) + (o.rejected ? " (odrzucił)" : "")).join(", ")
+        : r.mode === "later" ? "rezerwacja – przydziel kierowcę" : d.offers && d.offers.owner ? "u Ciebie – nikt nie był wolny" : "nikt jeszcze nie dostał";
       L.push(`⏳ ${r.mode === "now" ? "teraz" : esc(whenLabel(d.when))} · ${route(d)}${d.name ? " · " + esc(d.name) : ""}`,
              `     ${r.mode === "now" ? `czeka ${ago(d.pendingSince || r.created)} min · ` : ""}${sent}`);
       rows.push([btn(`👥 Kto jedzie? · ${String(d.pickup && d.pickup.address || "").split(",")[0].slice(0, 22)}`, `dpl|${r.id}`)]);
