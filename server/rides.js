@@ -11,6 +11,7 @@ import { customerWaUrl } from "./phone.js";
 import { customerLine } from "./customers.js";
 import { FINAL, recordTrip } from "./report.js";
 import { ownerInfoText, availability, availabilityText, ownerPanel } from "./fleet.js";
+import { chatStatus, purgeChat } from "./chat.js";
 
 export const OPEN = ["pending", "scheduled", "enroute", "arrived", "ontrip"];
 const POS_FRESH_MS = 5 * 60000;     // a single (non-live) location counts this long
@@ -98,6 +99,7 @@ export async function recentByIp(env, ip, sinceMs) {
 
 export async function purgeOld(env) {
   await (await db(env)).prepare("DELETE FROM rides WHERE created < ?").bind(Date.now() - KEEP_DAYS * 864e5).run();
+  await purgeChat(env).catch((e) => console.log("chat purge", e.message));   // chat messages go with their ride
 }
 
 // Status change with a re-check: the ride must still be in one of allowedFrom and unchanged since it was read.
@@ -375,6 +377,7 @@ export async function syncDriverMessage(env, r) {
       parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: a ? await ownerPanel(env, r, a) : [] } }));
   }
   await Promise.all(jobs);
+  await chatStatus(env, r).catch((e) => console.log("chat status", e.message));   // "Kierowca jest na miejscu" in the customer's chat
 }
 
 // after a driver took the ride: the others' copies say who has it
