@@ -6,7 +6,7 @@ import os, sqlite3, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(HERE, "..", "migrations")
 db = sqlite3.connect(":memory:", isolation_level=None)
-for f in ["0001_baseline.sql", "0002_fleet_cars.sql", "0003_ride_chat.sql", "seed_demo.sql", "seed_demo.sql"]:   # seed twice: must be a no-op
+for f in ["0001_baseline.sql", "0002_fleet_cars.sql", "0003_ride_chat.sql", "0004_ride_chat.sql", "seed_demo.sql", "seed_demo.sql"]:   # seed twice: must be a no-op
     db.executescript(open(os.path.join(M, f), encoding="utf-8").read())
 
 q = lambda sql, *a: db.execute(sql, a).fetchall()
