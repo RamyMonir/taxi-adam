@@ -924,7 +924,7 @@
       var ERR = { closed: "Czat tego kursu jest już zamknięty.", slow: "Za dużo wiadomości naraz – spróbuj za minutę.",
                   limit: "Osiągnięto limit wiadomości do tego kursu – zadzwoń, proszę.", long: "Wiadomość może mieć najwyżej 500 znaków." };
       function clearUnread() { unread = 0; badge.hidden = true; }
-      if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { inView = es[0].isIntersecting; if (inView) clearUnread(); }, { threshold: 0.25 }).observe(box);
+      if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { inView = es[0].isIntersecting; fab.classList.toggle("near", inView); if (inView) clearUnread(); }, { threshold: 0.25 }).observe(box);
       function hm(ms) { return new Date(ms).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }); }
       function add(m) {
         if (m.id && list.querySelector('[data-id="' + m.id + '"]')) return;

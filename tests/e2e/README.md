@@ -51,3 +51,11 @@ Through the minute timer: a ride left with Adam goes to a driver who just became
 to the ⭐ driver, a delayed landing moves the pickup. Same setup as `dispatch.mjs` (its fake Google also fakes AeroDataBox), plus
 `AUTO_ASSIGN_MIN=0.01 AUTO_NOW_MIN=0.01 AERODATABOX_KEY=fake AERODATABOX_BASE=http://127.0.0.1:8998`, then `node tests/e2e/auto.mjs`.
 Note: website "now" bookings are refused at night (22:00–05:00), so `run.mjs`, `dispatch.mjs` and `smart.mjs` need a daytime run.
+
+## Chat customer ↔ taxi (`chat.mjs`)
+
+A reservation booked on the site: the customer writes (→ Adam, nobody has it yet), Adam replies via reply_to_message,
+Adam assigns Marek (→ status line, Marek gets the earlier messages), the next message goes to Marek, his quick button and
+reply come back, status lines for the ride, privacy of what the customer gets, the 10-a-minute limit, and closing after
+the ride. Same setup as `dispatch.mjs` plus `CHAT_CLOSE_MIN=0.05` (the chat closes 3 s after the ride instead of 2 h),
+then `node tests/e2e/chat.mjs`. A reservation, so it also runs at night.

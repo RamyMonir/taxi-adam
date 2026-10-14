@@ -141,6 +141,20 @@ The **"Kto jedzie?"** hints work with or without AI: every free driver's drive t
 🚫 when his car has too few seats, and for drivers on a ride when they'll be free. Website rides are offered first
 to the driver who is there soonest by the same calculation.
 
+## 4d. Chat between the customer and the driver
+
+On the ride status page (`/przejazd/`) the customer can write to the taxi while the ride is open and for 2 hours after it
+ended. Messages go to the assigned driver's Telegram chat, or to Adam while nobody has the ride; the driver/Adam answers
+by **replying** to the "💬 Klient" message or with one of its quick buttons (Jadę / Będę za 5 min / Jestem na miejscu /
+Proszę wyjść przed budynek). Status changes add short lines ("Kierowca jest na miejscu"). Limits: 500 characters,
+10 messages a minute and 60 per ride. No phone number or Telegram account is ever shown to the customer.
+
+- **Database:** nothing to do on the existing database – `server/chat.js` creates `ride_messages` and `chat_tg` on first
+  use. A NEW database: run `migrations/0004_ride_chat.sql` after 0001–0003. Messages are deleted with their ride (30 days).
+- **Try it:** book a ride on the site, open its status page, write a message → it arrives in Telegram; reply to it there →
+  the answer appears on the page within ~4 seconds. Automated: `tests/chat.test.js` (`npm test`) and `tests/e2e/chat.mjs`.
+- `CHAT_CLOSE_MIN` (text variable, optional): minutes the chat stays open after the ride, default 120.
+
 ## 5. Before going live (check with Adam)
 
 In `src/data.py`:

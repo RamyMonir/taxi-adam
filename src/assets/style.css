@@ -1019,6 +1019,7 @@ section:not(.hero) .wrap>p+h2,section:not(.hero) .wrap>ul+h2{margin-top:1.4em}
 .chat-note{min-height:1.2em;margin:6px 2px 0;font-size:.88rem;color:#FFD66B}
 .chat-note span{color:#9FB0D3}
 .chat-fab{display:none}
+.chat-fab.near{display:none!important}   /* the chat itself is on screen */
 @media (max-width:920px){
   .chat-fab:not([hidden]){display:grid;place-items:center;position:fixed;right:16px;bottom:calc(var(--bar-h,0px) + env(safe-area-inset-bottom,0px) + 16px);width:56px;height:56px;border-radius:50%;
     background:var(--yellow);color:var(--ink);font-size:1.5rem;text-decoration:none;box-shadow:0 10px 24px -8px rgba(0,0,0,.55);z-index:40}
