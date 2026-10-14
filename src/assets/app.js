@@ -912,6 +912,69 @@
       countdown();
       if (last && last.status === "pending") render(last);   // switches to "call us" after a few minutes
     }, 1000);
+    initChat();
+
+    /* ---------- chat with the driver / Adam (server/chat.js): text only via textContent, never innerHTML ---------- */
+    function initChat() {
+      var box = $("t-chat"); if (!box) return;
+      var list = $("t-chat-list"), form = $("t-chat-form"), inp = $("t-chat-in"), note = $("t-chat-note"), left = $("t-chat-left");
+      var fab = $("t-chat-fab"), badge = $("t-chat-badge"), empty = $("t-chat-empty"), quick = $("t-chat-quick");
+      var lastId = 0, open = true, unread = 0, ctimer = null, busy = false, first = true, inView = true;
+      var url = "/api/rides/" + encodeURIComponent(id) + "/messages";
+      var ERR = { closed: "Czat tego kursu jest już zamknięty.", slow: "Za dużo wiadomości naraz – spróbuj za minutę.",
+                  limit: "Osiągnięto limit wiadomości do tego kursu – zadzwoń, proszę.", long: "Wiadomość może mieć najwyżej 500 znaków." };
+      function clearUnread() { unread = 0; badge.hidden = true; }
+      if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { inView = es[0].isIntersecting; if (inView) clearUnread(); }, { threshold: 0.25 }).observe(box);
+      function hm(ms) { return new Date(ms).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }); }
+      function add(m) {
+        if (m.id && list.querySelector('[data-id="' + m.id + '"]')) return;
+        var li = el("li", "chat-msg " + (m.from === "me" ? "me" : m.from === "system" ? "sys" : "taxi"));
+        if (m.id) li.setAttribute("data-id", String(m.id));
+        if (m.from !== "system") li.append(el("span", "chat-meta", (m.from === "me" ? "Ty" : m.who || "Kierowca") + " · " + hm(m.at)));
+        li.append(el("span", "chat-text", m.text));
+        list.append(li); empty.hidden = true;
+        list.scrollTop = list.scrollHeight;
+      }
+      function setOpen(o) {
+        open = o; form.hidden = !o; quick.hidden = !o;
+        if (!o) { left.textContent = ""; note.textContent = ERR.closed; }
+      }
+      function who() { var d = last && last.driver; $("t-chat-who").textContent = d && d.name ? "do kierowcy · " + d.name.split(" ")[0] : "do Taxi Adam"; }
+      function fetchNew() {
+        clearTimeout(ctimer);
+        api(url + "?after=" + lastId, null, 10000, { "X-Ride-Token": mine.token }).then(function (j) {
+          if (!j._ok) return;
+          var fresh = 0;
+          (j.messages || []).forEach(function (m) { lastId = Math.max(lastId, m.id); if (!list.querySelector('[data-id="' + m.id + '"]')) { add(m); if (!first && m.from !== "me") fresh++; } });
+          box.hidden = fab.hidden = !(j.open || list.children.length);
+          setOpen(!!j.open); who();
+          if (fresh) {
+            alertChange();   // the status page's beep + vibration
+            if (!inView || document.hidden) { unread += fresh; badge.textContent = String(unread); badge.hidden = false; }
+          }
+          first = false;
+        }).catch(function () {}).finally(function () { if (open && !document.hidden) ctimer = setTimeout(fetchNew, 4000); });
+      }
+      function grow() { inp.style.height = "auto"; inp.style.height = Math.min(inp.scrollHeight, 140) + "px"; }
+      function send(text) {
+        text = String(text || "").trim();
+        if (busy || !open || !text) return;
+        busy = true; form.classList.add("busy"); note.textContent = "";
+        api(url, { token: mine.token, text: text }, 12000).then(function (j) {
+          if (j._ok) { add({ id: j.id, from: "me", text: text, at: Date.now() }); inp.value = ""; grow(); left.textContent = ""; return; }
+          note.textContent = ERR[j.error] || "Nie udało się wysłać – sprawdź internet i spróbuj ponownie.";
+          if (j.error === "closed") setOpen(false);
+        }).catch(function () { note.textContent = "Nie udało się wysłać – sprawdź internet i spróbuj ponownie."; })
+          .finally(function () { busy = false; form.classList.remove("busy"); });
+      }
+      form.addEventListener("submit", function (e) { e.preventDefault(); send(inp.value); });
+      inp.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(inp.value); } });
+      inp.addEventListener("input", function () { grow(); var n = inp.value.length; left.textContent = n > 400 ? n + " / 500" : ""; });
+      Array.prototype.forEach.call(quick.querySelectorAll("[data-q]"), function (b) { b.addEventListener("click", function () { send(b.getAttribute("data-q")); }); });
+      fab.addEventListener("click", function (e) { e.preventDefault(); box.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); clearUnread(); setTimeout(function () { inp.focus(); }, 400); });
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) { if (inView) clearUnread(); if (open) fetchNew(); } else clearTimeout(ctimer); });
+      fetchNew();
+    }
   }
 
   /* ---------- account page ---------- */
