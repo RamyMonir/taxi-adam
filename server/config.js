@@ -357,5 +357,396 @@ export const CONFIG = {
    "lng": 19.1041,
    "matchKm": null
   }
- ]
+ ],
+ "lite": true,
+ "prices": {
+  "version": 1,
+  "zones": {
+   "0": 0,
+   "A": 10,
+   "B": 20
+  },
+  "local": {
+   "knurow": 15,
+   "gieraltowice": 20,
+   "beksza": 30,
+   "bojkow": 25,
+   "przyszowice": 35,
+   "wilcza": 35,
+   "zernica": 35,
+   "chudow": 45,
+   "pilchowice": 40,
+   "smolnica": 45,
+   "stanica": 45,
+   "czerwionka": 40,
+   "ornontowice": 45
+  },
+  "village_zone": {
+   "knurow": "0",
+   "gieraltowice": "0",
+   "beksza": "A",
+   "bojkow": "A",
+   "przyszowice": "A",
+   "wilcza": "A",
+   "zernica": "A",
+   "chudow": "B",
+   "pilchowice": "B",
+   "smolnica": "B",
+   "stanica": "B",
+   "czerwionka": "B",
+   "ornontowice": "B"
+  },
+  "destinations": {
+   "lotnisko-pyrzowice": {
+    "price": 170,
+    "confirmed": true
+   },
+   "lotnisko-balice": {
+    "price": 340,
+    "confirmed": true
+   },
+   "lotnisko-wroclaw": {
+    "price": 460,
+    "confirmed": true
+   },
+   "lotnisko-ostrava": {
+    "price": 260,
+    "confirmed": true
+   },
+   "lotnisko-okecie": {
+    "price": 850,
+    "confirmed": true
+   },
+   "lotnisko-modlin": {
+    "price": 900,
+    "confirmed": true
+   },
+   "sanatorium-busko-zdroj": {
+    "price": 600,
+    "confirmed": true
+   },
+   "sanatorium-szczyrk": {
+    "price": 280,
+    "confirmed": true
+   },
+   "sanatorium-ustron": {
+    "price": 260,
+    "confirmed": true
+   },
+   "sanatorium-goczalkowice-zdroj": {
+    "price": 180,
+    "confirmed": false
+   },
+   "kliniki-katowice": {
+    "price": 110,
+    "confirmed": false
+   },
+   "kliniki-gliwice": {
+    "price": 50,
+    "confirmed": false
+   },
+   "kliniki-zabrze": {
+    "price": 70,
+    "confirmed": false
+   },
+   "kliniki-sosnowiec": {
+    "price": 140,
+    "confirmed": false
+   },
+   "kliniki-czeladz": {
+    "price": 140,
+    "confirmed": false
+   },
+   "kliniki-wroclaw": {
+    "price": 420,
+    "confirmed": false
+   },
+   "dworzec-gliwice": {
+    "price": 50,
+    "confirmed": false
+   },
+   "dworzec-zabrze": {
+    "price": 70,
+    "confirmed": false
+   },
+   "dworzec-katowice": {
+    "price": 110,
+    "confirmed": false
+   },
+   "dworzec-ostrava": {
+    "price": 260,
+    "confirmed": false
+   },
+   "taxi-gliwice": {
+    "price": 50,
+    "confirmed": false
+   },
+   "taxi-katowice": {
+    "price": 110,
+    "confirmed": false
+   },
+   "taxi-rybnik": {
+    "price": 80,
+    "confirmed": false
+   },
+   "taxi-zabrze": {
+    "price": 70,
+    "confirmed": false
+   },
+   "taxi-sosnowiec": {
+    "price": 140,
+    "confirmed": false
+   }
+  },
+  "overrides": {
+   "czerwionka": {
+    "lotnisko-pyrzowice": 220
+   },
+   "ornontowice": {
+    "lotnisko-pyrzowice": 220
+   }
+  },
+  "waiting": {
+   "free_min": null,
+   "per_min": null
+  },
+  "tariff": {
+   "start": 9,
+   "per_km": 3.0,
+   "min": 15
+  }
+ },
+ "panel": {
+  "villages": [
+   {
+    "slug": "knurow",
+    "name": "Knurów",
+    "zone": "0"
+   },
+   {
+    "slug": "gieraltowice",
+    "name": "Gierałtowice",
+    "zone": "0"
+   },
+   {
+    "slug": "beksza",
+    "name": "Beksza",
+    "zone": "A"
+   },
+   {
+    "slug": "bojkow",
+    "name": "Bojków",
+    "zone": "A"
+   },
+   {
+    "slug": "przyszowice",
+    "name": "Przyszowice",
+    "zone": "A"
+   },
+   {
+    "slug": "wilcza",
+    "name": "Wilcza",
+    "zone": "A"
+   },
+   {
+    "slug": "zernica",
+    "name": "Żernica",
+    "zone": "A"
+   },
+   {
+    "slug": "chudow",
+    "name": "Chudów",
+    "zone": "B"
+   },
+   {
+    "slug": "pilchowice",
+    "name": "Pilchowice",
+    "zone": "B"
+   },
+   {
+    "slug": "smolnica",
+    "name": "Smolnica",
+    "zone": "B"
+   },
+   {
+    "slug": "stanica",
+    "name": "Stanica",
+    "zone": "B"
+   },
+   {
+    "slug": "czerwionka",
+    "name": "Czerwionka",
+    "zone": "B"
+   },
+   {
+    "slug": "ornontowice",
+    "name": "Ornontowice",
+    "zone": "B"
+   }
+  ],
+  "destinations": [
+   {
+    "slug": "lotnisko-pyrzowice",
+    "name": "Lotnisko Katowice-Pyrzowice",
+    "short": "Pyrzowice",
+    "kind": "airport"
+   },
+   {
+    "slug": "lotnisko-balice",
+    "name": "Lotnisko Kraków-Balice",
+    "short": "Balice",
+    "kind": "airport"
+   },
+   {
+    "slug": "lotnisko-wroclaw",
+    "name": "Lotnisko Wrocław",
+    "short": "Wrocław",
+    "kind": "airport"
+   },
+   {
+    "slug": "lotnisko-ostrava",
+    "name": "Lotnisko Ostrava",
+    "short": "Ostrava",
+    "kind": "airport"
+   },
+   {
+    "slug": "lotnisko-okecie",
+    "name": "Lotnisko Warszawa-Okęcie (Chopina)",
+    "short": "Okęcie",
+    "kind": "airport"
+   },
+   {
+    "slug": "lotnisko-modlin",
+    "name": "Lotnisko Warszawa-Modlin",
+    "short": "Modlin",
+    "kind": "airport"
+   },
+   {
+    "slug": "sanatorium-busko-zdroj",
+    "name": "Busko-Zdrój",
+    "short": "Busko-Zdrój",
+    "kind": "spa"
+   },
+   {
+    "slug": "sanatorium-szczyrk",
+    "name": "Szczyrk",
+    "short": "Szczyrk",
+    "kind": "spa"
+   },
+   {
+    "slug": "sanatorium-ustron",
+    "name": "Ustroń",
+    "short": "Ustroń",
+    "kind": "spa"
+   },
+   {
+    "slug": "sanatorium-goczalkowice-zdroj",
+    "name": "Goczałkowice-Zdrój",
+    "short": "Goczałkowice",
+    "kind": "spa"
+   },
+   {
+    "slug": "kliniki-katowice",
+    "name": "Katowice",
+    "short": "Katowice",
+    "kind": "clinic"
+   },
+   {
+    "slug": "kliniki-gliwice",
+    "name": "Gliwice",
+    "short": "Gliwice",
+    "kind": "clinic"
+   },
+   {
+    "slug": "kliniki-zabrze",
+    "name": "Zabrze",
+    "short": "Zabrze",
+    "kind": "clinic"
+   },
+   {
+    "slug": "kliniki-sosnowiec",
+    "name": "Sosnowiec",
+    "short": "Sosnowiec",
+    "kind": "clinic"
+   },
+   {
+    "slug": "kliniki-czeladz",
+    "name": "Czeladź",
+    "short": "Czeladź",
+    "kind": "clinic"
+   },
+   {
+    "slug": "kliniki-wroclaw",
+    "name": "Wrocław",
+    "short": "Wrocław (kliniki)",
+    "kind": "clinic"
+   },
+   {
+    "slug": "dworzec-gliwice",
+    "name": "Gliwice",
+    "short": "Dworzec Gliwice",
+    "kind": "station"
+   },
+   {
+    "slug": "dworzec-zabrze",
+    "name": "Zabrze",
+    "short": "Dworzec Zabrze",
+    "kind": "station"
+   },
+   {
+    "slug": "dworzec-katowice",
+    "name": "Katowice",
+    "short": "Dworzec Katowice",
+    "kind": "station"
+   },
+   {
+    "slug": "dworzec-ostrava",
+    "name": "Ostrava",
+    "short": "Dworzec Ostrava",
+    "kind": "station"
+   },
+   {
+    "slug": "taxi-gliwice",
+    "name": "Gliwice",
+    "short": "Gliwice rynek",
+    "kind": "city"
+   },
+   {
+    "slug": "taxi-katowice",
+    "name": "Katowice",
+    "short": "Katowice rynek",
+    "kind": "city"
+   },
+   {
+    "slug": "taxi-rybnik",
+    "name": "Rybnik",
+    "short": "Rybnik rynek",
+    "kind": "city"
+   },
+   {
+    "slug": "taxi-zabrze",
+    "name": "Zabrze",
+    "short": "Zabrze",
+    "kind": "city"
+   },
+   {
+    "slug": "taxi-sosnowiec",
+    "name": "Sosnowiec",
+    "short": "Sosnowiec",
+    "kind": "city"
+   }
+  ],
+  "kinds": {
+   "airport": "Lotniska",
+   "spa": "Sanatoria",
+   "clinic": "Kliniki i szpitale",
+   "station": "Dworce",
+   "city": "Miasta"
+  },
+  "zones": [
+   "0",
+   "A",
+   "B"
+  ]
+ }
 };

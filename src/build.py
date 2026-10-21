@@ -82,7 +82,7 @@ def write_server_config():
         commission=COMMISSION, fleet=fleet_config(), zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
         destinations=[dict(slug=d["slug"], code=d.get("code"), short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
     if LITE_MODE:   # panel: wersja lite + nazwy do edytora cen (te same slugi co w src/prices.json)
-        cfg.update(lite=True, panel=dict(
+        cfg.update(lite=True, prices=__import__("data").PRICES, panel=dict(
             villages=[dict(slug=s, name=n, zone=z) for s, n, _l, z, _p in VILLAGES],
             destinations=[dict(slug=d["slug"], name=d["name"], short=d["short"], kind=d["kind"]) for d in DESTINATIONS],
             kinds={k: v["plural"] for k, v in KIND.items()}, zones=list(ZONES)))
@@ -418,7 +418,7 @@ env = Environment(loader=DictLoader({"base": BASE, "book": BOOK, "book_lite": BO
 env.globals.update(lite=LITE_MODE, lite_noindex=LITE_MODE and LITE_NOINDEX, credit=CREDIT)
 # version stamp for style.css / app.js / lite.js: a new deploy always loads the new files (no stale copies in phones / the installed app)
 _here = os.path.dirname(os.path.abspath(__file__))
-_stamped = ("style.css", "lite.js", "lite-msg.js") if LITE_MODE else ("style.css", "app.js")
+_stamped = ("style.css", "lite.js", "lite-msg.js", "panel.js") if LITE_MODE else ("style.css", "app.js")
 env.globals["av"] = hashlib.sha1(b"".join(open(os.path.join(_here, "assets", f), "rb").read() for f in _stamped)).hexdigest()[:10]
 NAV = [("/lotniska/", "Lotniska"), ("/sanatoria/", "Sanatoria"), ("/kliniki/", "Kliniki"), ("/dworce/", "Dworce"),
        ("/cennik/", "Cennik"), ("/dla-firm/", "Dla firm"), ("/kontakt/", "Kontakt")]
@@ -882,6 +882,86 @@ body = ('<section class="hero acct-hero" style="padding:0"><div class="wrap"><di
 if not LITE_MODE:   # LITE: bez kont klientów
     page("/konto/", f"Konto klienta | {B['name']}", "Twoje przejazdy, imię i telefon w jednym miejscu.", body, noindex=True)
 
+# ================= PANEL (LITE) =================
+PANEL = r"""<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel – {{name}}</title><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0A1430"><link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
+<link rel="stylesheet" href="/assets/style.css?v={{av}}">
+<style>
+body{background:var(--road);margin:0}.pw{max-width:860px;margin:0 auto;padding:16px 16px 60px}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.ph h1{font-size:1.3rem;margin:0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+.pin-card{max-width:380px;margin:12vh auto 0;text-align:center}
+#pin{font:700 2rem/1 var(--font-display);letter-spacing:.5em;text-align:center;width:100%;max-width:280px;padding:14px;border-radius:14px;border:2px solid var(--line);background:var(--road);color:var(--ink)}
+.msg{min-height:1.3em;color:#C0392B;margin:10px 0 0}.msg.ok{color:var(--green)}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tab,.pbtn{font:inherit;font-weight:700;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer}
+.tab[aria-selected=true],.pbtn[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.pbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}#range{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+#range input{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+.big{font:800 2.6rem/1 var(--font-display);margin:4px 0}.note{font-size:.85rem;color:var(--muted)}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:640px){.cols2{grid-template-columns:1fr}}
+.cols2 ul{margin:0;padding-left:1.1em}
+.leads{list-style:none;margin:0;padding:0}.lead{border-top:1px solid var(--line);padding:12px 0}.lead:first-child{border-top:0}
+.lead-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.lead p{margin:4px 0}.route{font-weight:700}.notes{color:var(--muted);font-size:.92rem}
+.ch{font-size:.78rem;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--blue-soft);color:var(--ink)}.ch-wa{background:#DCF8E6;color:#0B5B2A}.ch-tel{background:#FFF3CC;color:#6B4E00}
+.when{font-size:.85rem;color:var(--muted)}.who a{font-weight:700}.marks{display:flex;gap:6px;margin-top:6px}
+.mark{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.mark[aria-pressed=true]{background:var(--navy);color:#fff}.is-ok{background:linear-gradient(90deg,rgba(30,158,99,.08),transparent)}.is-no{opacity:.65}
+.pt{width:100%;border-collapse:collapse}.pt td{padding:6px 4px;border-bottom:1px solid var(--line)}.pt input,.over input,.wait input{width:90px;font:inherit;padding:7px;border-radius:9px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+.pt select,.over select{font:inherit;padding:7px;border-radius:9px;border:1px solid var(--line);background:var(--paper);color:var(--ink);max-width:100%}
+input.changed{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,159,10,.25)}
+#pr-zones label,.wait label{display:inline-flex;align-items:center;gap:4px;margin:0 14px 8px 0}
+.over{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}.over .x{font:inherit;border:0;background:none;font-size:1.4rem;cursor:pointer;color:var(--muted)}
+.actions{position:sticky;bottom:0;background:var(--road);padding:10px 0;display:flex;gap:8px;flex-wrap:wrap}
+#pr-diff{border:2px solid var(--amber)}#pr-diff .err{color:#C0392B}.muted{color:var(--muted)}
+</style></head>
+<body><div class="pw">
+<section id="v-setup" class="card pin-card" hidden><h1>Panel</h1><p>Panel nie jest jeszcze włączony (brak PIN-u na serwerze). Zadzwoń do Ramego.</p></section>
+<section id="v-pin" class="card pin-card" hidden>
+  <img src="/assets/img/logo-emblem.webp" alt="" width="120" height="94">
+  <h1>Panel – zapytania i ceny</h1>
+  <form id="pin-form"><label for="pin" class="sr-only">PIN</label>
+    <p><input id="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" aria-label="PIN (6 cyfr)"></p>
+    <button class="btn btn-ink" id="pin-go" type="submit">Zaloguj</button></form>
+  <p class="msg" id="pin-msg" role="alert"></p>
+</section>
+<section id="v-app" hidden>
+  <div class="ph"><h1>{{name}}</h1><button class="btn btn-line" id="logout" type="button">Wyloguj</button></div>
+  <div class="tabs" role="tablist"><button class="tab" role="tab" data-tab="report" aria-selected="true">Raport</button><button class="tab" role="tab" data-tab="prices" aria-selected="false">Ceny</button></div>
+  <div id="t-report">
+    <div class="pbar"><button class="pbtn" data-p="dzis" aria-pressed="true">Dziś</button><button class="pbtn" data-p="tydzien" aria-pressed="false">Tydzień</button>
+      <button class="pbtn" data-p="miesiac" aria-pressed="false">Miesiąc</button><button class="pbtn" data-p="range" aria-pressed="false">Od – do</button></div>
+    <div id="range" hidden><input type="date" id="r-from" aria-label="Od"> – <input type="date" id="r-to" aria-label="Do"> <button class="btn btn-ink" id="range-go" type="button">Pokaż</button></div>
+    <div class="card"><div class="note" id="rep-period"></div><div>Kliknięcia / zapytania rozpoczęte</div><div class="big" id="rep-total">–</div>
+      <div id="rep-ch"></div><div class="note" id="rep-marked"></div>
+      <p class="note">ⓘ Kliknięcie = klient otworzył WhatsApp, SMS albo telefon ze strony. Nie każde kliknięcie kończy się wiadomością,
+        a telefony wybrane ręcznie (z wizytówki, z pamięci) nie są liczone.</p>
+      <p><a class="btn btn-line" id="csv" href="#">Pobierz CSV (Excel)</a></p></div>
+    <div class="cols2"><div class="card"><h2>Najczęstsze cele</h2><ul id="rep-to"></ul></div><div class="card"><h2>Najczęstsze miejsca odbioru</h2><ul id="rep-from"></ul></div></div>
+    <div class="card"><h2>Lista zapytań</h2><ul class="leads" id="rep-list"></ul></div>
+  </div>
+  <div id="t-prices" hidden>
+    <p class="card" id="pr-off" hidden>Podgląd cen. Edycja z panelu zostanie włączona po podpisaniu umowy – do tego czasu zmiany cen wyślij Ramemu.</p>
+    <div class="card"><h2>Miejscowości – kurs lokalny i strefa</h2><table class="pt"><thead><tr><th>Miejscowość</th><th>Kurs od (zł)</th><th>Strefa</th></tr></thead><tbody id="pr-villages"></tbody></table>
+      <h3>Dopłata za strefę (do tras dalekich)</h3><div id="pr-zones"></div></div>
+    <div class="card"><h2>Trasy – ceny od (z Knurowa i Gierałtowic)</h2><div id="pr-dest"></div></div>
+    <div class="card"><h2>Wyjątki: miejscowość → trasa</h2><p class="note">Np. Czerwionka → Pyrzowice 220 zł. Zastępuje cenę trasy + dopłatę strefową.</p>
+      <div id="pr-over"></div><button class="btn btn-line" id="over-add" type="button">+ Dodaj wyjątek</button></div>
+    <div class="card wait"><h2>Oczekiwanie na miejscu</h2>
+      <label>Pierwsze <input id="w-free" type="number" min="0" max="60" inputmode="numeric"> min gratis</label>
+      <label>potem <input id="w-per" type="number" min="0" max="20" step="0.5" inputmode="decimal"> zł / min</label>
+      <p class="note">Puste pola = „Czas oczekiwania ustalamy przy zamówieniu”.</p></div>
+    <div class="card" id="pr-diff" hidden></div>
+    <p class="msg" id="pr-msg" role="status"></p>
+    <div class="actions" id="pr-actions" hidden><button class="btn btn-line" id="pr-check" type="button">Sprawdź zmiany</button><button class="btn btn-ink" id="pr-save" type="button" disabled>Zatwierdź i opublikuj</button></div>
+    <div class="card"><h2>Historia zmian</h2><ul id="pr-hist"></ul></div>
+  </div>
+</section>
+</div>
+<script type="module" src="/assets/panel.js?v={{av}}"></script>
+</body></html>"""
+
 # ================= static files =================
 write_server_config()
 shutil.copytree(os.path.join(HERE, "assets"), os.path.join(OUT, "assets"), dirs_exist_ok=True,
@@ -914,6 +994,9 @@ open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
 # Netlify / Cloudflare Pages: 404 + stare adresy z taxifest.pl (uzupełnij, jeśli domena będzie przekierowana)
 open(os.path.join(OUT, "_redirects"), "w", encoding="utf-8").write("/cennik-transfery-na-lotniska  /lotniska/  301\n/kontakt.html  /kontakt/  301\n"
     + ("/przejazd/*  /rezerwacja/  302\n/przejazd  /rezerwacja/  302\n/konto/*  /  302\n/konto  /  302\n" if LITE_MODE else ""))
+if LITE_MODE:   # panel właściciela: /panel/#<sekret> (noindex, poza sitemapą; dane tylko przez /api/panel/* po PIN-ie)
+    os.makedirs(os.path.join(OUT, "panel"), exist_ok=True)
+    open(os.path.join(OUT, "panel", "index.html"), "w", encoding="utf-8").write(PANEL.replace("{{av}}", env.globals["av"]).replace("{{name}}", B["name"]))
 if LITE_MODE:   # panel: „wdrożono” = ta wersja (commit z Cloudflare) jest już na stronie
     open(os.path.join(OUT, "version.json"), "w", encoding="utf-8").write(json.dumps(
         {"commit": os.environ.get("CF_PAGES_COMMIT_SHA", ""), "prices_version": __import__("data").PRICES.get("version")}))

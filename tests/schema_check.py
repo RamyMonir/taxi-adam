@@ -6,10 +6,12 @@ import os, sqlite3, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(HERE, "..", "migrations")
 db = sqlite3.connect(":memory:", isolation_level=None)
-for f in ["0001_baseline.sql", "0002_fleet_cars.sql", "0003_ride_chat.sql", "seed_demo.sql", "seed_demo.sql"]:   # seed twice: must be a no-op
+for f in ["0001_baseline.sql", "0002_fleet_cars.sql", "0003_ride_chat.sql", "0005_lite.sql", "0005_lite.sql", "seed_demo.sql", "seed_demo.sql"]:   # twice: must be a no-op
     db.executescript(open(os.path.join(M, f), encoding="utf-8").read())
 
 q = lambda sql, *a: db.execute(sql, a).fetchall()
+# LITE tables exist next to the full system's tables
+assert {"leads", "panel_sessions", "price_changes"} <= {r[0] for r in q("SELECT name FROM sqlite_master WHERE type = 'table'")}
 assert q("SELECT COUNT(*) FROM drivers WHERE id LIKE 'demo_%'")[0][0] == 4
 assert q("SELECT COUNT(*) FROM cars WHERE id LIKE 'demo_%'")[0][0] == 5
 assert all(int(c) < 0 for (c,) in q("SELECT chat_id FROM drivers WHERE id LIKE 'demo_%'")), "demo chat ids must be negative"
