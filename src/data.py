@@ -189,6 +189,17 @@ VIP_CAPTIONS = {
     # "gala-katowice.jpg": "Gala w Katowicach, 2026",
 }
 
+# ---------------- WERSJA LITE ----------------
+# True = strona bez systemu rezerwacji: klient wysyła kurs przez WhatsApp / SMS albo dzwoni, kierowca potwierdza.
+# Każde kliknięcie trafia do raportu w panelu (/panel/). False = pełny system (mapa, cena, Telegram, status na żywo).
+LITE_MODE = __import__("os").environ.get("TAXI_LITE", "1") != "0"   # TAXI_LITE=0 py src/build.py = pełna wersja (testy)
+# Prototyp na osobnym adresie: noindex + robots Disallow, żeby nie konkurował w Google z główną stroną. False po starcie na domenie.
+LITE_NOINDEX = True
+# Drugi numer pokazywany pod przyciskiem „Zadzwoń”
+PHONE2 = ("515 650 750", "+48515650750")
+# Podpis w stopce (jeden sprzedawca wszędzie: stopka, oferta, faktura, umowa powierzenia)
+CREDIT = "Usługi IT RAMY MOHAMED"
+
 # ---------------- CENY z pliku src/prices.json ----------------
 # Ceny (kursy lokalne, strefy, trasy, wyjątki, oczekiwanie, taryfa) są w src/prices.json – zmienia je też panel /panel/.
 # Tutaj zostają nazwy, opisy i współrzędne. Błędny plik zatrzymuje build (stara wersja strony działa dalej).
