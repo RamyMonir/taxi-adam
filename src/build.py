@@ -892,7 +892,7 @@ PANEL = r"""<!doctype html>
 body{background:var(--road);margin:0}.pw{max-width:860px;margin:0 auto;padding:16px 16px 60px}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.ph h1{font-size:1.3rem;margin:0}
 .card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
-.pin-card{max-width:380px;margin:12vh auto 0;text-align:center}
+.pin-card{max-width:380px;margin:12vh auto 0;text-align:center}.pin-card img{display:block;margin:0 auto 8px}
 #pin{font:700 2rem/1 var(--font-display);letter-spacing:.5em;text-align:center;width:100%;max-width:280px;padding:14px;border-radius:14px;border:2px solid var(--line);background:var(--road);color:var(--ink)}
 .msg{min-height:1.3em;color:#C0392B;margin:10px 0 0}.msg.ok{color:var(--green)}
 .tabs{display:flex;gap:6px;margin-bottom:14px}.tab,.pbtn{font:inherit;font-weight:700;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer}
