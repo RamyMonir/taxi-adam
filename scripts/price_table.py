@@ -2,6 +2,7 @@
 """Tabela cen „od” z każdej miejscowości na 6 lotnisk (do potwierdzenia z Adamem).
 Uruchom:  py scripts/price_table.py   (wynik w Markdown; * = wyjątek z prices.json)"""
 import os, sys
+sys.stdout.reconfigure(encoding="utf-8")   # Polish letters also in the Windows console
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 from data import VILLAGES, DESTINATIONS, ZONES, OVERRIDES
 

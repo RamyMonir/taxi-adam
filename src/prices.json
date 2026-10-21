@@ -7,7 +7,7 @@
   },
   "local": {
     "knurow": 15,
-    "gieraltowice": 15,
+    "gieraltowice": 20,
     "beksza": 30,
     "bojkow": 25,
     "przyszowice": 35,
@@ -137,7 +137,14 @@
       "confirmed": false
     }
   },
-  "overrides": {},
+  "overrides": {
+    "czerwionka": {
+      "lotnisko-pyrzowice": 220
+    },
+    "ornontowice": {
+      "lotnisko-pyrzowice": 220
+    }
+  },
   "waiting": {
     "free_min": null,
     "per_min": null
