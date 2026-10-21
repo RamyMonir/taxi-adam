@@ -4,7 +4,8 @@ import json, os, shutil, datetime, hashlib
 from fleet import CARS as FLEET_CARS, DRIVERS as FLEET_DRIVERS   # auta i kierowcy: src/fleet.py
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY)
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY,
+                  OVERRIDES, WAITING)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "dist")
@@ -36,6 +37,10 @@ CAR = ('<svg width="64" height="28" viewBox="0 0 64 28" aria-hidden="true"><rect
 DEST = {d["slug"]: d for d in DESTINATIONS}
 def by_kind(k): return [d for d in DESTINATIONS if d["kind"] == k]
 ZONE_VILL = {z: [v[1] for v in VILLAGES if v[3] == z] for z in ZONES}
+
+def route_price(village, zone, d):
+    """Cena „od” z danej miejscowości: wyjątek z prices.json (overrides) albo cena trasy + dopłata strefowa."""
+    return OVERRIDES.get(village, {}).get(d["slug"], d["price"] + ZONES[zone]["surcharge"])
 
 def place_of(d):
     """Cel trasy jako punkt dla formularza: adres + współrzędne."""
@@ -549,18 +554,18 @@ for kk, k in KIND.items():
 # ================= VILLAGES =================
 for slug, name, loc, zone, price in VILLAGES:
     if slug == "knurow": continue
-    sur = ZONES[zone]["surcharge"]
+    pyrz = route_price(slug, zone, DEST["lotnisko-pyrzowice"])
     cr = [("Strona główna", "/"), (f"Taxi {name}", f"/taxi-{slug}/")]
-    rows = "".join(f'<tr><td><a href="/{d["slug"]}/">{d["short"]}</a></td><td>{d["price"] + sur} zł</td></tr>'
+    rows = "".join(f'<tr><td><a href="/{d["slug"]}/">{d["short"]}</a></td><td>{route_price(slug, zone, d)} zł</td></tr>'
                    for d in DESTINATIONS if d["kind"] in ("airport", "spa", "station"))
     body = hero(f"Taxi {name}: lotniska, sanatoria i kursy lokalne",
-                f"Odbieramy pasażerów {loc} 7 dni w tygodniu. Kurs do Knurowa od {price} zł, a na lotnisko w Pyrzowicach od {DEST['lotnisko-pyrzowice']['price'] + sur} zł.",
+                f"Odbieramy pasażerów {loc} 7 dni w tygodniu. Kurs do Knurowa od {price} zł, a na lotnisko w Pyrzowicach od {pyrz} zł.",
                 book(pickup_ph=f"Adres odbioru, {name}"), crumbs_html(cr))
     body += (f'<section><div class="wrap"><h2>Ceny z miejscowości {name}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Trasa</th><th>Cena od</th></tr></thead>'
              f'<tbody><tr><td>Knurów</td><td>{price} zł</td></tr>{rows}</tbody></table></div></div></section>')
     body += f'<section class="alt"><div class="wrap"><h2>Inne miejscowości w rejonie</h2>{village_links()}</div></section>'
     page(f"/taxi-{slug}/", f"Taxi {name} – lotniska, sanatoria, kliniki | {B['name']}",
-         f"Taxi {loc}: odbiór spod domu 7 dni w tygodniu, Pyrzowice od {DEST['lotnisko-pyrzowice']['price'] + sur} zł, sanatoria i kliniki. Rezerwacja przez WhatsApp lub telefon.",
+         f"Taxi {loc}: odbiór spod domu 7 dni w tygodniu, Pyrzowice od {pyrz} zł, sanatoria i kliniki. Rezerwacja przez WhatsApp lub telefon.",
          body, [org(), crumbs_ld(cr)])
 
 # ================= CENNIK =================

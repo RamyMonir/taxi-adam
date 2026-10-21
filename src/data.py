@@ -188,3 +188,22 @@ KIND = {
 VIP_CAPTIONS = {
     # "gala-katowice.jpg": "Gala w Katowicach, 2026",
 }
+
+# ---------------- CENY z pliku src/prices.json ----------------
+# Ceny (kursy lokalne, strefy, trasy, wyjątki, oczekiwanie, taryfa) są w src/prices.json – zmienia je też panel /panel/.
+# Tutaj zostają nazwy, opisy i współrzędne. Błędny plik zatrzymuje build (stara wersja strony działa dalej).
+import json as _json, os as _os
+from prices_check import check_prices as _check
+PRICES_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "prices.json")
+PRICES = _json.load(open(PRICES_FILE, encoding="utf-8"))
+_err = _check(PRICES, [v[0] for v in VILLAGES], [d["slug"] for d in DESTINATIONS], list(ZONES))
+if _err:
+    raise SystemExit("BŁĄD w src/prices.json:\n  " + "\n  ".join(_err))
+for _z in ZONES: ZONES[_z]["surcharge"] = PRICES["zones"][_z]
+VILLAGES = [(s, n, l, PRICES["village_zone"].get(s, z), PRICES["local"][s]) for s, n, l, z, _p in VILLAGES]
+for _d in DESTINATIONS:
+    _d["price"] = PRICES["destinations"][_d["slug"]]["price"]
+    _d["confirmed"] = PRICES["destinations"][_d["slug"]].get("confirmed", False)
+TARIFF.update({k: PRICES["tariff"][k] for k in ("start", "per_km", "min")})
+OVERRIDES = PRICES.get("overrides") or {}          # {"czerwionka": {"lotnisko-pyrzowice": 220}}
+WAITING = PRICES.get("waiting") or {}              # {"free_min": 10, "per_min": 1}
