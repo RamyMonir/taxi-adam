@@ -6,9 +6,9 @@ import { warsawMs, nowWarsaw } from "../server/util.js";
 import { normalize, missingOf } from "../server/ai.js";
 
 const NOW = Date.now(), H = 3600e3;
-const pickup = { address: "Rynek 1, Knurów", lat: 50.2197, lng: 18.6767 };
+const pickup = { address: "Rynek 1, Przykładowo", lat: 50.2197, lng: 18.6767 };
 const drv = (id, name, lat, extra = {}) => ({ id, name, chat_id: "c" + id, lat, lng: 18.68, ts: NOW, until: NOW + 8 * H, current_car_id: "car" + id, car_model: "Touran", car_seats: 4, ...extra });
-const owner = { id: "owner", name: "Adam", owner: 1, chat_id: "999", lat: null, lng: null };
+const owner = { id: "owner", name: "Jan", owner: 1, chat_id: "999", lat: null, lng: null };
 const ride = (r) => ({ id: "new", mode: "now", status: "draft", data: { pickup, pax: 1, durationS: 1000, ...r } });
 const local = (ms) => nowWarsaw((ms - Date.now()) / 60000);
 
@@ -76,13 +76,13 @@ test("warsawMs: Polish local time, summer and winter", () => {
 
 test("normalize: the AI's answer is checked, not trusted", () => {
   const now = "2026-10-12T10:00";
-  const p = normalize({ is_ride: true, pickup: " Rynek 1, Knurów ", dest: "Dworzec PKP Gliwice", when: "2026-10-12T09:00", phone: "600 100 200",
+  const p = normalize({ is_ride: true, pickup: " Rynek 1, Przykładowo ", dest: "Dworzec PKP Gliwice", when: "2026-10-12T09:00", phone: "600 100 200",
                         name: "Pani Ewa", pax: 40, luggage: "", flight: "fr 1234", notes: "" }, now);
   assert.equal(p.when, null, "a time in the past = now");
   assert.equal(p.phone, "600100200");
   assert.equal(p.pax, 8);
   assert.equal(p.flight, "FR1234");
-  assert.equal(p.pickup, "Rynek 1, Knurów");
+  assert.equal(p.pickup, "Rynek 1, Przykładowo");
   assert.equal(normalize({ when: "jutro", phone: "123", pax: "x" }, now).when, null);
   assert.equal(normalize({ when: "2026-10-13T05:30", phone: "+48 600 100 200" }, now).when, "2026-10-13T05:30");
   assert.deepEqual(missingOf(normalize({ pickup: "Rynek 1", phone: "600100200" }, now)), ["dokąd"]);

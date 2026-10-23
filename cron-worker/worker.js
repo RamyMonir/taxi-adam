@@ -1,5 +1,5 @@
 // "taxi-cron": wakes the website up every minute (Cloudflare Pages has no timers of its own).
-// Settings (Worker → Settings → Variables): SITE_URL = https://taxi-adam.pages.dev, CRON_KEY = same secret as in the Pages project.
+// Settings (Worker → Settings → Variables): SITE_URL = https://YOUR-PROJECT.pages.dev, CRON_KEY = same secret as in the Pages project.
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(fetch(`${env.SITE_URL}/api/admin/cron`, { method: "POST", headers: { "x-cron-key": env.CRON_KEY } })

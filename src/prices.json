@@ -6,34 +6,24 @@
     "B": 20
   },
   "local": {
-    "knurow": 15,
-    "gieraltowice": 20,
-    "beksza": 30,
-    "bojkow": 25,
-    "przyszowice": 35,
-    "wilcza": 35,
-    "zernica": 35,
-    "chudow": 45,
-    "pilchowice": 40,
-    "smolnica": 45,
-    "stanica": 45,
-    "czerwionka": 40,
-    "ornontowice": 45
+    "przykladowo": 15,
+    "nowa-wies": 20,
+    "dolna": 30,
+    "gorna": 30,
+    "zielona": 35,
+    "lesna": 40,
+    "stawy": 45,
+    "polana": 45
   },
   "village_zone": {
-    "knurow": "0",
-    "gieraltowice": "0",
-    "beksza": "A",
-    "bojkow": "A",
-    "przyszowice": "A",
-    "wilcza": "A",
-    "zernica": "A",
-    "chudow": "B",
-    "pilchowice": "B",
-    "smolnica": "B",
-    "stanica": "B",
-    "czerwionka": "B",
-    "ornontowice": "B"
+    "przykladowo": "0",
+    "nowa-wies": "0",
+    "dolna": "A",
+    "gorna": "A",
+    "zielona": "A",
+    "lesna": "B",
+    "stawy": "B",
+    "polana": "B"
   },
   "destinations": {
     "lotnisko-pyrzowice": {
@@ -138,11 +128,8 @@
     }
   },
   "overrides": {
-    "czerwionka": {
-      "lotnisko-pyrzowice": 220
-    },
-    "ornontowice": {
-      "lotnisko-pyrzowice": 220
+    "lesna": {
+      "lotnisko-pyrzowice": 210
     }
   },
   "waiting": {

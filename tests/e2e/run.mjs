@@ -15,7 +15,7 @@ const buttons = (m) => (m?.reply_markup?.inline_keyboard || []).flat();
 const setup = await fetch(S + "/api/admin/setup?key=adminkey").then((r) => r.json());
 ok(setup.DB === true && setup.photos === true, "setup: DB + photos " + JSON.stringify({ db: setup.DB, photos: setup.photos, ready: setup.ready }));
 const menus = (await log()).filter((x) => x.method === "setMyCommands");
-ok(menus.length === 2 && menus[1].scope?.chat_id === 999, "two command menus (drivers + Adam's chat)");
+ok(menus.length === 2 && menus[1].scope?.chat_id === 999, "two command menus (drivers + the owner's chat)");
 
 await reset();
 await msg(999, "/dodajauto Toyota Corolla; biała; SGL 1A234; 4");
@@ -23,7 +23,7 @@ await msg(999, "/dodajauto Skoda Octavia; czarna; SGL 2B567; 4");
 await msg(999, "/dodajauto Kia Ceed; srebrna; SGL 4D123; 4");
 await msg(999, "/serwis 3 wymiana klocków");
 let t = (await texts(999)).join("\n");
-ok(/Dodano auto nr 1/.test(t) && /Dodano auto nr 2/.test(t) && /w serwisie: wymiana klocków/.test(t), "Adam adds cars, sends one to service");
+ok(/Dodano auto nr 1/.test(t) && /Dodano auto nr 2/.test(t) && /w serwisie: wymiana klocków/.test(t), "the owner adds cars, sends one to service");
 await msg(999, "/dodajauto Fiat; ; X; 4");
 ok(/Napisz: <code>\/dodajauto/.test((await last(999)).text), "bad /dodajauto -> usage hint");
 
@@ -63,7 +63,7 @@ await tap(loser, octavia.callback_data, 7);
 // customer booking near Marek
 await reset();
 const book = await fetch(S + "/api/rides", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-  mode: "now", pickup: { address: "Rynek 1, Knurów", lat: 50.2199, lng: 18.677 }, dest: { address: "Dworzec, Gliwice", lat: 50.3, lng: 18.67 }, phone: "600 700 800", name: "Ewa", pax: 2 }) });
+  mode: "now", pickup: { address: "Rynek 1, Przykładowo", lat: 50.2199, lng: 18.677 }, dest: { address: "Dworzec, Gliwice", lat: 50.3, lng: 18.67 }, phone: "600 700 800", name: "Ewa", pax: 2 }) });
 const b = await book.json();
 ok(book.status === 201 && b.id, "customer booked a ride " + book.status + " " + JSON.stringify(b).slice(0, 80));
 const offer = (await log()).find((x) => x.method === "sendMessage" && /KURS TERAZ/.test(x.text || ""));
@@ -95,7 +95,7 @@ ok(view.status === "done", "ride done");
 await reset(); await tap(111, `pay|${b.id}|g`, 15);
 // second ride: photo should appear now
 const b2 = await fetch(S + "/api/rides", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-  mode: "now", pickup: { address: "Rynek 1, Knurów", lat: 50.2199, lng: 18.677 }, dest: { address: "Szpital, Zabrze", lat: 50.3, lng: 18.78 }, phone: "600 700 801", pax: 1 }) }).then((r) => r.json());
+  mode: "now", pickup: { address: "Rynek 1, Przykładowo", lat: 50.2199, lng: 18.677 }, dest: { address: "Szpital, Zabrze", lat: 50.3, lng: 18.78 }, phone: "600 700 801", pax: 1 }) }).then((r) => r.json());
 const off2 = (await log()).filter((x) => x.method === "sendMessage" && /KURS TERAZ/.test(x.text || "")).pop();
 await tap(Number(off2.chat_id), buttons(off2).find((x) => x.callback_data?.startsWith("e|")).callback_data, 20);
 const v2 = await fetch(`${S}/api/rides/${b2.id}`, { headers: { "X-Ride-Token": b2.token } }).then((r) => r.json());

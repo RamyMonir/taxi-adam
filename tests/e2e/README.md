@@ -1,9 +1,9 @@
 # End-to-end check (local, nothing leaves the machine)
 
 Runs the real Pages Functions with a local D1 + R2 (wrangler / Miniflare) against a fake Telegram API, and plays a whole
-day: Adam adds cars, two drivers join, both tap the same car at once, a customer books, the nearest driver with a car
+day: the owner adds cars, two drivers join, both tap the same car at once, a customer books, the nearest driver with a car
 accepts, photo with consent, signed photo link, customer cancel vs a late driver tap, duplicate Telegram update,
-/raport for Adam and for a driver, end of shift releases the car, cron.
+/raport for the owner and for a driver, end of shift releases the car, cron.
 
 Needs Node.js 22+ and wrangler 4 (`npm i -g wrangler`).
 
@@ -19,7 +19,7 @@ Start with an empty `--persist-to` directory each time.
 
 `FLEET_FROM_FILE=0` turns off the automatic sync with `src/fleet.py`, because this run adds its own cars and drivers.
 
-## Adam as dispatcher (`dispatch.mjs`)
+## the owner as dispatcher (`dispatch.mjs`)
 
 Phone ride → "Kto jedzie?" panel → give it to one driver / send to the free ones / take it himself, "🗂 Kursy w toku",
 grouped "👥 Kierowcy" with 🗑, a hand-picked driver saying no, reservations. Uses the cars and drivers from `src/fleet.py`,
@@ -34,7 +34,7 @@ node tests/e2e/dispatch.mjs
 
 ## "➕ Nowy kurs" in plain words + smart "Kto jedzie?" + the board (`smart.mjs`)
 
-Adam writes a ride in his own words (understood by a **fake** Claude API, so no key and no cost), the bot asks for a
+the owner writes a ride in his own words (understood by a **fake** Claude API, so no key and no cost), the bot asks for a
 missing phone number, a reply corrects the preview, the panel ranks drivers by drive time and shows when a busy one is
 free, "🗂 Kursy w toku" groups waiting / in progress / reservations, the old "📋 Kursy teraz" button still works, and
 with the Claude API down the one-line format still works. Same setup as `dispatch.mjs`, plus:
@@ -47,15 +47,15 @@ node tests/e2e/smart.mjs
 
 ## Auto-assign + flight watch (`auto.mjs`)
 
-Through the minute timer: a ride left with Adam goes to a driver who just became free, an unassigned reservation goes
+Through the minute timer: a ride left with the owner goes to a driver who just became free, an unassigned reservation goes
 to the ⭐ driver, a delayed landing moves the pickup. Same setup as `dispatch.mjs` (its fake Google also fakes AeroDataBox), plus
 `AUTO_ASSIGN_MIN=0.01 AUTO_NOW_MIN=0.01 AERODATABOX_KEY=fake AERODATABOX_BASE=http://127.0.0.1:8998`, then `node tests/e2e/auto.mjs`.
 Note: website "now" bookings are refused at night (22:00–05:00), so `run.mjs`, `dispatch.mjs` and `smart.mjs` need a daytime run.
 
 ## Chat customer ↔ taxi (`chat.mjs`)
 
-A reservation booked on the site: the customer writes (→ Adam, nobody has it yet), Adam replies via reply_to_message,
-Adam assigns Marek (→ status line, Marek gets the earlier messages), the next message goes to Marek, his quick button and
+A reservation booked on the site: the customer writes (→ the owner, nobody has it yet), the owner replies via reply_to_message,
+the owner assigns Marek (→ status line, Marek gets the earlier messages), the next message goes to Marek, his quick button and
 reply come back, status lines for the ride, privacy of what the customer gets, the 10-a-minute limit, and closing after
 the ride. Same setup as `dispatch.mjs` plus `CHAT_CLOSE_MIN=0.05` (the chat closes 3 s after the ride instead of 2 h),
 then `node tests/e2e/chat.mjs`. A reservation, so it also runs at night.

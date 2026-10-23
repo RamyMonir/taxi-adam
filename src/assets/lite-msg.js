@@ -31,7 +31,7 @@ export function rideAtNight(f, night, now = new Date()) {
 }
 
 /* The text that goes to WhatsApp / SMS. f = {mode, date, time, from, to, geo, pax, luggage, name, phone, notes}
-   opts = {site: "taxiknurowadam.pl", night: {from, to}, now: Date} */
+   opts = {site: "example.pl", night: {from, to}, now: Date} */
 export function buildMessage(f, opts = {}) {
   const L = [`Dzień dobry, chcę zamówić taxi${opts.site ? ` (${opts.site})` : ""}`];
   const night = opts.night && rideAtNight(f, opts.night, opts.now || new Date());

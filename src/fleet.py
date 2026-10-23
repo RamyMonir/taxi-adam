@@ -6,7 +6,7 @@ Przy pierwszej wiadomości do bota (albo po otwarciu /api/admin/setup) system sa
   • nowe auto / nowy kierowca  -> dodany,
   • zmienione dane             -> poprawione,
   • usunięte z listy           -> wycofane (stare kursy i raporty zostają bez zmian).
-Kierowcy dołączają przez jednorazowy link zaproszenia – Adam dostaje linki w Telegramie (i w /kierowcy).
+Kierowcy dołączają przez jednorazowy link zaproszenia – właściciel dostaje linki w Telegramie (i w /kierowcy).
 
 ⚠️ Poniżej są DANE PRZYKŁADOWE (zmyślone nazwiska, telefony i rejestracje). Podmień je na prawdziwe.
 
@@ -34,8 +34,8 @@ CARS = [
 ]
 
 DRIVERS = [
-    dict(key="k1", name="Marek Nowak",      phone="+48 500 000 001", pay={"percent": 50}),
-    dict(key="k2", name="Katarzyna Wójcik", phone="+48 500 000 002", pay={"daily_fee": 120}),
-    dict(key="k3", name="Tomasz Kowalczyk", phone="+48 500 000 003", pay=None),
-    dict(key="k4", name="Paweł Zieliński",  phone="+48 500 000 004", pay={"percent": 55}),
+    dict(key="k1", name="Marek Nowak",      phone="", pay={"percent": 50}),
+    dict(key="k2", name="Katarzyna Wójcik", phone="", pay={"daily_fee": 120}),
+    dict(key="k3", name="Tomasz Kowalczyk", phone="", pay=None),
+    dict(key="k4", name="Paweł Zieliński",  phone="", pay={"percent": 55}),
 ]

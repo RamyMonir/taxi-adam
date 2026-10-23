@@ -52,8 +52,8 @@ test("lead API: rate limit 20 per hour per device", async () => {
 test("report: Polish day bounds, channels, top destinations grouped", async () => {
   const e = await env();
   const at = (s) => Date.parse(s);
-  await insertLead(e, cleanLead({ channel: "wa", to: "Lotnisko Pyrzowice", from: "ul. Szpitalna 25, Knurów" }), "h", at("2026-10-20T22:30:00Z"));   // 21.10 00:30 in Poland
-  await insertLead(e, cleanLead({ channel: "sms", to: "lotnisko pyrzowice", from: "Szpitalna 25 Knurów" }), "h", at("2026-10-21T10:00:00Z"));
+  await insertLead(e, cleanLead({ channel: "wa", to: "Lotnisko Pyrzowice", from: "ul. Szpitalna 25, Przykładowo" }), "h", at("2026-10-20T22:30:00Z"));   // 21.10 00:30 in Poland
+  await insertLead(e, cleanLead({ channel: "sms", to: "lotnisko pyrzowice", from: "Szpitalna 25 Przykładowo" }), "h", at("2026-10-21T10:00:00Z"));
   await insertLead(e, cleanLead({ channel: "tel", to: "Balice" }), "h", at("2026-10-21T21:59:00Z"));                                           // 21.10 23:59
   await insertLead(e, cleanLead({ channel: "wa", to: "Balice" }), "h", at("2026-10-21T22:01:00Z"));                                            // 22.10 00:01
   const r = await report(e, { from: "2026-10-21", to: "2026-10-21" });
@@ -61,7 +61,7 @@ test("report: Polish day bounds, channels, top destinations grouped", async () =
   assert.deepEqual(r.byChannel, { wa: 1, sms: 1, tel: 1 });
   assert.equal(r.topTo[0].n, 2);
   assert.equal(r.topFrom[0].n, 2);
-  assert.equal(groupKey("ul. Szpitalna 25, Knurów"), groupKey("Szpitalna 25 Knurów"));
+  assert.equal(groupKey("ul. Szpitalna 25, Przykładowo"), groupKey("Szpitalna 25 Przykładowo"));
 });
 
 test("period presets", () => {
@@ -74,7 +74,7 @@ test("period presets", () => {
 test("CSV: BOM, semicolons, formula injection blocked", () => {
   assert.equal(csvCell("=HYPERLINK(1)"), "'=HYPERLINK(1)");
   assert.equal(csvCell("a;b"), '"a;b"');
-  const csv = toCsv([{ ts: Date.parse("2026-10-21T10:00:00Z"), channel: "wa", mode: "now", from_txt: "Knurów", to_txt: "@evil", pax: 2, name: "Ewa", phone: "+48600", status: "ok" }]);
+  const csv = toCsv([{ ts: Date.parse("2026-10-21T10:00:00Z"), channel: "wa", mode: "now", from_txt: "Przykładowo", to_txt: "@evil", pax: 2, name: "Ewa", phone: "+48600", status: "ok" }]);
   assert.ok(csv.startsWith("﻿Kliknięto;Kanał"));
   assert.ok(csv.includes(";'@evil;") && csv.includes(";'+48600;") && csv.includes("przyjęty"));
 });
@@ -114,7 +114,7 @@ const KNOWN = { villages: ["knurow", "czerwionka"], destinations: ["lotnisko-pyr
 const P0 = { version: 3, zones: { 0: 0, A: 10, B: 20 }, local: { knurow: 15, czerwionka: 40 }, village_zone: { knurow: "0", czerwionka: "B" },
   destinations: { "lotnisko-pyrzowice": { price: 170, confirmed: true } }, overrides: {}, waiting: { free_min: null, per_min: null },
   tariff: { start: 9, per_km: 3, min: 15 } };
-const NAMES = { villages: { knurow: "Knurów", czerwionka: "Czerwionka" }, destinations: { "lotnisko-pyrzowice": "Pyrzowice" } };
+const NAMES = { villages: { knurow: "Przykładowo", czerwionka: "Czerwionka" }, destinations: { "lotnisko-pyrzowice": "Pyrzowice" } };
 
 test("prices: validation rules", () => {
   assert.deepEqual(checkPrices(P0, KNOWN), []);
@@ -131,7 +131,7 @@ test("prices: merge an edit, bump version, describe changes", () => {
   assert.equal(next.local.knurow, 20);
   assert.deepEqual(next.overrides, { czerwionka: { "lotnisko-pyrzowice": 220 } });
   assert.equal(P0.local.knurow, 15, "original untouched");
-  assert.deepEqual(diffPrices(P0, next, NAMES), ["Kurs lokalny Knurów: 15 zł → 20 zł", "Czerwionka → Pyrzowice: – → 220 zł",
+  assert.deepEqual(diffPrices(P0, next, NAMES), ["Kurs lokalny Przykładowo: 15 zł → 20 zł", "Czerwionka → Pyrzowice: – → 220 zł",
     "Oczekiwanie gratis: – → 10 min", "Oczekiwanie za minutę: – → 1 zł"]);
   assert.deepEqual(checkPrices(next, KNOWN), []);
   const removed = mergeEdit(next, { overrides: {} });
@@ -139,7 +139,7 @@ test("prices: merge an edit, bump version, describe changes", () => {
 });
 
 test("github: base64 keeps Polish letters; 409 = conflict", async () => {
-  assert.equal(b64decode(b64encode("Żernica – Gierałtowice")), "Żernica – Gierałtowice");
+  assert.equal(b64decode(b64encode("Żernica – Nowa Wieś")), "Żernica – Nowa Wieś");
   const r = await writePrices({ GITHUB_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_BRANCH: "b" }, { text: "{}", sha: "x", message: "m" }, async () => new Response("", { status: 409 }));
   assert.deepEqual(r, { conflict: true });
 });
@@ -164,7 +164,7 @@ test("panel API: login → report → CSV → status → logout", { skip: !lite 
 });
 
 test("panel API: price editor commits to GitHub and keeps history", { skip: !lite && "needs a LITE build (py src/build.py)" }, async (t) => {
-  const e = await env({ GITHUB_TOKEN: "tok", GITHUB_REPO: "RamyMonir/taxi-adam", GITHUB_BRANCH: "Taxi-Knurow-Lite" });
+  const e = await env({ GITHUB_TOKEN: "tok", GITHUB_REPO: "OWNER/REPO", GITHUB_BRANCH: "Taxi-Przykladowo-Lite" });
   let file = pricesText(CONFIG.prices), sha = "sha1", puts = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, opts = {}) => {

@@ -1,6 +1,6 @@
 # Taxi Lite – website + WhatsApp/SMS booking + request report + price editor
 
-Branch `Taxi-Knurow-Lite`. One switch in `src/data.py`: `LITE_MODE = True` (False = the full system; nothing was deleted).
+One switch in `src/data.py`: `LITE_MODE = True` (False = the full system; nothing was deleted).
 
 ## What it does
 - **Customer:** fills in from / to / when / phone (and optionally people, luggage, name, notes, "Tu jestem" location) and taps
@@ -25,18 +25,18 @@ Branch `Taxi-Knurow-Lite`. One switch in `src/data.py`: `LITE_MODE = True` (Fals
 | `scripts/price_table.py` | Village × airport price table to confirm with the owner |
 
 ## Cloudflare setup (separate project – the full site stays untouched)
-1. **Workers & Pages → Create → Pages → Connect to Git** → repo `RamyMonir/taxi-adam`, project name e.g. `taxi-adam-lite`,
-   **production branch `Taxi-Knurow-Lite`**, build command `pip install jinja2 && python3 src/build.py`, output `dist`.
+1. **Workers & Pages → Create → Pages → Connect to Git** → the client's repo, project name e.g. `taxi-przyklad`,
+   **production branch `main`** (or the client's branch), build command `pip install jinja2 && python3 src/build.py`, output `dist`.
 2. **Storage & Databases → D1 → Create** `taxi-lite`. Project → **Settings → Bindings → D1**: name `DB`, database `taxi-lite`.
 3. **Settings → Variables and Secrets** (type Secret):
    | Name | Value |
    |---|---|
    | `LEAD_SALT` | any long random text |
    | `PANEL_SLUG`, `PANEL_PIN_SALT`, `PANEL_PIN_HASH` | from `node scripts/panel_pin.mjs 123456` (your PIN) |
-   | `GITHUB_TOKEN` | price editor (optional): github.com → Settings → Developer settings → Fine-grained token → only repo `taxi-adam`, **Contents: Read and write**, 90 days |
-   | `GITHUB_REPO` / `GITHUB_BRANCH` | `RamyMonir/taxi-adam` / `Taxi-Knurow-Lite` (Text) |
+   | `GITHUB_TOKEN` | price editor (optional): github.com → Settings → Developer settings → Fine-grained token → only the client's repo, **Contents: Read and write**, 90 days |
+   | `GITHUB_REPO` / `GITHUB_BRANCH` | `OWNER/REPO` / the production branch (Text) |
    | `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM` | optional e-mail to you on every price change |
-4. **Deployments → Retry deployment.** Panel link: `https://taxi-adam-lite.pages.dev/panel/#<PANEL_SLUG>`.
+4. **Deployments → Retry deployment.** Panel link: `https://YOUR-PROJECT.pages.dev/panel/#<PANEL_SLUG>`.
 
 Without `GITHUB_TOKEN` the **Ceny** tab is read-only ("edycja po podpisaniu umowy").
 
@@ -56,12 +56,12 @@ Local: `.dev.vars` with the four secrets, then `npx wrangler pages dev dist --d1
 ---
 
 ## Instrukcja dla właściciela (panel)
-1. Otwórz link do panelu od Ramego (kończy się znakiem `#…`) i dodaj go do ekranu głównego telefonu.
+1. Otwórz link do panelu (od osoby, która wdrożyła stronę) (kończy się znakiem `#…`) i dodaj go do ekranu głównego telefonu.
 2. Wpisz 6-cyfrowy PIN. Po 5 błędnych próbach panel blokuje się na 15 minut.
 3. **Raport:** Dziś / Tydzień / Miesiąc / Od–do. Liczba to kliknięcia w WhatsApp, SMS i „Zadzwoń” na stronie – nie każde kończy się wiadomością.
    Stuknij numer, żeby zadzwonić. Oznaczaj „✓ Przyjęty” / „✗ Nie przyjęty” – wtedy widać, ile zapytań zamieniło się w kursy.
    „Pobierz CSV” – plik do Excela.
 4. **Ceny:** wpisz nowe ceny (zmienione pola świecą na pomarańczowo) → **Sprawdź zmiany** → **Zatwierdź i opublikuj**.
    Po 1–3 minutach pojawi się „✅ Wdrożono” i nowe ceny są na stronie. „Wyjątki” to ceny z konkretnej miejscowości na konkretną trasę
-   (np. Czerwionka → Pyrzowice 220 zł). „Oczekiwanie” – ile minut gratis i ile zł za minutę.
+   (np. Leśna → Pyrzowice 210 zł). „Oczekiwanie” – ile minut gratis i ile zł za minutę.
 5. Dane klientów są usuwane automatycznie po 12 miesiącach.

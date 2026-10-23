@@ -3,7 +3,7 @@
 // A note containing "AWARIA" gets a 500 (the bot must fall back to the one-line format).
 import http from "node:http";
 const log = [];
-const PLACES = [[/rynk|rynek/i, "Rynek 1, Knurów"], [/gliwic/i, "Dworzec PKP Gliwice"], [/pyrzowic/i, "Lotnisko Katowice-Pyrzowice"], [/szpital/i, "Szpital Zabrze"]];
+const PLACES = [[/rynk|rynek/i, "Rynek 1, Przykładowo"], [/gliwic/i, "Dworzec PKP Gliwice"], [/pyrzowic/i, "Lotnisko Katowice-Pyrzowice"], [/szpital/i, "Szpital Zabrze"]];
 function fields(text, now) {
   const [note, fix = ""] = text.split(/\nPoprawka: /);
   const all = note + " " + fix;

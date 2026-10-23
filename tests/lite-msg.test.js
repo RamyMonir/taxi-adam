@@ -4,15 +4,15 @@ import { buildMessage, waLink, smsLink, isNight, validate, whenLabel, leadPayloa
 
 const NIGHT = { from: "22:00", to: "05:00" };
 const noon = new Date(2026, 9, 21, 12, 0);
-const full = { mode: "later", date: "2026-10-24", time: "04:30", from: "ul. Szpitalna 25, Knurów", to: "Lotnisko Katowice-Pyrzowice",
+const full = { mode: "later", date: "2026-10-24", time: "04:30", from: "ul. Szpitalna 25, Przykładowo", to: "Lotnisko Katowice-Pyrzowice",
   geo: { lat: 50.2197, lng: 18.6767 }, pax: "3", luggage: "3–4 walizki", name: "Ewa", phone: "600 100 200", notes: "fotelik dla dziecka" };
 
 test("message has every filled field, night note and location link", () => {
-  const m = buildMessage(full, { site: "taxiknurowadam.pl", night: NIGHT, now: noon });
+  const m = buildMessage(full, { site: "example.pl", night: NIGHT, now: noon });
   assert.equal(m, [
-    "Dzień dobry, chcę zamówić taxi (taxiknurowadam.pl)",
+    "Dzień dobry, chcę zamówić taxi (example.pl)",
     "Kiedy: 24.10 (sob.) 04:30 (kurs nocny – rezerwacja)",
-    "Skąd: ul. Szpitalna 25, Knurów",
+    "Skąd: ul. Szpitalna 25, Przykładowo",
     "Moja lokalizacja: https://maps.google.com/?q=50.21970,18.67670",
     "Dokąd: Lotnisko Katowice-Pyrzowice",
     "Osoby: 3 · Bagaż: 3–4 walizki",
@@ -31,17 +31,17 @@ test("day-time 'later' ride has no night note", () => {
 });
 
 test("Polish characters are encoded in WhatsApp and SMS links", () => {
-  const m = "Skąd: Gierałtowice, Żernica";
-  const wa = waLink("48 570 762 777", m);
-  assert.ok(wa.startsWith("https://wa.me/48570762777?text="));
-  assert.ok(wa.includes("Giera%C5%82towice") && wa.includes("%C5%BBernica") && !/[ąłŻ ]/.test(wa));
+  const m = "Skąd: Nowa Wieś, Żernica";
+  const wa = waLink("48 503 467 198", m);
+  assert.ok(wa.startsWith("https://wa.me/48503467198?text="));
+  assert.ok(wa.includes("Wie%C5%9B") && wa.includes("%C5%BBernica") && !/[śŻ ]/.test(wa));
   assert.equal(decodeURIComponent(wa.split("text=")[1]), m);
 });
 
 test("SMS separator: & on iPhone, ? on Android", () => {
   const ios = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", android = "Mozilla/5.0 (Linux; Android 14; SM-S911B)";
-  assert.ok(smsLink("+48570762777", "a b", ios).startsWith("sms:+48570762777&body=a%20b"));
-  assert.ok(smsLink("+48570762777", "a b", android).startsWith("sms:+48570762777?body=a%20b"));
+  assert.ok(smsLink("+48503467198", "a b", ios).startsWith("sms:+48503467198&body=a%20b"));
+  assert.ok(smsLink("+48503467198", "a b", android).startsWith("sms:+48503467198?body=a%20b"));
 });
 
 test("night window wraps over midnight", () => {

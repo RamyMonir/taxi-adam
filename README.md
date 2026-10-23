@@ -1,42 +1,48 @@
-# Taxi Knurów Adam Mączka – strona www
+# Taxi booking website – white-label template
 
-Strona (51 podstron) generowana z jednego pliku danych + zamawianie kursów online jak w Uber/Bolt: kurs teraz lub rezerwacja, powiadomienie kierowcy na Telegramie, status na żywo. Hosting: Cloudflare Pages (darmowy plan). **Konfiguracja krok po kroku: [SETUP.md](SETUP.md).**
+A complete website + booking system for a local taxi firm, ready to launch for a new client by editing **one config file**.
+Demo business in this branch: **„Taxi Przykład”** (fictional town *Przykładowo*), phone **503 467 198**.
 
-## Co jest w środku
+Two versions in one code base – one switch in `src/data.py`:
 
-| Funkcja | Opis |
+| | **LITE** (`LITE_MODE = True`, default) | **FULL** (`LITE_MODE = False`) |
+|---|---|---|
+| For | 1–3 cars, low budget | 4+ cars, dispatch |
+| Booking | Form → ready message via **WhatsApp / SMS / phone**, driver confirms | Online booking with map, route and price, live status page |
+| Owner tools | **Panel** `/panel/` (PIN): request report, CSV, „przyjęty / nie przyjęty”, **price editor** (saves to GitHub, site rebuilds) | **Telegram bot**: dispatch, fastest driver, AI „Nowy kurs”, auto-assign, flight watch, shared cars, settlement, 23:00 reports, chat with customers |
+| Running cost | 0 zł (Cloudflare free) | Cloudflare free + Google Maps (~0–150 zł/month) + optional AI (~20–60 zł/month) |
+
+Both: ~45 SEO pages (airports, sanatoria, clinics, stations, cities, villages, price list, business page, contact, English), PWA
+(installs like an app), no cookies or trackers, accessible font, dark mode.
+
+## Make it for a new client
+→ **[docs/NEW-CLIENT.md](docs/NEW-CLIENT.md)** – the full checklist (what to ask the client, what to edit, Cloudflare, handover).
+
+Short version: copy this branch, edit `src/data.py` (identity block + business data), `src/prices.json`, `src/fleet.py`,
+draw placeholder logos with `node scripts/brand_images.mjs "TAXI NAZWA" "MIASTO · OKOLICE"` (or add the client's logo files),
+run the checks, deploy.
+
+## Guides
+| File | For whom |
 |---|---|
-| Zamówienie online | Teraz / na później, adres z podpowiedziami Google lub GPS („Tu jestem”), mapa, trasa, czas i cena |
-| Kierowca | Zamówienie trafia na Telegram; przyciski: potwierdź (za ile minut), odrzuć, jestem na miejscu, zakończ |
-| Flota | 5 aut wspólnych dla kierowców: wybór auta jednym kliknięciem na początku zmiany, auto i kierowca w każdym kursie, rozliczenie (50/50 albo opłata dzienna), raport 23:00 z gotówką do oddania – [SETUP.md §6](SETUP.md#6-fleet-shared-cars-settlement-photos) |
-| Status na żywo | Strona /przejazd/ – odliczanie do przyjazdu, anulowanie; bez backendu: WhatsApp / SMS |
-| Opinie | Najlepsze opinie z wizytówki Google (Places API) |
-| 50 podstron SEO | 6 lotnisk, 4 sanatoria, 6 miast z klinikami, 4 dworce, 5 miast, 12 miejscowości, huby, cennik, dla firm, kontakt, EN |
-| Dane strukturalne | LocalBusiness, Service z ceną, FAQPage, BreadcrumbList |
-| PWA | Instalacja na telefonie, działa offline (cennik i kalkulator) |
-| Dostępność | Czcionka Atkinson Hyperlegible (czytelność dla seniorów), pełna obsługa klawiatury, tryb ciemny |
-| Prywatność | Czcionki lokalnie, bez cookies i trackerów; Google Maps ładuje się dopiero przy użyciu formularza |
+| [docs/NEW-CLIENT.md](docs/NEW-CLIENT.md) | you (integrator): new client from A to Z |
+| [docs/LITE.md](docs/LITE.md) | LITE setup + **owner's panel guide (PL)** |
+| [SETUP.md](SETUP.md) | FULL setup (Cloudflare, Telegram, Google, AI, cron) + **driver guide (PL)** |
+| [tests/e2e/README.md](tests/e2e/README.md) | end-to-end tests of the bot |
 
-## Zmiana cen, telefonu, miejscowości
+## How it's built
+- Static site: Python + Jinja2. `src/data.py` + `src/prices.json` + `src/fleet.py` → `py src/build.py` → `dist/`.
+  The build also writes `server/config.js`, so the server uses the same data (names, prices, owner's name forms).
+- API: Cloudflare Pages Functions (`functions/api/`, logic in `server/`), D1 database, optional R2 photos.
+- All business texts come from config: `OWNER` (name in 3 Polish cases), `BRAND`, `AREA` (town names in Polish cases),
+  airports, chips, fleet cards, examples (`src/data.py`) → website, bot, SMS, chat, reports and AI prompts (`server/brand.js`).
 
-Wszystko jest w `src/data.py`. Po zmianie:
-
+## Checks (run before every handover)
 ```bash
-pip install jinja2
-python3 src/build.py      # wynik w dist/
+node --test tests/*.test.js     # unit tests (incl. LITE backend on real SQLite)
+py tests/schema_check.py        # database migrations
+py tests/build_check.py         # FULL vs LITE: no Google calls in LITE, no lost pages
+py tests/leak_check.py          # no data of a previous client; phone links only to this client's numbers
+py src/build.py                 # must print OK: … stron
 ```
-
-Pozycje z `confirmed=False` to **szacunki** – potwierdź je z Adamem przed publikacją.
-
-## Przed publikacją (TODO)
-
-1. `SITE_URL` w `src/data.py` – docelowa domena
-2. Kod pocztowy i dokładne współrzędne (z wizytówki Google)
-3. Link do opinii Google (`google_review`) – z panelu wizytówki: „Poproś o opinie”
-4. Ceny oznaczone `confirmed=False`
-5. Czy opłaty za autostradę są w cenie lotnisk (dopisać na stronach lotnisk)
-
-## Publikacja
-
-- **GitHub Pages:** workflow `.github/workflows/deploy.yml` buduje i publikuje po każdym `git push` na `main`. W ustawieniach repo: Settings → Pages → Source: GitHub Actions. Domenę ustawiasz w Settings → Pages → Custom domain.
-- **Cloudflare Pages / Netlify:** build command `pip install jinja2 && python3 src/build.py`, output `dist`. Plik `dist/_redirects` obsługują obie platformy.
+Local preview: `npx wrangler pages dev dist --d1 DB=local` → http://localhost:8788

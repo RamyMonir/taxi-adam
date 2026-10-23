@@ -6,7 +6,7 @@ import { OWNER, BRAND } from "../server/brand.js";
 const cfg = { default_driver_pct: 50, default_daily_fee: 120, cash_methods: ["gotówka"] };
 const T = (paid, method, extra = {}) => ({ status: "done", day: "2026-10-10", paid, method, price: paid, ...extra });
 
-test("50/50: cash below the driver's share -> Adam pays the driver", () => {
+test("50/50: cash below the driver's share -> the owner pays the driver", () => {
   const marek = [T(85, "gotówka"), T(120, "karta"), T(45, "gotówka"), T(210, "BLIK"), T(30, "gotówka")];
   const s = settleDay(marek, { id: "d1" }, cfg);
   assert.equal(s.model, "percent"); assert.equal(s.pct, 50);

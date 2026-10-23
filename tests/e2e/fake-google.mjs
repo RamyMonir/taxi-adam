@@ -1,7 +1,7 @@
 // fake Google Places (text search) + Routes on :8998 for the dispatch test
 import http from "node:http";
-const PLACES = [[/rynek/i, "Rynek 1, 44-190 Knurów", 50.2197, 18.6767], [/gliwice/i, "Dworzec PKP, Gliwice", 50.3008, 18.6635],
-                [/pyrzowice|lotnisko/i, "Lotnisko Katowice-Pyrzowice", 50.4743, 19.08], [/.*/, "Szpitalna 1, Knurów", 50.215, 18.67]];
+const PLACES = [[/rynek/i, "Rynek 1, 00-000 Przykładowo", 50.2197, 18.6767], [/gliwice/i, "Dworzec PKP, Gliwice", 50.3008, 18.6635],
+                [/pyrzowice|lotnisko/i, "Lotnisko Katowice-Pyrzowice", 50.4743, 19.08], [/.*/, "Szpitalna 1, Przykładowo", 50.215, 18.67]];
 // + fake AeroDataBox for tests/e2e/auto.mjs: POST /_flight {number, sched, rev, status} sets a flight landing in Katowice
 const FLIGHTS = {};
 http.createServer((req, res) => {

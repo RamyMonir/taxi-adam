@@ -61,7 +61,7 @@ test("a car added by hand (/dodajauto) with the same plate is the same car, not 
   assert.ok(planIsEmpty(p2));
 });
 
-test("a file driver Adam removed in Telegram (🗑) stays removed after the next sync", () => {
+test("a file driver the owner removed in Telegram (🗑) stays removed after the next sync", () => {
   const { cars, drivers } = asRows(planFleetSync(file, [], []));
   const after = drivers.map((d) => (d.id === "f_k2" ? { ...d, active: 0 } : d));
   const edited = { ...file, drivers: file.drivers.map((d) => ({ ...d, name: d.name + "!" })) };

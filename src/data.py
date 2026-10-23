@@ -1,74 +1,62 @@
 # -*- coding: utf-8 -*-
 """
-Jedno miejsce na wszystkie dane strony.
-Zmieniasz ceny / telefon / miejscowości TUTAJ, potem: python3 build.py
+Jedno miejsce na wszystkie dane strony – WERSJA DEMO szablonu („Taxi Przykład”, fikcyjne miasto Przykładowo).
+Dla nowego klienta zmieniasz TYLKO ten plik (+ src/prices.json, src/fleet.py, logo) – instrukcja: docs/NEW-CLIENT.md.
+Potem: py src/build.py
 
-CENY: pola "price" to cena OD Knurowa w zł.
-  confirmed=True  -> cena z cennika Adama (taxifest.pl)
-  confirmed=False -> SZACUNEK – do potwierdzenia z Adamem przed publikacją
+CENY: są w src/prices.json (zmienia je też panel /panel/). Tutaj nazwy, opisy i współrzędne.
 """
 
-SITE_URL = "https://www.taxiknurowadam.pl"   # TODO: docelowa domena (sprawdź dostępność)
+SITE_URL = "https://taxi-przyklad.pages.dev"   # docelowa domena klienta
 BUSINESS = {
-    "name": "Taxi Knurów Adam Mączka",
-    "short": "Taxi Adam",
-    "phone": "570 762 777",
-    "phone_e164": "+48570762777",
-    "whatsapp": "48570762777",
-    # baza (z facebooka Adama): Gierałtowice; jeździ w Gierałtowicach, Knurowie i po całym Śląsku
-    "street": "ul. Powstańców Śląskich 116",
-    "postal": "44-186",
-    "city": "Gierałtowice",
+    "name": "Taxi Przykład",
+    "short": "Taxi Przykład",
+    "phone": "503 467 198",
+    "phone_e164": "+48503467198",
+    "whatsapp": "48503467198",
+    "street": "ul. Przykładowa 1",
+    "postal": "00-000",
+    "city": "Przykładowo",
     "lat": 50.2218, "lng": 18.7142,
-    "email": "jo.pako@o2.pl",
-    "facebook": "https://www.facebook.com/profile.php?id=61569049205468",
-    "aka": "Taxi Fest Knurów",
-    # wszystkie punkty i numery (z taxifest.pl/kontakt i z facebooka). Pierwszy = główny.
+    "email": "kontakt@example.com",
+    "facebook": "",                        # pusty = bez linku do Facebooka
+    "aka": "",
+    # punkty obsługi i numery. Pierwszy = główny.
     "locations": [
-        {"name": "Taxi Gierałtowice", "street": "ul. Powstańców Śląskich 116", "postal": "44-186", "city": "Gierałtowice",
-         "phone": "884 682 430", "phone_e164": "+48884682430"},   # z wizytówki Google "Taxi Gierałtowice"
-        {"name": "Taxi Knurów", "street": "ul. Kosmonautów 18", "postal": "44-194", "city": "Knurów",
-         "phone": "570 762 777", "phone_e164": "+48570762777"},
-        {"name": "Fest Taxi Knurów", "street": "ul. Szpitalna 25", "postal": "44-190", "city": "Knurów",
-         "phone": "515 650 750", "phone_e164": "+48515650750"},
+        {"name": "Taxi Przykład", "street": "ul. Przykładowa 1", "postal": "00-000", "city": "Przykładowo",
+         "phone": "503 467 198", "phone_e164": "+48503467198"},
     ],
     "extra_phones": [],   # dodatkowe numery bez adresu: ("Nazwa", "600 000 000", "+48600000000")
-    "google_maps": "https://www.google.com/maps/place/?q=place_id:ChIJCVqphGI1EUcRyoJoD4bKXYg",
-    # otwiera od razu okno "Napisz opinię" w Google
-    "google_review": "https://search.google.com/local/writereview?placeid=ChIJCVqphGI1EUcRyoJoD4bKXYg",
-    "rating": "4,8",      # razem z 3 wizytówek Google (strona aktualizuje to sama z /api/reviews)
-    "reviews": 372,
+    "google_maps": "https://www.google.com/maps/search/?api=1&query=Taxi+Przyk%C5%82ad",
+    "google_review": "https://www.google.com/maps/search/?api=1&query=Taxi+Przyk%C5%82ad",
+    "rating": "5,0",      # ocena z wizytówek Google – pokazywana tylko, gdy "reviews" > 0
+    "reviews": 0,
     "seats": 7,
     "payments": ["Gotówka", "Karta", "BLIK", "Przelew dla firm (faktura)"],
 }
 
-# Strefy odbioru: dopłata do ceny trasy, gdy kurs zaczyna się poza Knurowem
+# Strefy odbioru: dopłata do ceny trasy, gdy kurs zaczyna się poza miastem bazowym (kwoty w src/prices.json)
 ZONES = {
-    "0":  {"label": "Knurów i Gierałtowice", "surcharge": 0},
+    "0":  {"label": "Przykładowo i Nowa Wieś", "surcharge": 0},
     "A":  {"label": "strefa A", "surcharge": 10},
     "B":  {"label": "strefa B", "surcharge": 20},
 }
 
-# Rejon przyjmowania zleceń (od Adama). price = kurs lokalny z Knurowa (SZACUNEK)
+# Rejon przyjmowania zleceń. Pierwsza pozycja = miasto bazowe (strona główna). Ceny w src/prices.json.
 VILLAGES = [
-    # slug, nazwa, miejscownik ("w ..."), strefa odbioru, cena kursu z Knurowa
-    ("knurow",       "Knurów",       "w Knurowie",       "0", 15),
-    ("gieraltowice", "Gierałtowice", "w Gierałtowicach", "0", 15),   # baza Adama – bez dopłaty
-    ("beksza",       "Beksza",       "w Bekszy",         "A", 30),
-    ("bojkow",       "Bojków",       "w Bojkowie",       "A", 25),
-    ("przyszowice",  "Przyszowice",  "w Przyszowicach",  "A", 35),
-    ("wilcza",       "Wilcza",       "w Wilczy",         "A", 35),
-    ("zernica",      "Żernica",      "w Żernicy",        "A", 35),
-    ("chudow",       "Chudów",       "w Chudowie",       "B", 45),
-    ("pilchowice",   "Pilchowice",   "w Pilchowicach",   "B", 40),
-    ("smolnica",     "Smolnica",     "w Smolnicy",       "B", 45),
-    ("stanica",      "Stanica",      "w Stanicy",        "B", 45),
-    ("czerwionka",   "Czerwionka",   "w Czerwionce",     "B", 40),
-    ("ornontowice",  "Ornontowice",  "w Ornontowicach",  "B", 45),
+    # slug, nazwa, miejscownik ("w ..."), strefa odbioru, cena kursu lokalnego
+    ("przykladowo",  "Przykładowo",  "w Przykładowie",   "0", 15),
+    ("nowa-wies",    "Nowa Wieś",    "w Nowej Wsi",      "0", 20),
+    ("dolna",        "Dolna",        "w Dolnej",         "A", 30),
+    ("gorna",        "Górna",        "w Górnej",         "A", 30),
+    ("zielona",      "Zielona",      "w Zielonej",       "A", 35),
+    ("lesna",        "Leśna",        "w Leśnej",         "B", 40),
+    ("stawy",        "Stawy",        "w Stawach",        "B", 45),
+    ("polana",       "Polana",       "w Polanie",        "B", 45),
 ]
 
 # Trasy dalekie. kind: airport | spa | clinic | station | city
-# Ceny lotnisk i sanatoriów: stałe ceny od Adama (WhatsApp, 10.10.2026), na stronie jako "od".
+# Ceny lotnisk i sanatoriów: stałe ceny od właściciela, na stronie jako "od".
 DESTINATIONS = [
     # --- Lotniska ---
     dict(slug="lotnisko-pyrzowice", kind="airport", name="Lotnisko Katowice-Pyrzowice", short="Pyrzowice", code="KTW",
@@ -135,15 +123,15 @@ COORDS = {
 for _d in DESTINATIONS:
     _d["lat"], _d["lng"], _d["match_km"] = COORDS[_d["slug"]]
 
-# Strefy odbioru liczone odległością od centrum Knurowa (km w linii prostej).
-# Do ZONE_KM["0"] = Knurów, do "A" = strefa A, do "B" = strefa B, dalej = wycena za kilometr.
+# Strefy odbioru liczone odległością od centrum miasta bazowego (km w linii prostej).
+# Do ZONE_KM["0"] = miasto bazowe, do "A" = strefa A, do "B" = strefa B, dalej = wycena za kilometr.
 BASE_CENTER = (50.2197, 18.6767)
-# Gierałtowice (baza Adama) też bez dopłaty: do tylu km od centrum Gierałtowic = strefa "0"
+# Drugie miasto bez dopłaty (np. siedziba firmy): do tylu km od jego centrum = strefa "0"
 BASE2_CENTER = (50.2241, 18.7271)
 BASE2_KM = 2.5
 ZONE_KM = {"0": 4.5, "A": 9, "B": 16}
 
-# Wycena kursów spoza cennika (SZACUNEK – potwierdź z Adamem): start + zł za km trasy, nie mniej niż minimum.
+# Wycena kursów spoza cennika (potwierdź z właścicielem): start + zł za km trasy, nie mniej niż minimum.
 TARIFF = {"start": 9, "per_km": 3.0, "min": 15, "confirmed": False}
 
 # ---------------- Rezerwacja online (Cloudflare + Telegram + Google) ----------------
@@ -154,23 +142,19 @@ GOOGLE_MAPS_BROWSER_KEY = ""   # TODO
 GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Management)
 # Logowanie klientów przez Google (opcjonalne). Client ID typu "Web application" z Google Cloud
 # (APIs & Services -> Credentials -> OAuth client ID). Publiczny z założenia. Pusty = brak logowania.
-GOOGLE_OAUTH_CLIENT_ID = "33873511500-i7snf730jquenheagpdku5j7l6dfkrld.apps.googleusercontent.com"
-# Kursy nocne (od Adama): od 22:00 do 5:00 tylko z wcześniejszą rezerwacją, bez rezerwacji w nocy nie jeździmy.
+GOOGLE_OAUTH_CLIENT_ID = ""
+# Kursy nocne: od 22:00 do 5:00 tylko z wcześniejszą rezerwacją, bez rezerwacji w nocy nie jeździmy.
 # W tych godzinach nie da się zamówić kursu "teraz"; rezerwacja na noc najpóźniej ahead_min minut przed odbiorem.
-NIGHT = {"from": "22:00", "to": "05:00", "ahead_min": 60}   # TODO: ahead_min potwierdzić z Adamem
-# Wizytówki Google Adama – opinie z wszystkich trzech są pokazywane razem (pierwsza = główna)
-GOOGLE_PLACES = [
-    {"name": "Taxi Knurów Adam Mączka", "id": "ChIJCVqphGI1EUcRyoJoD4bKXYg"},
-    {"name": "Taxi Gierałtowice", "id": "ChIJ92CbSAA1EUcRbEW2Me1Sww8"},
-    {"name": "Taxi Fest Knurów", "id": "ChIJGfOL1rg3EUcRot_Kp3g-XCE"},
-]
+NIGHT = {"from": "22:00", "to": "05:00", "ahead_min": 60}   # ahead_min: ile minut wcześniej najpóźniej rezerwacja na noc
+# Wizytówki Google firmy – opinie ze wszystkich są pokazywane razem (pierwsza = główna)
+GOOGLE_PLACES = []   # wizytówki Google: {"name": "…", "id": "ChIJ…"} (Place ID Finder) – opinie i linki „Oceń ★”
 # Ile minut klient czeka na potwierdzenie kursu "teraz", zanim zobaczy prośbę o telefon.
 NOW_WAIT_MIN = 3
 # Cloudflare Turnstile („czy jesteś człowiekiem”) przy zamówieniu online. Klucz witryny jest publiczny.
 # Pusty = bez Turnstile. Sekret ustaw w Cloudflare jako TURNSTILE_SECRET (bez niego serwer nic nie sprawdza).
 TURNSTILE_SITE_KEY = ""
 
-# Rozliczenie kierowców (REKOMENDACJA – do potwierdzenia z Adamem i księgową).
+# Rozliczenie kierowców (REKOMENDACJA – do potwierdzenia z właścicielem i księgową).
 # Domyślnie 50% utargu brutto dla kierowcy, 50% dla firmy (firma płaci paliwo i koszty auta) – typowy model flot w PL.
 # Alternatywa na kierowcę: stała opłata dzienna za auto (/prowizja NR dzienna 120). 120 zł to przykład, nie dane rynkowe.
 COMMISSION = {"default_driver_pct": 50, "default_daily_fee": 120, "cash_methods": ["gotówka"]}
@@ -192,36 +176,36 @@ VIP_CAPTIONS = {
 # ---------------- TOŻSAMOŚĆ FIRMY (white-label) ----------------
 # Wszystkie teksty zależne od firmy i regionu. Polskie formy wpisujemy RĘCZNIE (nic nie jest odmieniane automatycznie).
 OWNER = {
-    "nom": "Adam",          # kto? – „Adam przydzielił Ci rezerwację”
-    "gen": "Adama",         # kogo? – „Poproś Adama o link”
-    "dat": "Adamowi",       # komu? – „Do oddania Adamowi”
-    "full": "Adam Mączka",
+    "nom": "Jan",           # kto? – „Jan przydzielił Ci rezerwację”
+    "gen": "Jana",          # kogo? – „Poproś Jana o link”
+    "dat": "Janowi",        # komu? – „Do oddania Janowi”
+    "full": "Jan Przykładowy",
 }
 BRAND = {
-    "short": "Taxi Adam",                         # nazwa aplikacji na telefonie, bot, czat
-    "city": "Knurów",                             # „Taxi Knurów – …” w tytułach stron
-    "city_loc": "w Knurowie",                     # „Zamów taxi w Knurowie”
-    "logo_title": "TAXI ADAM MĄCZKA",             # tekst przy logo w nagłówku
-    "logo_sub": "GIERAŁTOWICE · KNURÓW · OKOLICE",
-    "hero_name": "Taxi Gierałtowice i Knurów – Adam Mączka",   # nagłówek strony głównej (dla Google)
-    "facebook_label": "Taxi Adam Mączka",
-    "alternate_names": ["Taxi Fest Knurów", "Taxi Gierałtowice"],   # inne nazwy firmy (dane strukturalne)
+    "short": "Taxi Przykład",                     # nazwa aplikacji na telefonie, bot, czat
+    "city": "Przykładowo",                        # „Taxi Przykładowo – …” w tytułach stron
+    "city_loc": "w Przykładowie",                 # „Zamów taxi w Przykładowie”
+    "logo_title": "TAXI PRZYKŁAD",                # tekst przy logo w nagłówku
+    "logo_sub": "PRZYKŁADOWO · OKOLICE",
+    "hero_name": "Taxi Przykład – Przykładowo i okolice",   # nagłówek strony głównej (dla Google)
+    "facebook_label": "Taxi Przykład",
+    "alternate_names": [],                        # inne nazwy firmy (dane strukturalne)
 }
 AREA = {
-    "nom": "Gierałtowice i Knurów",               # „Taxi Gierałtowice i Knurów – lotniska…”
-    "from": "z Knurowa i Gierałtowic",            # „Taxi z Knurowa i Gierałtowic na lotnisko”
-    "from_all": "z Knurowa i Gierałtowic i okolic",
-    "from_rev": "z Gierałtowic, Knurowa i okolic",
-    "from_slash": "z Knurowa / Gierałtowic",
-    "in": "w Knurowie i Gierałtowicach",
-    "in_list": "w Knurowie, Gierałtowicach i okolicznych miejscowościach",
-    "base_nom": "Knurów", "base_gen": "Knurowa",  # „Kurs do Knurowa od 15 zł” (strony miejscowości)
-    "zone_a_gen": "Przyszowic",                   # „Z Przyszowic i strefy A dochodzi …”
-    "zone_a_examples": "Przyszowice, Bojków",
-    "region_all": "po całym Śląsku",
-    "region_loc": "na Śląsku",
-    "region_badge": "ŚLĄSK",
-    "en": "Knurów and Gierałtowice", "en_base": "Knurów",
+    "nom": "Przykładowo i Nowa Wieś",             # „Taxi Przykładowo i Nowa Wieś – lotniska…”
+    "from": "z Przykładowa i Nowej Wsi",          # „Taxi z Przykładowa i Nowej Wsi na lotnisko”
+    "from_all": "z Przykładowa, Nowej Wsi i okolic",
+    "from_rev": "z Przykładowa i okolic",
+    "from_slash": "z Przykładowa / Nowej Wsi",
+    "in": "w Przykładowie i Nowej Wsi",
+    "in_list": "w Przykładowie, Nowej Wsi i okolicznych miejscowościach",
+    "base_nom": "Przykładowo", "base_gen": "Przykładowa",   # „Kurs do Przykładowa od 15 zł”
+    "zone_a_gen": "Dolnej",                       # „Z Dolnej i strefy A dochodzi …”
+    "zone_a_examples": "Dolna, Górna",
+    "region_all": "po całym regionie",
+    "region_loc": "w regionie",
+    "region_badge": "REGION",
+    "en": "Przykładowo and Nowa Wieś", "en_base": "Przykładowo",
 }
 # Główne lotniska (slugi z DESTINATIONS) i teksty o lotniskach
 MAIN_AIRPORT = {"slug": "lotnisko-pyrzowice", "loc": "w Pyrzowicach", "en": "Katowice"}
@@ -237,22 +221,16 @@ SERVICE_NOTES = {
     "spa": "Busko-Zdrój, Szczyrk, Ustroń. Pomoc z bagażem i powrót po turnusie.",
     "clinic": "Katowice, Gliwice, Zabrze. Kierowca może poczekać podczas wizyty.",
 }
-# Auta firmy (zdjęcia w src/assets/img/fleet/<plik>.webp). Pusta lista = sekcja „Czym pojedziesz” bez kart.
-FLEET_CARDS = [
-    dict(name="Jetour X70 Plus", tag="do 7 osób", main=("suv-7", "Jetour X70 Plus – 7-osobowe taxi Adam Mączka"),
-         feats=["3 rzędy siedzeń – 7 miejsc", "skórzana tapicerka", "panoramiczny dach", "duży bagażnik na walizki"],
-         more=[("suv-7-przod", "Przednie fotele i panoramiczny dach"), ("suv-7-tyl", "Wygodna kanapa w drugim rzędzie"),
-               ("suv-7-trzeci-rzad", "Trzeci rząd siedzeń"), ("suv-7-bagaznik", "Bagażnik")]),
-    dict(name="Citroën C5 Aircross", tag="do 4 osób", main=("c5-aircross", "Citroën C5 Aircross – Taxi Adam Mączka"),
-         feats=["komfortowe zawieszenie", "klimatyzacja", "pojemny bagażnik", "idealny na lotnisko i do sanatorium"], more=[]),
-]
+# Auta firmy (zdjęcia w src/assets/img/fleet/<plik>.webp). Pusta lista = sekcja „Czym pojedziesz” ukryta. Przykład:
+# dict(name="Toyota Corolla", tag="do 4 osób", main=("corolla", "Toyota Corolla – Taxi Przykład"), feats=["klimatyzacja"], more=[])
+FLEET_CARDS = []
 # Przykład wyjątku cenowego w panelu
-PANEL_EXAMPLE = "Czerwionka → Pyrzowice 220 zł"
+PANEL_EXAMPLE = "Leśna → Pyrzowice 210 zł"
 # Przekierowania starych adresów (np. z poprzedniej strony firmy): (stary, nowy)
-REDIRECTS = [("/cennik-transfery-na-lotniska", "/lotniska/"), ("/kontakt.html", "/kontakt/")]
+REDIRECTS = []
 # Przykładowe adresy w pomocy bota i AI (miasto bazowe i ulice z okolicy)
-EXAMPLES = {"town": "Knurów", "addr": "Rynek 1 Knurów", "addr2": "Lipowa 5 Gierałtowice", "addr3": "Dworcowa 12 Knurów", "street": "Rynek 1",
-            "probe": "Dworcowa Knurów", "region_en": "Silesia, Poland", "towns_en": "Knurów and Gierałtowice",
+EXAMPLES = {"town": "Przykładowo", "addr": "Rynek 1 Przykładowo", "addr2": "Lipowa 5 Nowa Wieś", "addr3": "Dworcowa 12 Przykładowo", "street": "Rynek 1",
+            "probe": "Dworcowa Katowice", "region_en": "Poland", "towns_en": "Przykładowo and Nowa Wieś",
             "airport": "Pyrzowice", "airport_full": "Lotnisko Katowice-Pyrzowice", "station": "Dworzec Gliwice", "station_to": "do dworca w Gliwicach",
             "station_full": "Dworzec PKP Katowice", "hospital": "Szpital Zabrze"}
 
@@ -263,7 +241,7 @@ LITE_MODE = __import__("os").environ.get("TAXI_LITE", "1") != "0"   # TAXI_LITE=
 # Prototyp na osobnym adresie: noindex + robots Disallow, żeby nie konkurował w Google z główną stroną. False po starcie na domenie.
 LITE_NOINDEX = True
 # Drugi numer pokazywany pod przyciskiem „Zadzwoń”
-PHONE2 = ("515 650 750", "+48515650750")
+PHONE2 = None   # np. ("600 000 000", "+48600000000")
 # Podpis w stopce (jeden sprzedawca wszędzie: stopka, oferta, faktura, umowa powierzenia)
 CREDIT = "Usługi IT RAMY MOHAMED"
 

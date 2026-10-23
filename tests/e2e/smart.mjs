@@ -34,7 +34,7 @@ const req = (await fetch(AI + "/_log").then((r) => r.json()))[0];
 ok(req && req.body.model === "claude-opus-5-5" && req.body.output_config?.effort === "low" && req.body.output_config?.format?.type === "json_schema"
    && req.body.fallbacks === "default" && /server-side-fallback-2026-07-01/.test(req.beta) && req.key === "test",
    "Claude call: claude-opus-5-5, low effort, JSON schema, fallbacks default", req && JSON.stringify({ model: req.body.model, beta: req.beta }));
-ok(/KURS TERAZ/.test(m.text) && /🗣 <i>„pani Ewa z Rynku/.test(m.text) && /Rynek 1, 44-190 Knurów/.test(m.text) && /Dworzec PKP, Gliwice/.test(m.text) && /pani Ewa   ☎️ 600100200/i.test(m.text),
+ok(/KURS TERAZ/.test(m.text) && /🗣 <i>„pani Ewa z Rynku/.test(m.text) && /Rynek 1, 00-000 Przykładowo/.test(m.text) && /Dworzec PKP, Gliwice/.test(m.text) && /pani Ewa   ☎️ 600100200/i.test(m.text),
    "understood -> preview: addresses found, name, what he said", (m.text || "").split("\n").slice(0, 6).join(" / "));
 ok(/⭐ <b>Marek<\/b>[^\n]*~\d+ min[\s\S]*🟢 Katarzyna[^\n]*~\d+ min/.test(m.text), "panel: ⭐ Marek (fastest) then 🟢 Katarzyna, each with drive time",
    (m.text || "").split("\n").filter((l) => /⭐|🟢|🧠/.test(l)).join(" / "));
@@ -44,7 +44,7 @@ const id1 = inl(m).find((b) => /^dpo\|/.test(b.callback_data)).callback_data.spl
 
 // 3. Kasia takes it and drives -> in a new panel she is 'w kursie, wolny ok. HH:MM'
 await tap(OWNER, `dpa|${id1}|f_k2`); await tap(KASIA, "e|" + id1); await tap(KASIA, "a|" + id1); await tap(KASIA, "t|" + id1);
-await reset(); await msg(OWNER, "/kurs Rynek 1 Knurów > Dworzec Gliwice, 600100201");
+await reset(); await msg(OWNER, "/kurs Rynek 1 Przykładowo > Dworzec Gliwice, 600100201");
 m = await last(OWNER);
 ok(/🚕 Katarzyna · w kursie, wolny ok\. \d\d:\d\d → u klienta ok\. \d\d:\d\d/.test(m.text), "busy driver: 'w kursie, wolny ok. HH:MM → u klienta ok. HH:MM'",
    (m.text || "").split("\n").find((l) => /🚕 Katarzyna/.test(l)));
@@ -73,14 +73,14 @@ await tap(OWNER, resv.callback_data);
 // 6. small talk is not a ride; the AI being down falls back to the one-line format
 await reset(); await msg(OWNER, "co tam u ciebie słychać dzisiaj");
 ok(/Nie rozumiem/.test((await last(OWNER)).text || ""), "small talk -> 'Nie rozumiem' (no ride made)");
-await reset(); await msg(OWNER, "/kurs AWARIA Rynek 1 Knurów > Dworzec Gliwice, 600100202");
+await reset(); await msg(OWNER, "/kurs AWARIA Rynek 1 Przykładowo > Dworzec Gliwice, 600100202");
 m = await last(OWNER);
 ok(/KURS TERAZ/.test(m.text) && /Wpisałeś/.test(m.text), "Claude API down -> the one-line format still works", (m.text || "").split("\n")[0]);
 await tap(OWNER, "del|" + inl(m).find((b) => /^del\|/.test(b.callback_data)).callback_data.split("|")[1], m._mid);
 
 // 7. the board: grouped, legend, refresh; the old button name still works and the menu is renamed
 await fetch(S + "/api/rides", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "10.1.1.7" },
-  body: JSON.stringify({ mode: "now", pickup: { address: "Rynek 1, Knurów", lat: 50.2197, lng: 18.6767 }, dest: { address: "Dworzec PKP Gliwice", lat: 50.3008, lng: 18.6635 }, phone: "600100300", name: "Jan", pax: 1 }) });
+  body: JSON.stringify({ mode: "now", pickup: { address: "Rynek 1, Przykładowo", lat: 50.2197, lng: 18.6767 }, dest: { address: "Dworzec PKP Gliwice", lat: 50.3008, lng: 18.6635 }, phone: "600100300", name: "Jan", pax: 1 }) });
 await reset(); await msg(OWNER, "🗂 Kursy w toku");
 m = await last(OWNER);
 ok(/Kursy w toku/.test(m.text) && /Kierowcy: 🟢 wolni \d · 🚕 w kursie 1/.test(m.text), "board header: drivers free / on a ride / off duty", (m.text || "").split("\n").slice(0, 2).join(" / "));
@@ -102,7 +102,7 @@ ok(/Głosówki nie są jeszcze włączone/.test((await last(OWNER)).text || ""),
 // 9. questions about the reports in plain words; a driver only gets his own numbers
 await reset(); await msg(OWNER, "Ile kursów było dzisiaj?");
 m = await last(OWNER);
-ok(/^📊 Dziś \(\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}\): \d+ kursów, kierowca: all/.test(m.text || ""), "Adam asks 'Ile kursów było dzisiaj?' -> answer from the report", m.text);
+ok(/^📊 Dziś \(\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}\): \d+ kursów, kierowca: all/.test(m.text || ""), "the owner asks 'Ile kursów było dzisiaj?' -> answer from the report", m.text);
 await reset(); await msg(MAREK, "Ile zarobiła Kasia dzisiaj?");
 m = await last(MAREK);
 ok(/kierowca: Marek Nowak/.test(m.text || ""), "a driver asking about someone else gets only his own report", m.text);

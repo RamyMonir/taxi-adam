@@ -1,4 +1,4 @@
--- Chat between the customer (ride status page) and the driver / Adam (Telegram) – server/chat.js.
+-- Chat between the customer (ride status page) and the driver / the owner (Telegram) – server/chat.js.
 --
 -- EXISTING production database: you do NOT have to run this – server/chat.js creates the tables itself on first use.
 -- Run it only on a NEW database, after 0001–0003, before the first deploy.

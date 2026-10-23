@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tabela cen „od” z każdej miejscowości na 6 lotnisk (do potwierdzenia z Adamem).
+"""Tabela cen „od” z każdej miejscowości na 6 lotnisk (do potwierdzenia z właścicielem).
 Uruchom:  py scripts/price_table.py   (wynik w Markdown; * = wyjątek z prices.json)"""
 import os, sys
 sys.stdout.reconfigure(encoding="utf-8")   # Polish letters also in the Windows console

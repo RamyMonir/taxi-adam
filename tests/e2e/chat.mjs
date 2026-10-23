@@ -1,4 +1,4 @@
-// Customer ↔ taxi chat, end to end: status page API -> Telegram (Adam, then the assigned driver) -> replies and quick
+// Customer ↔ taxi chat, end to end: status page API -> Telegram (the owner, then the assigned driver) -> replies and quick
 // buttons -> status lines -> closed after the ride. A reservation, so it runs at any hour.
 // Needs fake Telegram :8999, fake Google :8998, wrangler with the fleet sync ON and CHAT_CLOSE_MIN=0.05 – see README.
 import { nowWarsaw } from "../../server/util.js";
@@ -25,7 +25,7 @@ await tap(MAREK, "car|f_sgl1a234"); await loc(MAREK, 50.2215, 18.68);
 // a reservation in ~2 hours, booked on the website
 const t = nowWarsaw(130), when = t.slice(0, 15) + (+t[15] < 5 ? "0" : "5");
 const r = await fetch(S + "/api/rides", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "10.3.3.3" },
-  body: JSON.stringify({ mode: "later", when, pickup: { address: "Rynek 1, 44-190 Knurów", lat: 50.2197, lng: 18.6767 },
+  body: JSON.stringify({ mode: "later", when, pickup: { address: "Rynek 1, 00-000 Przykładowo", lat: 50.2197, lng: 18.6767 },
     dest: { address: "Dworzec PKP Gliwice", lat: 50.3008, lng: 18.6635 }, phone: "600100900", name: "Ewa", pax: 1, website: "" }) }).then((x) => x.json());
 ok(!!r.id && !!r.token, "reservation booked", r.error || "");
 const get = (after = 0, token = r.token) => fetch(`${S}/api/rides/${r.id}/messages?after=${after}`, { headers: { "X-Ride-Token": token } }).then(async (x) => ({ status: x.status, ...(await x.json()) }));
@@ -37,21 +37,21 @@ ok(g.status === 200 && g.open === true && g.messages.length === 0, "GET: chat op
 ok((await get(0, "x".repeat(24))).status === 404 && (await post("hej", "x".repeat(24))).status === 404, "wrong token -> 404 (the ride stays private)");
 ok((await post("")).status === 400 && (await post("x".repeat(501))).error === "long", "empty -> 400, 501 characters -> 'long'");
 
-// 1. no driver yet -> Adam gets it, formatted, with quick replies; he answers by replying
+// 1. no driver yet -> the owner gets it, formatted, with quick replies; he answers by replying
 await reset();
 let p = await post("Jestem przed budynkiem");
 let m = (await sentTo(OWNER)).pop() || {};
 const qb = (m.reply_markup?.inline_keyboard || []).flat();
-ok(p.ok && /^💬 <b>Klient<\/b> · kurs #[a-z0-9]{6} · Rynek 1\n\nJestem przed budynkiem/.test(m.text || ""), "no driver -> Adam's chat: '💬 Klient · kurs #… · Rynek 1' + the text", (m.text || "").split("\n")[0]);
+ok(p.ok && /^💬 <b>Klient<\/b> · kurs #[a-z0-9]{6} · Rynek 1\n\nJestem przed budynkiem/.test(m.text || ""), "no driver -> the owner's chat: '💬 Klient · kurs #… · Rynek 1' + the text", (m.text || "").split("\n")[0]);
 ok(/Odpowiedz na tę wiadomość/.test(m.text || "") && qb.map((b) => b.text).join("|") === "Jadę|Będę za 5 min|Jestem na miejscu|Proszę wyjść przed budynek",
    "hint + 4 quick replies under it", qb.map((b) => b.text).join(" | "));
 await msg(OWNER, "Dzień dobry, zaraz przydzielę kierowcę", { reply_to_message: { message_id: m._mid } });
 g = await get();
 const last = (x) => x.messages[x.messages.length - 1] || {};
-ok(last(g).from === "taxi" && last(g).who === BRAND.short && last(g).text === "Dzień dobry, zaraz przydzielę kierowcę", "Adam replies -> customer sees it signed 'Taxi Adam'");
-ok((await log()).some((x) => x.method === "setMessageReaction"), "Adam's reply gets a quiet 👍 instead of another message");
+ok(last(g).from === "taxi" && last(g).who === BRAND.short && last(g).text === "Dzień dobry, zaraz przydzielę kierowcę", "the owner replies -> customer sees it signed 'Taxi the owner'");
+ok((await log()).some((x) => x.method === "setMessageReaction"), "the owner's reply gets a quiet 👍 instead of another message");
 
-// 2. Adam gives the reservation to Marek -> status line; Marek gets what the customer said before; new messages go to Marek
+// 2. the owner gives the reservation to Marek -> status line; Marek gets what the customer said before; new messages go to Marek
 const offer = (await log()).filter((x) => String(x.chat_id) === String(OWNER) && x.reply_markup?.inline_keyboard?.flat().some((b) => b.callback_data === `g|${r.id}|f_k1`)).pop();
 await reset(); await tap(OWNER, `g|${r.id}|f_k1`, offer && offer._mid);
 g = await get();
@@ -59,7 +59,7 @@ ok(g.messages.some((x) => x.from === "system" && /^Rezerwacja potwierdzona – k
 ok((await sentTo(MAREK)).some((x) => /Klient pisał wcześniej:\n• Jestem przed budynkiem/.test(x.text || "")), "Marek gets the earlier customer message");
 await reset(); p = await post("Mam dużo bagażu");
 const toMarek = (await sentTo(MAREK)).pop() || {};
-ok(/Mam dużo bagażu/.test(toMarek.text || "") && !(await sentTo(OWNER)).some((x) => /Mam dużo bagażu/.test(x.text || "")), "driver assigned -> the next message goes to Marek, not Adam");
+ok(/Mam dużo bagażu/.test(toMarek.text || "") && !(await sentTo(OWNER)).some((x) => /Mam dużo bagażu/.test(x.text || "")), "driver assigned -> the next message goes to Marek, not the owner");
 
 // 3. Marek: a quick reply button and a typed reply; Kasia can't answer someone else's ride
 await reset(); await tap(MAREK, `cm|${r.id}|0`, toMarek._mid);

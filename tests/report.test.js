@@ -11,12 +11,12 @@ const trip = (id, drv, name, car, carLabel, time, from, to, paid, method) => ({
 const rows = [
   trip("a", "demo_d1", "Marek Nowak", "demo_c1", "Toyota Corolla · SGL 1A234", "07:40", "Rynek", "Dworzec Gliwice", 85, "gotówka"),
   trip("b", "demo_d1", "Marek Nowak", "demo_c1", "Toyota Corolla · SGL 1A234", "08:55", "Szpitalna", "Galeria Gliwice", 120, "karta"),
-  trip("c", "demo_d2", "Katarzyna Wójcik", "demo_c2", "Škoda Octavia · SGL 2B567", "09:30", "Dworcowa", "Gierałtowice", 60, "gotówka"),
-  trip("d", "owner", "Adam", "demo_c3", "Toyota Camry · SK 3C890", "13:10", "Knurów", "Uzdrowisko Goczałkowice", 180, "przelew"),
+  trip("c", "demo_d2", "Katarzyna Wójcik", "demo_c2", "Škoda Octavia · SGL 2B567", "09:30", "Dworcowa", "Nowa Wieś", 60, "gotówka"),
+  trip("d", "owner", "Jan", "demo_c3", "Toyota Camry · SK 3C890", "13:10", "Przykładowo", "Uzdrowisko Goczałkowice", 180, "przelew"),
   { id: "e", day: "2026-10-10", status: "cancelled", driver_id: "demo_d1", price: 40 },
 ];
 const drivers = [
-  { id: "owner", name: "Adam", owner: 1 },
+  { id: "owner", name: "Jan", owner: 1 },
   { id: "demo_d1", name: "Marek Nowak", pay_model: "percent", driver_pct: 50 },
   { id: "demo_d2", name: "Katarzyna Wójcik", pay_model: "daily_fee", daily_fee: 120 },
 ];
@@ -59,7 +59,7 @@ test("driver summary: only his rides, his cars, share and hand-in", () => {
   assert.match(t, /gotówka u Ciebie: 85,00 zł/);
   assert.match(t, /Twój udział \(50%\): 102,50 zł/);
   assert.match(t, /Firma dopłaca Ci: 17,50 zł/);
-  assert.ok(!/Gierałtowice/.test(t));
+  assert.ok(!/Nowa Wieś/.test(t));
 });
 
 test("names typed in Telegram are escaped", () => {

@@ -5,7 +5,7 @@
 @font-face{font-family:'Archivo';font-style:normal;font-display:swap;font-weight:100 900;font-stretch:62% 125%;src:url(/assets/fonts/archivo-latin-ext-wdth-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:'Atkinson Hyperlegible';font-style:normal;font-display:swap;font-weight:400;src:url(/assets/fonts/atkinson-hyperlegible-latin-ext-400-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:'Atkinson Hyperlegible';font-style:normal;font-display:swap;font-weight:700;src:url(/assets/fonts/atkinson-hyperlegible-latin-ext-700-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
-/* Taxi Knurów Adam Mączka — style
+/* Taxi booking site — style
    Brand from the logo: night navy, electric blue, taxi yellow/amber, white. */
 :root{
   --navy:#0A1430; --navy-2:#101F45; --navy-3:#1A2C5E; --night:#060B19;
@@ -621,7 +621,7 @@ body{overflow-x:clip}
 .seg-btn.off{opacity:.55}
 .seg-btn.off small{color:var(--yellow)}
 
-/* ---------- fleet: Adam's cars ---------- */
+/* ---------- fleet: the company's cars ---------- */
 .fleet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
 .car{border-radius:var(--radius-l);overflow:hidden;background:var(--card);border:1px solid var(--card-line);color:#EEF2FB;
   box-shadow:0 30px 60px -34px rgba(0,0,0,.7);display:flex;flex-direction:column}

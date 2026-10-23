@@ -1,4 +1,4 @@
--- Baseline: the tables the app has been creating by itself (server/*.js) up to Taxi-Knurow-V3 1e8c964.
+-- Baseline: the tables the app has been creating by itself (server/*.js) up to Taxi-Przykladowo-V3 1e8c964.
 -- Safe on an existing database (IF NOT EXISTS). For a NEW database run this and 0002 before the first deploy:
 --   npx wrangler d1 migrations apply taxi-knurow --remote
 CREATE TABLE IF NOT EXISTS rides (

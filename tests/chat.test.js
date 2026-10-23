@@ -6,7 +6,7 @@ import { hit } from "../server/ratelimit.js";
 import { OWNER, BRAND } from "../server/brand.js";
 
 const env = { TELEGRAM_CHAT_ID: "999" };
-const ride = (status, data = {}, extra = {}) => ({ id: "abcdef123456", status, updated: Date.now(), data: { pickup: { address: "Rynek 1, Knurów" }, ...data }, ...extra });
+const ride = (status, data = {}, extra = {}) => ({ id: "abcdef123456", status, updated: Date.now(), data: { pickup: { address: "Rynek 1, Przykładowo" }, ...data }, ...extra });
 
 test("message text: HTML stripped, control characters out, 1–500 characters", () => {
   assert.deepEqual(cleanText("  <b>Jestem</b> przed <script>x</script>budynkiem  "), { text: "Jestem przed xbudynkiem" });
@@ -30,13 +30,13 @@ test("chat window: open rides, then 2 hours after the end; drafts never", () => 
   assert.equal(chatOpen(ride("done", {}, { updated: now - 2 * 60000 }), { CHAT_CLOSE_MIN: "1" }, now), false, "CHAT_CLOSE_MIN for tests");
 });
 
-test("routing: no driver -> Adam; assigned driver -> his chat; Adam driving himself -> Adam", () => {
+test("routing: no driver -> the owner; assigned driver -> his chat; the owner driving himself -> the owner", () => {
   assert.deepEqual(routeOf(ride("pending"), env), { chat: "999", sender: "owner" });
   assert.deepEqual(routeOf(ride("enroute", { driverId: "f_k1", chat: "4101" }), env), { chat: "4101", sender: "driver" });
   assert.deepEqual(routeOf(ride("enroute", { driverId: "owner", chat: "999" }), env), { chat: "999", sender: "owner" });
 });
 
-test("what the customer sees: no Telegram ids, signed Kierowca / Taxi Adam", () => {
+test("what the customer sees: no Telegram ids, signed Kierowca / Taxi the owner", () => {
   const row = { id: 7, sender: "driver", text: "Jadę", created_at: 1, tg_chat_id: "4101", tg_message_id: 55 };
   const p = publicMessage(row);
   assert.deepEqual(p, { id: 7, from: "taxi", who: "Kierowca", text: "Jadę", at: 1 });
@@ -54,7 +54,7 @@ test("system lines per status (one kind each)", () => {
   assert.equal(systemLine(ride("pending")), null);
 });
 
-test("who may answer: Adam always, a driver only on his own ride", () => {
+test("who may answer: the owner always, a driver only on his own ride", () => {
   const r = ride("enroute", { driverId: "f_k1", chat: "4101" });
   assert.equal(canAnswer(r, { id: "owner", owner: 1 }), true);
   assert.equal(canAnswer(r, { id: "f_k1" }), true);
