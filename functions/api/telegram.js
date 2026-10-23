@@ -18,6 +18,7 @@ import { modelOf, modelLabel } from "../../server/settle.js";
 import { aiOn, voiceOn, aiParse, missingOf, understoodText, transcribe } from "../../server/ai.js";
 import { rideBoard } from "../../server/board.js";
 import { assign, setVehicle } from "../../server/assign.js";
+import { chatOpen, canAnswer, taxiSays, rideByTg, cleanText, QUICK_TAXI, MAX_LEN } from "../../server/chat.js";
 import { askReports, looksLikeQuestion } from "../../server/ask.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
@@ -333,6 +334,22 @@ async function phoneRide(env, request, drv, p, said) {
   await save(env, r);
 }
 
+// the driver/Adam replied to a "💬 Klient" message: the text goes to that ride's chat
+async function chatReply(env, drv, m, text) {
+  const rid = await rideByTg(env, m.chat.id, m.reply_to_message.message_id).catch(() => null);
+  if (!rid) return false;
+  const r = await load(env, rid);
+  if (!r || !canAnswer(r, drv)) { await say(env, drv.chat_id, "Ten kurs ma już innego kierowcę – klient pisze teraz do niego.", { reply_to_message_id: m.message_id }); return true; }
+  if (!chatOpen(r, env)) { await say(env, drv.chat_id, "Czat tego kursu jest już zamknięty.", { reply_to_message_id: m.message_id }); return true; }
+  const c = cleanText(text);
+  if (c.error) { await say(env, drv.chat_id, `Wiadomość może mieć najwyżej ${MAX_LEN} znaków.`, { reply_to_message_id: m.message_id }); return true; }
+  await taxiSays(env, r, drv, c.text);
+  // a quiet ✓ instead of another message
+  const ok = await tg(env, "setMessageReaction", { chat_id: drv.chat_id, message_id: m.message_id, reaction: [{ type: "emoji", emoji: "👍" }] });
+  if (!ok || !ok.ok) await say(env, drv.chat_id, "✅ Klient dostał wiadomość.", { reply_to_message_id: m.message_id });
+  return true;
+}
+
 // "🗂 Kursy w toku" – the board (server/board.js); "🔄 Odśwież" redraws the same message
 async function openRidesList(env, drv, oldButton = false) {
   const b = await rideBoard(env);
@@ -543,6 +560,8 @@ async function handle(request, env, u) {
         await say(env, drv.chat_id, `💰 Zapisano: ${String(p.amount).replace(".", ",")} zł${p.method ? " · " + p.method : ""}`, { reply_to_message_id: u.message.message_id });
         return json({ ok: true });
       }
+      // a reply to a customer's chat message -> to the customer's status page
+      if (await chatReply(env, drv, u.message, text)) return json({ ok: true });
     }
     const mapped = MENU_CMD[text.trim()];
     if ((mapped || text.startsWith("/")) && drv.await_ride && !/^\/kurs\b/.test(mapped || "")) await setAwait(env, drv, null);   // a button = he moved on
@@ -565,6 +584,16 @@ async function handle(request, env, u) {
   const clearButtons = () => q.message?.message_id && tg(env, "editMessageReplyMarkup", { chat_id: me.chat_id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } });
 
   if (await fleetCallback(env, q, me, answer)) return json({ ok: true });   // cars, photos, settlements
+  if (String(q.data || "").startsWith("cm|")) {   // quick reply under a customer's chat message
+    const [, rid, n] = String(q.data).split("|");
+    const r = await load(env, rid), line = QUICK_TAXI[parseInt(n, 10)];
+    if (!r || !line) { await answer("Ten przycisk jest już nieaktualny", true); return json({ ok: true }); }
+    if (!canAnswer(r, me)) { await answer("To nie Twój kurs", true); return json({ ok: true }); }
+    if (!chatOpen(r, env)) { await answer("Czat tego kursu jest już zamknięty", true); return json({ ok: true }); }
+    await taxiSays(env, r, me, line);
+    await answer(`Wysłano do klienta: ${line}`);
+    return json({ ok: true });
+  }
   if (q.data === "brd|-") {   // "🔄 Odśwież" on the board
     if (!me.owner) { await answer("Tylko Adam", true); return json({ ok: true }); }
     const b = await rideBoard(env);

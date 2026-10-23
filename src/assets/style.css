@@ -1026,3 +1026,37 @@ section:not(.hero) .wrap>p+h2,section:not(.hero) .wrap>ul+h2{margin-top:1.4em}
   body.is-lite .hero .wrap>.book{order:-1;margin-bottom:22px}
   body.is-lite .hero .hero-logo{display:none}
 }
+
+/* ---------- chat on the ride status page (server/chat.js) ---------- */
+.chat{margin-top:16px;background:rgba(11,22,50,.85);border:1px solid var(--card-line);border-radius:20px;padding:18px 18px 14px;color:#fff}
+.chat-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
+.chat-head h2{font-size:1.15rem;margin:0;color:#fff}
+.chat-who{color:#9FB0D3;font-size:.92rem}
+.chat-list{list-style:none;margin:0;padding:2px 2px 6px;display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;scroll-behavior:smooth}
+.chat-list:empty{display:none}
+.chat-msg{max-width:86%;padding:9px 13px;border-radius:16px;line-height:1.4;overflow-wrap:anywhere;white-space:pre-wrap}
+.chat-msg.taxi{align-self:flex-start;background:#1A2B55;border-bottom-left-radius:5px}
+.chat-msg.me{align-self:flex-end;background:var(--blue);border-bottom-right-radius:5px}
+.chat-msg.sys{align-self:center;max-width:100%;background:transparent;color:#9FB0D3;font-size:.9rem;text-align:center;padding:2px 8px}
+.chat-meta{display:block;font-size:.78rem;color:#C5D0E8;margin-bottom:2px;font-weight:700}
+.chat-msg.me .chat-meta{color:#E3EBFF}
+.chat-empty{color:#C5D0E8;font-size:.98rem;margin:0 0 12px}
+.chat-quick{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chat-chip{font:inherit;font-size:.92rem;color:#fff;background:transparent;border:1px solid #3A5089;border-radius:999px;padding:7px 13px;cursor:pointer;transition:background .2s,border-color .2s}
+.chat-chip:hover,.chat-chip:focus-visible{background:#1A2B55;border-color:var(--yellow)}
+.chat-form{display:flex;gap:8px;align-items:flex-end}
+.chat-form textarea{flex:1;font:inherit;font-size:1rem;color:#fff;background:var(--card-field);border:1px solid #3A5089;border-radius:14px;padding:10px 12px;resize:none;min-height:44px;max-height:140px;line-height:1.35}
+.chat-form textarea::placeholder{color:#7F8FB5}
+.chat-form textarea:focus{outline:2px solid var(--yellow);outline-offset:1px}
+.chat-send{min-height:44px;white-space:nowrap}
+.chat-form.busy .chat-send{opacity:.6;pointer-events:none}
+.chat-note{min-height:1.2em;margin:6px 2px 0;font-size:.88rem;color:#FFD66B}
+.chat-note span{color:#9FB0D3}
+.chat-fab{display:none}
+.chat-fab.near{display:none!important}   /* the chat itself is on screen */
+@media (max-width:920px){
+  .chat-fab:not([hidden]){display:grid;place-items:center;position:fixed;right:16px;bottom:calc(var(--bar-h,0px) + env(safe-area-inset-bottom,0px) + 16px);width:56px;height:56px;border-radius:50%;
+    background:var(--yellow);color:var(--ink);font-size:1.5rem;text-decoration:none;box-shadow:0 10px 24px -8px rgba(0,0,0,.55);z-index:40}
+  .chat-badge{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#E5484D;color:#fff;font:700 .78rem/22px var(--font-body);text-align:center}
+}
+@media (prefers-reduced-motion:reduce){.chat-list{scroll-behavior:auto}}
