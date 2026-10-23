@@ -20,7 +20,7 @@ export function payFields(pay) {
 const same = (a, b) => (a ?? null) === (b ?? null) || String(a ?? "") === String(b ?? "");
 
 // file (cfg) vs database rows -> what to change
-// removed = file drivers Adam removed in Telegram (🗑): left alone until they get a new key in the file
+// removed = file drivers the owner removed in Telegram (🗑): left alone until they get a new key in the file
 export function planFleetSync(cfg, carRows, driverRows, removed = new Set()) {
   const plan = { addCars: [], updateCars: [], retireCars: [], addDrivers: [], updateDrivers: [], retireDrivers: [] };
   const filePlates = new Set();
@@ -72,11 +72,11 @@ export async function ensureFleetSynced(env, { force = false } = {}) {
     const row = await d.prepare("SELECT v FROM meta WHERE k = 'fleet_hash'").first();
     if (row && row.v === f.hash) { syncedHash = f.hash; return null; }
   }
-  await ensureOwner(env);   // creates the drivers table + Adam's row
+  await ensureOwner(env);   // creates the drivers table + the owner's row
   const [cars, drivers, rm] = await Promise.all([d.prepare("SELECT * FROM cars").all(), d.prepare("SELECT * FROM drivers").all(),
     d.prepare("SELECT v FROM meta WHERE k = 'fleet_removed'").first()]);
   const plan = planFleetSync(f, cars.results || [], drivers.results || [], new Set(JSON.parse((rm && rm.v) || "[]")));
-  // claim the change, so two requests at the same moment don't both send Adam the links
+  // claim the change, so two requests at the same moment don't both send the owner the links
   const claim = await d.prepare("INSERT INTO meta (k, v) VALUES ('fleet_hash', ?1) ON CONFLICT(k) DO UPDATE SET v = ?1 WHERE v IS NOT ?1").bind(f.hash).run();
   const mine = force || !!(claim && claim.meta && claim.meta.changes);
   syncedHash = f.hash;
@@ -121,7 +121,7 @@ async function applyPlan(env, d, plan) {
   const bot = await botUsername(env).catch(() => null);
   const pending = (await d.prepare("SELECT name, code FROM drivers WHERE id LIKE 'f\\_%' ESCAPE '\\' AND active = 1 AND chat_id IS NULL AND code IS NOT NULL ORDER BY created").all()).results || [];
   out.invites = pending.map((p) => ({ name: p.name, link: bot ? `https://t.me/${bot}?start=d_${p.code}` : `d_${p.code}` }));
-  // tell Adam what changed (only when something did)
+  // tell the owner what changed (only when something did)
   if ((out.added.length || out.updated || out.retired) && env.TELEGRAM_CHAT_ID) {
     const L = ["🔄 <b>Flota zaktualizowana z pliku</b>"];
     if (out.added.length) L.push("Dodano: " + out.added.join(", "));

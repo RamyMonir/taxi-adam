@@ -1,4 +1,4 @@
-// Telegram bot: cars (check-in per shift), photos, Adam's car / commission commands, settlement buttons.
+// Telegram bot: cars (check-in per shift), photos, the owner's car / commission commands, settlement buttons.
 // Button-first: picking, switching and giving back a car is one tap. Texts in Polish only.
 import { tg, db, isLive } from "./rides.js";
 import { buildReport } from "./report.js";
@@ -8,6 +8,7 @@ import { listCars, freeCars, checkIn, hasOpenRide, release, releaseCar, addCar, 
 import { saveTelegramPhoto, profilePhotoId, pickSize, photosEnabled } from "./photos.js";
 import { modelOf, modelLabel } from "./settle.js";
 import { CONFIG } from "./config.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
 const btn = (text, data) => ({ text, callback_data: data });
 const say = (env, chat, text, extra = {}) => tg(env, "sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, ...extra });
@@ -21,7 +22,7 @@ export async function carPickerBody(env, drv, header) {
   if (mine) L.push(`🚗 <b>Twoje auto:</b> ${esc(carLong(mine))} (od ${hhmm(mine.held_since)})`);
   const other = cars.filter((c) => c.id !== mine?.id && !free.includes(c));
   if (free.length) L.push("", mine ? "Zmień na:" : "<b>Wybierz auto</b> – klient zobaczy je i rejestrację:");
-  else if (!mine) L.push("", "😕 Brak wolnych aut – zapytaj Adama.");
+  else if (!mine) L.push("", `😕 Brak wolnych aut – zapytaj ${OWNER.gen}.`);
   for (const c of other) {
     L.push(c.status === "service" ? `🔧 ${esc(carLabel(c))} – w serwisie${c.note ? ": " + esc(c.note) : ""}` : `🔒 ${esc(carLabel(c))} – jeździ ${esc(c.holder_name || "inny kierowca")}`);
   }
@@ -36,7 +37,7 @@ export async function sendCarPicker(env, drv, header = "🚗 <b>Auto na zmianę<
 const editMsg = (env, q, text, rows = []) => tg(env, "editMessageText", { chat_id: q.message.chat.id, message_id: q.message.message_id, text,
   parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } });
 
-// "Dziś: 5 kursów · 420 zł" for this driver (Adam: his own rides)
+// "Dziś: 5 kursów · 420 zł" for this driver (the owner: his own rides)
 export async function todayLine(env, drv) {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Warsaw" });
   const rep = await buildReport(env, today, today, drv.owner ? null : drv.id).catch(() => null);
@@ -105,8 +106,8 @@ export async function fleetCallback(env, q, me, answer) {
     return true;
   }
   if (act === "ph") return photoCallback(env, q, me, id, answer);
-  if (act === "stl") {   // Adam: "✅ Marek rozliczony" under the evening report
-    if (!me.owner) { await answer("Tylko Adam", true); return true; }
+  if (act === "stl") {   // the owner: "✅ Marek rozliczony" under the evening report
+    if (!me.owner) { await answer(`Tylko ${OWNER.nom}`, true); return true; }
     await (await db(env)).prepare("UPDATE settlements SET settled_at = ?, settled_by = ? WHERE day = ? AND driver_id = ?").bind(Date.now(), me.id, id, arg).run();
     await answer("✅ Zapisano: rozliczone");
     const kb = (q.message.reply_markup?.inline_keyboard || []).map((row) => row.filter((b) => b.callback_data !== q.data)).filter((row) => row.length);
@@ -118,7 +119,7 @@ export async function fleetCallback(env, q, me, answer) {
 
 /* ---------------- photos ---------------- */
 export async function photoMenu(env, drv) {
-  if (!photosEnabled(env)) return say(env, drv.chat_id, "📸 Zdjęcia są jeszcze wyłączone (Adam musi włączyć R2 i PHOTO_SECRET).");
+  if (!photosEnabled(env)) return say(env, drv.chat_id, `📸 Zdjęcia są jeszcze wyłączone (${OWNER.nom} musi włączyć R2 i PHOTO_SECRET).`);
   const rows = [[btn("📸 Użyj zdjęcia z profilu Telegram", "ph|prof")], [btn("📤 Wyślę inne zdjęcie", "ph|up")]];
   if (drv.photo_key) rows.push([btn("🗑 Usuń moje zdjęcie", "ph|del")]);
   return say(env, drv.chat_id,
@@ -149,7 +150,7 @@ async function photoCallback(env, q, me, what, answer) {
   }
   return false;
 }
-// a photo sent after /zdjecie (driver) or /zdjecieauta N (Adam)
+// a photo sent after /zdjecie (driver) or /zdjecieauta N (the owner)
 export async function onPhotoMessage(env, drv, msg) {
   const target = drv.await_photo;
   if (!target) return false;
@@ -174,7 +175,7 @@ export const FLEET_OWNER_HELP =
 export async function fleetCommand(env, drv, cmd, arg) {
   const chat = drv.chat_id;
   if (cmd === "auto") {
-    if (/;/.test(arg)) await say(env, chat, drv.owner ? "Auta dodajesz teraz komendą /dodajauto (lista: /auta)." : "Auta dodaje Adam. Wybierz auto z listy:");
+    if (/;/.test(arg)) await say(env, chat, drv.owner ? "Auta dodajesz teraz komendą /dodajauto (lista: /auta)." : `Auta dodaje ${OWNER.nom}. Wybierz auto z listy:`);
     await sendCarPicker(env, drv); return true;
   }
   if (cmd === "oddaj") {
@@ -186,7 +187,7 @@ export async function fleetCommand(env, drv, cmd, arg) {
   }
   if (cmd === "zdjecie" || cmd === "zdjęcie") { await photoMenu(env, drv); return true; }
   if (!OWNER_CMDS.includes(cmd)) return false;
-  if (!drv.owner) { await say(env, chat, "Tę komendę może użyć tylko Adam."); return true; }
+  if (!drv.owner) { await say(env, chat, `Tę komendę może użyć tylko ${OWNER.nom}.`); return true; }
 
   const cars = await listCars(env);
   const nth = (s) => cars[parseInt(s, 10) - 1];
@@ -227,7 +228,7 @@ export async function fleetCommand(env, drv, cmd, arg) {
   if (cmd === "zwolnij") {
     const who = await releaseCar(env, car.id, "admin");
     await say(env, chat, who ? `🔓 Zwolniono ${esc(carLabel(car))}.` : `${esc(carLabel(car))} jest już wolne.`);
-    if (who) await notifyHolder(env, who, `🔓 Adam zwolnił auto <b>${esc(carLabel(car))}</b>.`);
+    if (who) await notifyHolder(env, who, `🔓 ${OWNER.nom} zwolnił auto <b>${esc(carLabel(car))}</b>.`);
     return true;
   }
   if (cmd === "zdjecieauta") {

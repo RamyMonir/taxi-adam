@@ -251,8 +251,10 @@ PANEL_EXAMPLE = "Czerwionka → Pyrzowice 220 zł"
 # Przekierowania starych adresów (np. z poprzedniej strony firmy): (stary, nowy)
 REDIRECTS = [("/cennik-transfery-na-lotniska", "/lotniska/"), ("/kontakt.html", "/kontakt/")]
 # Przykładowe adresy w pomocy bota i AI (miasto bazowe i ulice z okolicy)
-EXAMPLES = {"town": "Knurów", "addr": "Rynek 1 Knurów", "addr2": "Lipowa 5 Gierałtowice", "street": "Szpitalna 5",
-            "probe": "Dworcowa Knurów", "region_en": "Silesia, Poland", "towns_en": "Knurów and Gierałtowice"}
+EXAMPLES = {"town": "Knurów", "addr": "Rynek 1 Knurów", "addr2": "Lipowa 5 Gierałtowice", "addr3": "Dworcowa 12 Knurów", "street": "Rynek 1",
+            "probe": "Dworcowa Knurów", "region_en": "Silesia, Poland", "towns_en": "Knurów and Gierałtowice",
+            "airport": "Pyrzowice", "airport_full": "Lotnisko Katowice-Pyrzowice", "station": "Dworzec Gliwice", "station_to": "do dworca w Gliwicach",
+            "station_full": "Dworzec PKP Katowice", "hospital": "Szpital Zabrze"}
 
 # ---------------- WERSJA LITE ----------------
 # True = strona bez systemu rezerwacji: klient wysyła kurs przez WhatsApp / SMS albo dzwoni, kierowca potwierdza.

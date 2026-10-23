@@ -6,7 +6,7 @@ from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
                   GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY,
                   OVERRIDES, WAITING, LITE_MODE, LITE_NOINDEX, PHONE2, CREDIT, OWNER, BRAND, AREA, MAIN_AIRPORT, SECOND_AIRPORT,
-                  AIRPORTS_GEN, EN_AIRPORTS, CHIPS, SERVICE_NOTES, FLEET_CARDS, PANEL_EXAMPLE, REDIRECTS)
+                  AIRPORTS_GEN, EN_AIRPORTS, CHIPS, SERVICE_NOTES, FLEET_CARDS, PANEL_EXAMPLE, REDIRECTS, EXAMPLES)
 A = AREA; MAIN = MAIN_AIRPORT["slug"]; SECOND = SECOND_AIRPORT["slug"]
 
 def L(full, lite):
@@ -61,7 +61,7 @@ def client_config(lang):
                                site=SITE_URL.split("//")[-1].replace("www.", ""),
                                places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES]), ensure_ascii=False)
     return json.dumps(dict(
-        lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
+        lang=lang, owner=OWNER["nom"], brand=BRAND["short"], brandName=B["name"], key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
         places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES], ts=TURNSTILE_SITE_KEY,
         chips=[dict(icon=i, label=l, **place_of({**DEST_BY_SLUG[s]})) for i, s, l in CHIPS],
@@ -81,6 +81,7 @@ def write_server_config():
         center2=dict(lat=GIERALTOWICE_CENTER[0], lng=GIERALTOWICE_CENTER[1]), center2Km=GIERALTOWICE_KM,
         commission=COMMISSION, fleet=fleet_config(), zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
         destinations=[dict(slug=d["slug"], code=d.get("code"), short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
+    cfg.update(owner=OWNER, brand=dict(short=BRAND["short"], name=B["name"], city=BRAND["city"]), examples=EXAMPLES)   # bot, SMS, chat, AI texts (server/brand.js)
     if LITE_MODE:   # panel: wersja lite + nazwy do edytora cen (te same slugi co w src/prices.json)
         cfg.update(lite=True, prices=__import__("data").PRICES, panel=dict(
             villages=[dict(slug=s, name=n, zone=z) for s, n, _l, z, _p in VILLAGES],

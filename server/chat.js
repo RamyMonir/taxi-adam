@@ -1,10 +1,11 @@
 // Chat between the customer (ride status page) and the taxi side, through the existing Telegram bot.
-// Customer -> the assigned driver's chat, or Adam's while nobody has the ride. The driver/Adam answers by REPLYING
+// Customer -> the assigned driver's chat, or the owner's while nobody has the ride. The driver/the owner answers by REPLYING
 // to that Telegram message (or with a quick-reply button); the status page polls GET /api/rides/:id/messages.
 // Status changes add short system lines ("Kierowca jest na miejscu"). The customer never sees a phone number,
-// a Telegram username or a chat id: replies are signed "Kierowca" / "Taxi Adam".
+// a Telegram username or a chat id: replies are signed "Kierowca" / "Taxi the owner".
 import { db, tg, OPEN } from "./rides.js";
 import { esc, clockWarsaw, whenLabel } from "./util.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
 export const MAX_LEN = 500;
 export const PER_MINUTE = 10, PER_RIDE = 60;
@@ -29,7 +30,7 @@ export function chatOpen(r, env, now = Date.now()) {
   if (OPEN.includes(r.status)) return true;
   return FINAL.includes(r.status) && now - (r.updated || 0) <= closeMs(env);
 }
-// who gets the customer's message: the driver who has the ride, else Adam
+// who gets the customer's message: the driver who has the ride, else the owner
 export function routeOf(r, env) {
   const d = (r && r.data) || {};
   if (d.driverId && d.chat) return { chat: String(d.chat), sender: d.driverId === "owner" ? "owner" : "driver" };
@@ -37,7 +38,7 @@ export function routeOf(r, env) {
 }
 // what the customer sees of one row (no Telegram ids)
 export function publicMessage(m) {
-  const who = { customer: "Ty", driver: "Kierowca", owner: "Taxi Adam", system: "" }[m.sender] ?? "";
+  const who = { customer: "Ty", driver: "Kierowca", owner: BRAND.short, system: "" }[m.sender] ?? "";
   return { id: m.id, from: m.sender === "customer" ? "me" : m.sender === "system" ? "system" : "taxi", who, text: m.text, at: m.created_at };
 }
 // system line for a status (once per status; null = none)
@@ -115,7 +116,7 @@ export async function purgeChat(env) {
 }
 
 /* ---------------- flows ---------------- */
-// customer -> taxi: stored, then sent to the driver (or Adam) with the quick-reply buttons
+// customer -> taxi: stored, then sent to the driver (or the owner) with the quick-reply buttons
 export async function customerSays(env, r, text) {
   const id = await addMessage(env, r.id, "customer", text);
   const to = routeOf(r, env);
@@ -124,7 +125,7 @@ export async function customerSays(env, r, text) {
   if (j && j.ok) await mapTg(env, to.chat, j.result.message_id, r.id, id);
   return id;
 }
-// driver/Adam -> customer (a reply or a quick button). me = the drivers row of who answered.
+// driver/the owner -> customer (a reply or a quick button). me = the drivers row of who answered.
 export function canAnswer(r, me) {
   if (!r || !me) return false;
   if (me.owner) return true;
@@ -134,7 +135,7 @@ export async function taxiSays(env, r, me, text) {
   return addMessage(env, r.id, me.owner ? "owner" : "driver", text);
 }
 // system line for the ride's current status (called after every change); when a driver gets a ride the customer
-// already wrote about, he gets those lines too, so nothing said to Adam is lost
+// already wrote about, he gets those lines too, so nothing said to the owner is lost
 export async function chatStatus(env, r) {
   const line = systemLine(r);
   if (!line) return;

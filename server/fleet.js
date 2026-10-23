@@ -1,16 +1,17 @@
-// Drivers: Adam (owner) + his drivers, all in ONE Telegram bot – each driver in his own private chat with it.
+// Drivers: the owner (owner) + his drivers, all in ONE Telegram bot – each driver in his own private chat with it.
 // A driver is "on duty" while he shares his live location with the bot.
 //
 // "Now" rides: offered to the nearest free driver on duty first; if he doesn't accept within a minute
-// (or declines), to every free driver on duty – the first to accept gets it. Nobody on duty -> Adam.
-// Reservations: go to Adam, who confirms and gives them to himself or to a driver.
+// (or declines), to every free driver on duty – the first to accept gets it. Nobody on duty -> the owner.
+// Reservations: go to the owner, who confirms and gives them to himself or to a driver.
 import { db, tg, isLive, saveIfUnchanged, load, driverText, keyboard, OPEN } from "./rides.js";
 import { route } from "./google.js";
 import { kmBetween, hasXY, randomId, esc, warsawMs, whenLabel, clockWarsaw } from "./util.js";
 import { CONFIG } from "./config.js";
 import { isDemo, release } from "./cars.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
-// may this driver get a "now" ride: joined, on shift, free, with a car (Adam may drive without picking one),
+// may this driver get a "now" ride: joined, on shift, free, with a car (the owner may drive without picking one),
 // enough seats in the car he holds. Demo drivers (seed data) never get rides.
 export function canDrive(x, busy, pax = 1) {
   if (!x || !x.chat_id || isDemo(x) || !isLive(x) || busy.has(x.id)) return false;
@@ -42,14 +43,14 @@ async function fdb(env) {
   return d;
 }
 
-// Adam's own row; the old single-driver location (table "driver") moves into it once
+// the owner's own row; the old single-driver location (table "driver") moves into it once
 export async function ensureOwner(env) {
   const d = await fdb(env);
   let o = await d.prepare("SELECT * FROM drivers WHERE id = 'owner'").first();
   if (!o) {
     const old = await d.prepare("SELECT lat, lng, ts, hint_ts, until FROM driver WHERE id = 1").first().catch(() => null);
     await d.prepare(`INSERT OR IGNORE INTO drivers (id, chat_id, name, active, owner, lat, lng, ts, until, hint_ts, created)
-                     VALUES ('owner', ?1, 'Adam', 1, 1, ?2, ?3, ?4, ?5, ?6, ?7)`)
+                     VALUES ('owner', ?1, '${OWNER.nom.replace(/'/g, "''")}', 1, 1, ?2, ?3, ?4, ?5, ?6, ?7)`)
       .bind(String(env.TELEGRAM_CHAT_ID || ""), old?.lat ?? null, old?.lng ?? null, old?.ts ?? null, old?.until ?? null, old?.hint_ts ?? null, Date.now()).run();
     o = await d.prepare("SELECT * FROM drivers WHERE id = 'owner'").first();
   } else if (env.TELEGRAM_CHAT_ID && o.chat_id !== String(env.TELEGRAM_CHAT_ID)) {
@@ -89,7 +90,7 @@ export async function markReminded(env, id) {
   await (await fdb(env)).prepare("UPDATE drivers SET reminded = ? WHERE id = ?").bind(Date.now(), id).run();
 }
 
-// Adam: "/dodaj Marek 600100200" -> a one-time code for the driver's invite link
+// the owner: "/dodaj Marek 600100200" -> a one-time code for the driver's invite link
 export async function addDriver(env, name, phone) {
   const id = randomId(6), code = randomId(10);
   await (await fdb(env)).prepare("INSERT INTO drivers (id, name, phone, code, active, owner, created) VALUES (?, ?, ?, ?, 1, 0, ?)")
@@ -114,7 +115,7 @@ export async function deactivateDriver(env, id) {
   await release(env, id, "admin").catch(() => null);   // his car is free again
   const d = await fdb(env);
   await d.prepare("UPDATE drivers SET active = 0, chat_id = NULL, code = NULL WHERE id = ? AND owner = 0").bind(id).run();
-  if (String(id).startsWith("f_")) {   // from src/fleet.py: Adam removed him, the next file sync must not bring him back
+  if (String(id).startsWith("f_")) {   // from src/fleet.py: the owner removed him, the next file sync must not bring him back
     await d.prepare("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)").run();
     const row = await d.prepare("SELECT v FROM meta WHERE k = 'fleet_removed'").first();
     const ids = new Set(JSON.parse((row && row.v) || "[]")); ids.add(id);
@@ -168,7 +169,7 @@ async function offerTo(env, r, drivers) {
   return out;
 }
 
-// Adam sees every ride, also those that went to a driver
+// the owner sees every ride, also those that went to a driver
 export function ownerInfoText(r) {
   const d = r.data, offers = d.offers || {};
   const who = d.driverId ? `👤 Kurs przyjął: <b>${esc(d.driver?.name || "")}</b>${d.driver?.car ? " · " + esc(d.driver.car) : ""}`
@@ -181,7 +182,7 @@ const shortA = (a) => String(a || "").split(",").slice(0, 2).join(",");
 
 async function ownerInfo(env, r, owner) {
   if (r.data.offers?.owner || r.data.driverId === "owner" || !owner?.chat_id) return;
-  // with the panel: Adam can take it himself or give it to someone else while nobody has accepted yet
+  // with the panel: the owner can take it himself or give it to someone else while nobody has accepted yet
   const a = await availability(env, r).catch(() => null);
   const j = await tg(env, "sendMessage", { chat_id: owner.chat_id, text: ownerInfoText(r) + (a ? "\n\n" + availabilityText(a) : ""), parse_mode: "HTML",
     disable_notification: true, reply_markup: { inline_keyboard: a ? await ownerPanel(env, r, a) : [] } });
@@ -198,7 +199,7 @@ export async function dispatchNew(env, r) {
     r.data.assignable = all.filter((x) => !x.owner && x.chat_id && !isDemo(x)).map((x) => ({ id: x.id, name: x.name || "kierowca" }));
   }
   else {
-    // the driver who is there soonest with traffic (a colliding reservation counts against him); Adam too when he's on duty
+    // the driver who is there soonest with traffic (a colliding reservation counts against him); the owner too when he's on duty
     const a = await availability(env, r);
     const free = a.free.map((w) => ({ x: w.x, s: w.etaS, clash: !!w.clash }));
     if (a.me) free.push({ x: a.me.x, s: a.me.etaS, clash: false });
@@ -218,7 +219,7 @@ export async function dispatchNew(env, r) {
 }
 
 // Next step for a "now" ride nobody has taken yet: after a minute (or a "no") -> every free driver;
-// everyone said no -> Adam; Adam said no too -> the customer sees "busy".
+// everyone said no -> the owner; the owner said no too -> the customer sees "busy".
 // Called by the customer's status page, the minute timer and the "no" button.
 export async function escalate(env, r) {
   for (let tries = 0; tries < 3; tries++) {
@@ -246,7 +247,7 @@ export async function escalate(env, r) {
         if (d.stage === "nearest") { d.stage = "all"; d.stageAt = Date.now(); if (await saveIfUnchanged(env, r, prev)) return r; r = await load(env, r.id); continue; }
         return r;
       }
-      if (d.stage === "manual" && d.ownerInfo) return r;   // Adam picked the driver: his panel stays open, he decides again
+      if (d.stage === "manual" && d.ownerInfo) return r;   // the owner picked the driver: his panel stays open, he decides again
       r.status = "declined"; d.declinedBy = "all";
       if (await saveIfUnchanged(env, r, prev)) return r;
       r = await load(env, r.id); continue;
@@ -267,8 +268,8 @@ export async function escalate(env, r) {
   return r;
 }
 
-/* ---------------- Adam's dispatch panel ---------------- */
-// Adam takes calls on his number: for a phone ride (and for website rides nobody has taken yet) he decides who drives –
+/* ---------------- the owner's dispatch panel ---------------- */
+// the owner takes calls on his number: for a phone ride (and for website rides nobody has taken yet) he decides who drives –
 // himself, the free drivers (nearest first), or one chosen driver. The panel shows who is free right now.
 const pbtn = (text, data) => ({ text, callback_data: data });
 const firstName = (n) => String(n || "").trim().split(/\s+/)[0] || "kierowca";
@@ -425,7 +426,7 @@ export async function offerToFree(env, r) {
   r.data.stage = a.free.length > 1 ? "nearest" : "all"; r.data.stageAt = Date.now();
   return Object.keys(sent).length;
 }
-// "🟢 Marek": offer it to one driver; if he says no, it comes back to Adam
+// "🟢 Marek": offer it to one driver; if he says no, it comes back to the owner
 export async function offerToDriver(env, r, drv) {
   const sent = await offerTo(env, r, [drv]);
   r.data.offers = { ...(r.data.offers || {}), ...sent };

@@ -73,7 +73,7 @@ export function period(p, today = nowWarsaw().slice(0, 10)) {
   return { from: today, to: today };
 }
 
-// a pickup/destination text grouped loosely: "ul. Szpitalna 25, Knurów" and "Szpitalna 25 Knurów" count together
+// a pickup/destination text grouped loosely: "ul. Szpitalna 25, Miasto" and "Szpitalna 25 Miasto" count together
 export const groupKey = (s) => String(s || "").toLowerCase().replace(/\b(ul|al|os|pl)\.?\s+/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 function top(rows, field, n = 10) {

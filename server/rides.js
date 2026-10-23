@@ -151,7 +151,7 @@ export async function refreshEta(env, r, pos, force = false) {
   if (!ok) r.stale = true;   // someone else changed the ride meanwhile: the caller should reload it
   return ok;
 }
-// rides this driver is driving right now (older rides without a driver belong to Adam)
+// rides this driver is driving right now (older rides without a driver belong to the owner)
 export async function activeRides(env, driverId = "owner") {
   const { results } = await (await db(env)).prepare(
     `SELECT * FROM rides WHERE status IN ('enroute','ontrip')
@@ -189,7 +189,7 @@ export function publicView(r, car, drv) {
   };
 }
 
-// Review link after the ride: the listing of the driver who drove it (Adam sets it with /wizytowka),
+// Review link after the ride: the listing of the driver who drove it (the owner sets it with /wizytowka),
 // otherwise the three listings in turn (same ride -> always the same one), so all three get reviews.
 export function reviewPlace(r) {
   const places = CONFIG.places || [];
@@ -357,7 +357,7 @@ export async function syncDriverMessage(env, r) {
   const edit = (chat, msg, text, kb) => tg(env, "editMessageText", { chat_id: chat, message_id: msg, text, parse_mode: "HTML",
     disable_web_page_preview: true, reply_markup: { inline_keyboard: kb } });
   if (r.status === "draft" && d.driverId === "owner" && r.tg_msg) {
-    // Adam's phone ride before he decides: preview + who is free + the panel
+    // the owner's phone ride before he decides: preview + who is free + the panel
     const a = await availability(env, r).catch(() => null);
     jobs.push(edit(d.chat || env.TELEGRAM_CHAT_ID, r.tg_msg, driverText(r) + (a ? "\n\n" + availabilityText(a) + "\n\n<b>Kto jedzie?</b>" : ""),
       a ? await ownerPanel(env, r, a) : keyboard(r)));
@@ -370,7 +370,7 @@ export async function syncDriverMessage(env, r) {
     }
   }
   if (d.ownerInfo) {
-    // while nobody has the ride, Adam's copy keeps the panel (who is free, give it to someone, take it himself)
+    // while nobody has the ride, the owner's copy keeps the panel (who is free, give it to someone, take it himself)
     const open = r.status === "pending" && !d.driverId;
     const a = open ? await availability(env, r).catch(() => null) : null;
     jobs.push(tg(env, "editMessageText", { chat_id: env.TELEGRAM_CHAT_ID, message_id: d.ownerInfo, text: ownerInfoText(r) + (a ? "\n\n" + availabilityText(a) : ""),

@@ -1,15 +1,16 @@
 // Rides taken over the phone: the driver types one line to the bot, e.g.
-//   /kurs Rynek 1 Knurów > Lotnisko Pyrzowice, jutro 14:30, 600 100 200, Pani Ewa, 3 os
+//   /kurs Rynek 1 > Lotnisko Pyrzowice, jutro 14:30, 600 100 200, Pani Ewa, 3 os
 // and the ride goes into the same system as online bookings (status, buttons, customer's live link).
 import { nowWarsaw, whenLabel } from "./util.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
 export const HELP =
   "📞 <b>Kurs z telefonu</b> – napisz jedną linijkę:\n" +
   "<code>/kurs SKĄD &gt; DOKĄD, KIEDY, TELEFON, IMIĘ</code>\n\n" +
   "Przykłady:\n" +
-  "<code>/kurs Rynek 1 Knurów &gt; Lotnisko Pyrzowice, jutro 14:30, 600100200, Pani Ewa</code>\n" +
-  "<code>/kurs Dworcowa 12 Knurów &gt; Dworzec Gliwice, 600100200</code>  (bez godziny = teraz)\n" +
-  "<code>/kurs Gierałtowice Lipowa 5 &gt; Szpital Zabrze, 12.11 7:15, 600100200, 2 os, uwagi: wózek</code>\n\n" +
+  `<code>/kurs ${EX.addr} &gt; ${EX.airport_full}, jutro 14:30, 600100200, Pani Ewa</code>\n` +
+  `<code>/kurs ${EX.addr3} &gt; ${EX.station}, 600100200</code>  (bez godziny = teraz)\n` +
+  `<code>/kurs ${EX.addr2} &gt; ${EX.hospital}, 12.11 7:15, 600100200, 2 os, uwagi: wózek</code>\n\n` +
   "Kiedy: <i>dziś / jutro / pojutrze / 12.11</i> + godzina <i>14:30</i>. Imię: <i>Pan …, Pani …</i> albo <i>imię: …</i>.\n" +
   "Najpierw pokażę podgląd – zapiszesz go jednym przyciskiem.";
 
@@ -100,7 +101,7 @@ export function customerWaUrl(r, origin) {
   if (num.length === 9) num = "48" + num;
   if (num.length < 11) return null;
   const when = d.when ? whenLabel(d.when) : "teraz";
-  const text = `Dzień dobry! Tu Taxi Knurów Adam. Potwierdzam kurs: ${when}, ${d.pickup.address} → ${d.dest.address}.` +
+  const text = `Dzień dobry! Tu ${BRAND.name}. Potwierdzam kurs: ${when}, ${d.pickup.address} → ${d.dest.address}.` +
     `\nTutaj zobaczysz na żywo, gdzie jest kierowca i kiedy dojedzie: ${origin}/przejazd/?id=${r.id}&t=${r.token}`;
   return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
 }

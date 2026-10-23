@@ -1,4 +1,4 @@
-// "🗂 Kursy w toku" – Adam's board: what needs him (rides without a driver), who is driving whom and when he'll be free,
+// "🗂 Kursy w toku" – the owner's board: what needs him (rides without a driver), who is driving whom and when he'll be free,
 // and the reservations. One message, grouped, with a legend; "🔄 Odśwież" redraws it.
 import { db, OPEN } from "./rides.js";
 import { listDrivers, busyDriverIds, canDrive, freeAtOf } from "./fleet.js";

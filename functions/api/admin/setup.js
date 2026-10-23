@@ -7,6 +7,7 @@ import { ensureFleetSynced } from "../../../server/fleetsync.js";
 import { reviews, autocomplete, reverseGeocode } from "../../../server/google.js";
 import { lookupFlight } from "../../../server/flights.js";
 import { CONFIG } from "../../../server/config.js";
+import { OWNER, BRAND, EX } from "../../../server/brand.js";
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
@@ -44,7 +45,7 @@ export async function onRequestGet({ request, env }) {
       { command: "start", description: "Pokaż menu z przyciskami" },
     ];
     const cmds = await tg(env, "setMyCommands", { commands: driverCmds });
-    // Adam's chat: + fleet and settlement commands
+    // the owner's chat: + fleet and settlement commands
     if (env.TELEGRAM_CHAT_ID) await tg(env, "setMyCommands", { scope: { type: "chat", chat_id: Number(env.TELEGRAM_CHAT_ID) }, commands: [
       { command: "kurs", description: "Nowy kurs z telefonu – potem wybierasz, kto jedzie" },
       { command: "kursy", description: "Kursy w toku: co czeka na kierowcę, kto jedzie, rezerwacje" },
@@ -70,7 +71,7 @@ export async function onRequestGet({ request, env }) {
   // Google + flight checks: show Google's own error message when something isn't enabled
   const check = async (name, fn) => { try { report[name] = await fn(); } catch (e) { report[name] = "ERROR " + e.message; } };
   await check("google_reviews", async () => { const r = await reviews(env); return `${r.place}: ${r.rating}★, ${r.count} opinii, pobrano ${r.fetched}, pokazane ${r.reviews.length}`; });
-  await check("google_autocomplete", async () => { const s = await autocomplete(env, "Dworcowa Knurów", "setupcheck123", CONFIG.base); return s.length ? "OK – " + s[0].main : "no results"; });
+  await check("google_autocomplete", async () => { const s = await autocomplete(env, EX.probe, "setupcheck123", CONFIG.base); return s.length ? "OK – " + s[0].main : "no results"; });
   await check("google_reverse_geocode", async () => { const r = await reverseGeocode(env, CONFIG.base.lat, CONFIG.base.lng); return r ? r.address + (r.near ? " (nearest place)" : "") : "no address"; });
   report.geocoding_api = reverseGeocode.lastStatus ? reverseGeocode.lastStatus + " – add Geocoding API to the server key for exact street addresses" : "OK";
   try {

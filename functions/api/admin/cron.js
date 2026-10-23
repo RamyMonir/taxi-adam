@@ -4,8 +4,8 @@
 //  2. reservations: reminder to the driver 60 min before pickup
 //  3. a driver's live location ran out: remind him once (daytime only)
 //  4. cars left checked out (45 min without live location) are released
-//  5. 23:00 (Warsaw): each driver gets his day + settlement, Adam gets the whole company + settlement buttons + CSV
-//  + auto-assign of rides waiting for Adam, flight watch for airport reservations (server/auto.js)
+//  5. 23:00 (Warsaw): each driver gets his day + settlement, the owner gets the whole company + settlement buttons + CSV
+//  + auto-assign of rides waiting for the owner, flight watch for airport reservations (server/auto.js)
 import { ensureFleetSynced } from "../../../server/fleetsync.js";
 import { json, nowWarsaw, clockWarsaw, esc } from "../../../server/util.js";
 import { db, load, transition, tg, tgFile, syncDriverMessage, expireIfStale, isLive } from "../../../server/rides.js";
@@ -43,7 +43,7 @@ export async function onRequestPost({ request, env }) {
     if (r.status !== st || JSON.stringify(r.data.offers || {}) !== before) { out.dispatched++; await syncDriverMessage(env, r); }
   }
 
-  // rides waiting for Adam while he's busy -> the best driver; flights of airport reservations (a later landing moves the pickup)
+  // rides waiting for the owner while he's busy -> the best driver; flights of airport reservations (a later landing moves the pickup)
   out.auto = await autoAssign(env, d).catch((e) => { console.log("cron auto", e.message); return null; });
   out.flights = await watchFlights(env, d).catch((e) => { console.log("cron flights", e.message); return null; });
 
@@ -88,7 +88,7 @@ export async function onRequestPost({ request, env }) {
       text: `🔓 Auto <b>${label}</b> zwolnione automatycznie (brak lokalizacji od 45 min). Na następnej zmianie wybierzesz auto jednym kliknięciem.` });
   }
 
-  // 5. end-of-day reports: Adam = whole company + settlement buttons + CSV, each driver = his full day
+  // 5. end-of-day reports: the owner = whole company + settlement buttons + CSV, each driver = his full day
   const today = dayWarsaw(Date.now());
   if (hm >= REPORT_AT && (await meta(env, "report_day")) !== today) {
     await meta(env, "report_day", today);

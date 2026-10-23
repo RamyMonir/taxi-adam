@@ -46,7 +46,7 @@ async function googleError(r) {
 
 
 export async function reviews(env) {
-  // all of Adam's Google listings (src/data.py GOOGLE_PLACES); GOOGLE_PLACE_ID only as an old fallback
+  // all of the owner's Google listings (src/data.py GOOGLE_PLACES); GOOGLE_PLACE_ID only as an old fallback
   let places = (CONFIG.places || []).map((p) => ({ name: p.name, id: p.id }));
   if (!places.length && env.GOOGLE_PLACE_ID) places = [{ name: "", id: (env.GOOGLE_PLACE_ID.match(/ChIJ[\w-]+/) || [env.GOOGLE_PLACE_ID.trim()])[0] }];
   if (!env.GOOGLE_SERVER_KEY || !places.length) throw new Error("GOOGLE_SERVER_KEY or places not set");

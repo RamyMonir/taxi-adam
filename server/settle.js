@@ -3,8 +3,9 @@
 //   cash         = paid in cash -> it is in the driver's pocket
 //   noncash      = card / BLIK / transfer -> already on the company account
 //   driver share = pct% of gross (model "percent")  or  gross − daily car fee (model "daily_fee")
-//   hand in      = cash − driver share   (> 0: the driver gives Adam this cash; < 0: Adam pays the driver)
-// Adam (owner) has no settlement: everything is the company's.
+//   hand in      = cash − driver share   (> 0: the driver gives the owner this cash; < 0: the owner pays the driver)
+// the owner (owner) has no settlement: everything is the company's.
+import { OWNER, BRAND, EX } from "./brand.js";
 
 export const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 export const tripMoney = (t) => (t.paid != null ? Number(t.paid) : Number(t.price) || 0);
@@ -54,10 +55,10 @@ export function zl2(n) {
 export function modelLabel(m) {
   return m.model === "owner" ? "właściciel" : m.model === "daily_fee" ? `opłata za auto ${zl2(m.fee)}/dzień` : `${m.pct}% dla kierowcy`;
 }
-// the settlement line, from the driver's point of view (you) or Adam's (name)
+// the settlement line, from the driver's point of view (you) or the owner's (name)
 export function handInText(s, name = null) {
   if (s.model === "owner") return "";
   if (Math.abs(s.handIn) < 0.005) return name ? `✅ ${name}: rozliczone na zero` : "✅ Rozliczenie: 0,00 zł – nic do oddania";
-  if (s.handIn > 0) return name ? `💵 ${name} oddaje ${zl2(s.handIn)}` : `💵 Do oddania Adamowi: ${zl2(s.handIn)}`;
-  return name ? `💸 Adam dopłaca: ${zl2(-s.handIn)}` : `💸 Firma dopłaca Ci: ${zl2(-s.handIn)}`;
+  if (s.handIn > 0) return name ? `💵 ${name} oddaje ${zl2(s.handIn)}` : `💵 Do oddania ${OWNER.dat}: ${zl2(s.handIn)}`;
+  return name ? `💸 ${OWNER.nom} dopłaca: ${zl2(-s.handIn)}` : `💸 Firma dopłaca Ci: ${zl2(-s.handIn)}`;
 }

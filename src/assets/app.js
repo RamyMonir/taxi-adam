@@ -1,4 +1,4 @@
-/* Taxi Knurów Adam Mączka – zamawianie kursu (teraz / na później), status na żywo, opinie Google.
+/* Taxi – zamawianie kursu (teraz / na później), status na żywo, opinie Google.
    Backend: Cloudflare Pages Functions (/api/*). Bez backendu formularz proponuje WhatsApp / SMS. */
 (function () {
   "use strict";
@@ -31,7 +31,7 @@
         ontrip: ["Jesteś w drodze", "Miłej podróży! Na miejscu będziesz ok. {dclock}."],
         noshow: ["Kierowca Cię nie zastał", "Czekał pod adresem odbioru, ale nikt nie przyszedł. Zadzwoń, jeśli nadal potrzebujesz kursu."],
         done: ["Dziękujemy za wspólną trasę!", "Jeśli było dobrze, zostaw opinię w Google – bardzo nam to pomaga."],
-        declined: ["Kierowca jest teraz zajęty", "Adam wiezie innego pasażera i nie zdąży do Ciebie na czas. Przepraszamy! Zarezerwuj kurs na późniejszą godzinę albo zadzwoń – podpowiemy najbliższy wolny termin."],
+        declined: ["Kierowca jest teraz zajęty", (C.owner || "Kierowca") + " wiezie innego pasażera i nie zdąży do Ciebie na czas. Przepraszamy! Zarezerwuj kurs na późniejszą godzinę albo zadzwoń – podpowiemy najbliższy wolny termin."],
         cancelled: ["Kurs anulowany", "Kierowca dostał informację o anulowaniu."],
         cancelled_driver: ["Kierowca anulował kurs", "Przepraszamy. Zadzwoń, jeśli potrzebujesz pomocy albo zamów nowy kurs."],
         private: ["Ten kurs jest prywatny", "Status kursu widać tylko na telefonie, z którego go zamówiono."],
@@ -73,7 +73,7 @@
         ontrip: ["You're on your way", "Enjoy the ride! Arriving around {dclock}."],
         noshow: ["The driver couldn't find you", "He waited at the pickup address. Call us if you still need a ride."],
         done: ["Thanks for riding with us!", "If you enjoyed it, please leave a Google review – it helps a lot."],
-        declined: ["The driver is busy right now", "Adam is driving another passenger and can't reach you in time. Sorry! Book for a later time or call us for the next free slot."],
+        declined: ["The driver is busy right now", (C.owner || "The driver") + " is driving another passenger and can't reach you in time. Sorry! Book for a later time or call us for the next free slot."],
         cancelled: ["Ride cancelled", "The driver has been notified."],
         cancelled_driver: ["The driver cancelled the ride", "We're sorry. Call us if you need help, or book a new ride."],
         private: ["This ride is private", "Its status is visible only on the phone it was booked from."],
@@ -799,7 +799,7 @@
       $("t-visual").setAttribute("data-state", waiting ? "waiting" : r.status);
       track.setAttribute("data-state", r.status);
       track.classList.toggle("urgent", waiting || ["declined", "expired"].indexOf(r.status) >= 0);
-      document.title = $("t-title").textContent + " | Taxi Knurów";
+      document.title = $("t-title").textContent + " | " + (C.brandName || "Taxi");
       steps(r);
       var open = ["pending", "scheduled", "enroute", "arrived", "ontrip"].indexOf(r.status) >= 0;
       var busy = r.status === "declined" || r.status === "expired" || r.status === "noshow" || (r.status === "cancelled" && r.cancelledBy === "driver");
@@ -914,7 +914,7 @@
     }, 1000);
     initChat();
 
-    /* ---------- chat with the driver / Adam (server/chat.js): text only via textContent, never innerHTML ---------- */
+    /* ---------- chat with the driver / the owner (server/chat.js): text only via textContent, never innerHTML ---------- */
     function initChat() {
       var box = $("t-chat"); if (!box) return;
       var list = $("t-chat-list"), form = $("t-chat-form"), inp = $("t-chat-in"), note = $("t-chat-note"), left = $("t-chat-left");
@@ -939,7 +939,7 @@
         open = o; form.hidden = !o; quick.hidden = !o;
         if (!o) { left.textContent = ""; note.textContent = ERR.closed; }
       }
-      function who() { var d = last && last.driver; $("t-chat-who").textContent = d && d.name ? "do kierowcy · " + d.name.split(" ")[0] : "do Taxi Adam"; }
+      function who() { var d = last && last.driver; $("t-chat-who").textContent = d && d.name ? "do kierowcy · " + d.name.split(" ")[0] : "do " + (C.brand || "taxi"); }
       function fetchNew() {
         clearTimeout(ctimer);
         api(url + "?after=" + lastId, null, 10000, { "X-Ride-Token": mine.token }).then(function (j) {

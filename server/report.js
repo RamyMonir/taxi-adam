@@ -7,6 +7,7 @@ import { phoneKey } from "./customers.js";
 import { carLabel, sessionsBetween, listCars } from "./cars.js";
 import { settlePeriod, tripMoney, isCash, modelOf, modelLabel, handInText, zl2, r2 } from "./settle.js";
 import { CONFIG } from "./config.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
 export const FINAL = ["done", "cancelled", "noshow", "declined", "expired"];
 const KEEP_MS = 5 * 365 * 864e5;
@@ -50,7 +51,7 @@ export async function recordTrip(env, r) {
          shortAddr(d.pickup && d.pickup.address), shortAddr(d.dest && d.dest.address),
          d.distanceM ? Math.round(d.distanceM / 100) / 10 : null, d.acceptKm ?? (d.approachM ? Math.round(d.approachM / 100) / 10 : null),
          d.enrouteAt || null, d.startedAt || null, now, d.price ?? null, d.priceKind || null, d.pax || 1,
-         d.driverId || (d.offers ? null : "owner"), d.driver?.name || (d.driverId || d.offers ? null : "Adam"),
+         d.driverId || (d.offers ? null : "owner"), d.driver?.name || (d.driverId || d.offers ? null : OWNER.nom),
          d.vehicle?.id || null, d.vehicle ? carLabel(d.vehicle) : (d.driver?.car ? [d.driver.car, d.driver.plate].filter(Boolean).join(" · ") : null)).run();
 }
 // 5-year retention (called by the cron, not on every save)
@@ -160,8 +161,8 @@ export function renderReport({ from, to, rows: all, drivers = [], sessions = [],
   const count = (st) => rows.filter((t) => t.status === st).length;
   const oneDay = from === to;
   const drvById = Object.fromEntries(drivers.map((x) => [x.id, x]));
-  if (!drvById.owner) drvById.owner = { id: "owner", name: "Adam", owner: 1 };
-  const nameOf = (id, t) => drvById[id]?.name || t?.driver_name || (id === "owner" ? "Adam" : "bez kierowcy");
+  if (!drvById.owner) drvById.owner = { id: "owner", name: OWNER.nom, owner: 1 };
+  const nameOf = (id, t) => drvById[id]?.name || t?.driver_name || (id === "owner" ? OWNER.nom : "bez kierowcy");
 
   const title = oneDay ? `${dayName(from)} ${fmtDay(from)}` : `${fmtDay(from)} – ${fmtDay(to)}`;
   const me = driverId ? drvById[driverId] || { id: driverId, name: rows.find((t) => t.driver_name)?.driver_name || "" } : null;

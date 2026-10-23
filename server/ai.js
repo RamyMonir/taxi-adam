@@ -1,10 +1,11 @@
-// "➕ Nowy kurs" in plain words: Adam types (or says, in a voice message) the ride the way he would tell a colleague –
+// "➕ Nowy kurs" in plain words: the owner types (or says, in a voice message) the ride the way he would tell a colleague –
 // "pani Ewa z Rynku do dworca w Gliwicach za 20 minut, 600 100 200" – and Claude turns it into the ride fields.
 // Optional: without ANTHROPIC_API_KEY the bot keeps the one-line format of server/phone.js.
 // Voice messages need the Workers AI binding "AI" (speech to text with Whisper).
 import Anthropic from "@anthropic-ai/sdk";
 import { CONFIG } from "./config.js";
 import { nowWarsaw, whenLabel } from "./util.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
 export const aiOn = (env) => !!env.ANTHROPIC_API_KEY;
 export const voiceOn = (env) => !!(env.AI && typeof env.AI.run === "function");
@@ -32,14 +33,14 @@ function systemPrompt(now) {
   const wd = WEEKDAY[new Date(d + "T12:00:00Z").getUTCDay()];
   const places = (CONFIG.destinations || []).map((x) => x.short + (x.code ? ` (lotnisko ${x.code})` : "")).join(", ");
   return [
-    "You turn a taxi dispatcher's note into a ride order for Taxi Knurów (Adam Mączka), based in Knurów and Gierałtowice, Silesia, Poland.",
+    `You turn a taxi dispatcher's note into a ride order for ${BRAND.name}, based in ${EX.towns_en}, ${EX.region_en}.`,
     "The note is Polish, informal, maybe with typos, or a speech-to-text transcript of a voice message (numbers may be spelled out or split).",
     `Now in Poland: ${now} (${wd}).`,
     "",
     "pickup / dest: a query Google Maps will find – street with number and town, or a named place and town.",
     "- Keep the street, number and place as the dispatcher said them; convert Polish case endings to the base form (\"z Rynku\" -> \"Rynek\", \"na dworzec w Gliwicach\" -> \"Dworzec PKP Gliwice\").",
-    "- A street or local place with no town: add \"Knurów\" (the default town). Never invent a house number.",
-    "- Well-known places get their full name, e.g. \"Lotnisko Katowice-Pyrzowice\", \"Dworzec PKP Katowice\".",
+    `- A street or local place with no town: add "${EX.town}" (the default town). Never invent a house number.`,
+    `- Well-known places get their full name, e.g. "${EX.airport_full}", "${EX.station_full}".`,
     `- Places we often drive to: ${places}.`,
     "when: '' for now / as soon as possible / no time given. \"za 20 minut\" -> now + 20 min rounded up to 5 minutes.",
     "  A clock time already past today means tomorrow. \"jutro\", \"pojutrze\", weekdays and dates relative to now.",

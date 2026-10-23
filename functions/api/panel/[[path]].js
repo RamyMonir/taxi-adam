@@ -7,6 +7,7 @@ import { period, report, setStatus, toCsv, deleteOld, ldb } from "../../../serve
 import { checkPrices, diffPrices, mergeEdit, pricesText } from "../../../server/prices.js";
 import { githubReady, readPrices, writePrices } from "../../../server/github.js";
 import { randomId } from "../../../server/util.js";
+import { OWNER, BRAND, EX } from "../../../server/brand.js";
 
 const ipOf = (request, env) => sha((request.headers.get("cf-connecting-ip") || "") + (env.LEAD_SALT || "taxi-lite"));
 const P = CONFIG.panel || { villages: [], destinations: [], zones: [] };
@@ -100,7 +101,7 @@ export async function onRequest({ request, env, params, waitUntil }) {
 // e-mail to the seller on every price change (Resend; optional – a failed e-mail never fails the save)
 async function alert(env, changes, commit) {
   if (!env.RESEND_API_KEY || !env.ALERT_EMAIL) return;
-  const text = `Adam zmienił ceny w panelu:\n\n${changes.join("\n")}\n\nCommit: ${commit || "?"}\nCofnięcie: git revert ${commit || "<commit>"}`;
+  const text = `${OWNER.nom} zmienił ceny w panelu:\n\n${changes.join("\n")}\n\nCommit: ${commit || "?"}\nCofnięcie: git revert ${commit || "<commit>"}`;
   await fetch("https://api.resend.com/emails", {
     method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({ from: env.ALERT_FROM || "Taxi panel <onboarding@resend.dev>", to: [env.ALERT_EMAIL], subject: "Taxi Lite: zmiana cen", text }),

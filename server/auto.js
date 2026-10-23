@@ -1,16 +1,17 @@
 // Run by the minute timer (functions/api/admin/cron.js):
-//  - auto-assign: rides that wait for Adam while he's busy go to the best driver, and Adam is told
+//  - auto-assign: rides that wait for the owner while he's busy go to the best driver, and the owner is told
 //      a website reservation nobody assigned for AUTO_ASSIGN_MIN (default 10)   -> the ⭐ driver free at that time
-//      a "now" ride left with Adam for AUTO_NOW_MIN (default 2) – nobody was free or his pick said no -> the fastest free driver
+//      a "now" ride left with the owner for AUTO_NOW_MIN (default 2) – nobody was free or his pick said no -> the fastest free driver
 //    "0" switches a rule off.
 //  - flight watch: reservations with a flight number (AERODATABOX_KEY): a later landing moves the airport pickup,
-//    a delayed / cancelled departure is reported. Driver and Adam get a message, the customer's page shows the new time.
+//    a delayed / cancelled departure is reported. Driver and the owner get a message, the customer's page shows the new time.
 import { load, transition, tg, notifyDriver, syncDriverMessage, saveIfUnchanged } from "./rides.js";
 import { availability, offerToDriver } from "./fleet.js";
 import { currentCar } from "./cars.js";
 import { assign } from "./assign.js";
 import { lookupFlight, flightLine } from "./flights.js";
 import { esc, nowWarsaw, warsawMs, whenLabel } from "./util.js";
+import { OWNER, BRAND, EX } from "./brand.js";
 
 const minutes = (v, dflt) => { const n = parseFloat(v); return Number.isFinite(n) ? n : dflt; };
 const say = (env, chat, text, replyTo) => tg(env, "sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, reply_to_message_id: replyTo || undefined });
@@ -36,7 +37,7 @@ export async function autoAssign(env, d1) {
   return out;
 }
 
-// a website reservation Adam hasn't assigned: the ⭐ driver (free at that time, no clash)
+// a website reservation the owner hasn't assigned: the ⭐ driver (free at that time, no clash)
 async function assignReservation(env, r) {
   const a = await availability(env, r);
   const best = a.best && a.best.x;
@@ -44,24 +45,24 @@ async function assignReservation(env, r) {
   const d = r.data, ownerMsg = d.offers?.owner?.msg || r.tg_msg, prev = r.updated;
   assign(r, best, await currentCar(env, best.id).catch(() => null));
   r.status = "scheduled"; d.ownerInfo = ownerMsg; d.offers = {}; r.tg_msg = null; d.autoAt = Date.now(); d.autoBy = "reservation";
-  if (!(await saveIfUnchanged(env, r, prev))) return false;   // Adam (or the customer) acted at this very moment
+  if (!(await saveIfUnchanged(env, r, prev))) return false;   // the owner (or the customer) acted at this very moment
   const mid = await notifyDriver(env, r, best.chat_id);
   r = (await transition(env, r.id, ["scheduled"], (x) => { x.tg_msg = mid; })) || r;
   await syncDriverMessage(env, r);
   const when = esc(whenLabel(d.when));
-  await say(env, best.chat_id, `📅 Dostajesz rezerwację na <b>${when}</b> (przydzielona automatycznie – Adam był zajęty). W dniu kursu kliknij „🚕 Wyjeżdżam do klienta”.`, mid);
+  await say(env, best.chat_id, `📅 Dostajesz rezerwację na <b>${when}</b> (przydzielona automatycznie – ${OWNER.nom} był zajęty). W dniu kursu kliknij „🚕 Wyjeżdżam do klienta”.`, mid);
   await say(env, env.TELEGRAM_CHAT_ID, `🤖 <b>Przydzieliłem za Ciebie</b> rezerwację ${when}: ${shortA(d.pickup.address)} → ${shortA(d.dest.address)}\n` +
     `👤 <b>${esc(best.name)}</b> – wolny o tej porze, bez kolizji. Nie odpowiedziałeś w ${minutes(env.AUTO_ASSIGN_MIN, 10)} min.`, ownerMsg);
   return true;
 }
 
-// a "now" ride stuck with Adam: the fastest free driver gets it (Adam's own buttons keep working)
+// a "now" ride stuck with the owner: the fastest free driver gets it (the owner's own buttons keep working)
 async function sendNowRide(env, r) {
   const a = await availability(env, r);
   const fresh = a.free.filter((w) => !(r.data.offers || {})[w.x.id] && !w.clash);
   if (!fresh.length) return false;   // still nobody: keep waiting (the ride expires as before)
   const prev = r.updated, d = r.data, best = fresh[0].x, waitedMin = Math.round((Date.now() - (d.stageAt || r.created)) / 60000);
-  if (!(await offerToDriver(env, r, best))) return false;   // adds him to the offers (Adam's buttons keep working)
+  if (!(await offerToDriver(env, r, best))) return false;   // adds him to the offers (the owner's buttons keep working)
   d.stage = fresh.length > 1 ? "nearest" : "all"; d.stageAt = Date.now(); d.autoAt = Date.now(); d.autoBy = "now";   // no answer in a minute -> all free
   if (!(await saveIfUnchanged(env, r, prev))) return false;
   await syncDriverMessage(env, r);

@@ -79,7 +79,7 @@ export async function checkIn(env, driver, carId) {
   return { ok: true, car, from: cur || null };
 }
 
-// give the car back: by the driver (/oddaj), the cron (stale) or Adam (/zwolnij, /serwis)
+// give the car back: by the driver (/oddaj), the cron (stale) or the owner (/zwolnij, /serwis)
 export async function release(env, driverId, reason = "release") {
   const d = await db(env), car = await currentCar(env, driverId);
   if (!car) return null;

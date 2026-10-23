@@ -358,6 +358,33 @@ export const CONFIG = {
    "matchKm": null
   }
  ],
+ "owner": {
+  "nom": "Adam",
+  "gen": "Adama",
+  "dat": "Adamowi",
+  "full": "Adam Mączka"
+ },
+ "brand": {
+  "short": "Taxi Adam",
+  "name": "Taxi Knurów Adam Mączka",
+  "city": "Knurów"
+ },
+ "examples": {
+  "town": "Knurów",
+  "addr": "Rynek 1 Knurów",
+  "addr2": "Lipowa 5 Gierałtowice",
+  "addr3": "Dworcowa 12 Knurów",
+  "street": "Rynek 1",
+  "probe": "Dworcowa Knurów",
+  "region_en": "Silesia, Poland",
+  "towns_en": "Knurów and Gierałtowice",
+  "airport": "Pyrzowice",
+  "airport_full": "Lotnisko Katowice-Pyrzowice",
+  "station": "Dworzec Gliwice",
+  "station_to": "do dworca w Gliwicach",
+  "station_full": "Dworzec PKP Katowice",
+  "hospital": "Szpital Zabrze"
+ },
  "lite": true,
  "prices": {
   "version": 1,

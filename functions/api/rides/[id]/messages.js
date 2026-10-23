@@ -1,5 +1,5 @@
 // GET  /api/rides/:id/messages?after=<id>   (header X-Ride-Token) – new chat lines for the status page
-// POST /api/rides/:id/messages {token, text}                      – the customer writes to the driver / Adam
+// POST /api/rides/:id/messages {token, text}                      – the customer writes to the driver / the owner
 // Same secret ride token as the status page; open while the ride is open and 2 hours after it ended (server/chat.js).
 import { json, bad } from "../../../../server/util.js";
 import { load } from "../../../../server/rides.js";
