@@ -5,7 +5,9 @@ from fleet import CARS as FLEET_CARS, DRIVERS as FLEET_DRIVERS   # auta i kierow
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
                   GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY,
-                  OVERRIDES, WAITING, LITE_MODE, LITE_NOINDEX, PHONE2, CREDIT)
+                  OVERRIDES, WAITING, LITE_MODE, LITE_NOINDEX, PHONE2, CREDIT, OWNER, BRAND, AREA, MAIN_AIRPORT, SECOND_AIRPORT,
+                  AIRPORTS_GEN, EN_AIRPORTS, CHIPS, SERVICE_NOTES, FLEET_CARDS, PANEL_EXAMPLE, REDIRECTS)
+A = AREA; MAIN = MAIN_AIRPORT["slug"]; SECOND = SECOND_AIRPORT["slug"]
 
 def L(full, lite):
     """Tekst zależny od wersji: pełny system albo LITE (WhatsApp / SMS / telefon)."""
@@ -30,7 +32,7 @@ ICON = {
 }
 # Logo z pliku od klienta (czarne tło zamienione na przezroczyste, do ciemnych teł)
 LOGO_HEAD = ('<img class="brand-logo" src="/assets/img/logo-emblem.webp" alt="" width="480" height="377">'
-             '<span class="brand-text"><b>TAXI ADAM MĄCZKA</b><small>GIERAŁTOWICE · KNURÓW · OKOLICE</small></span>')
+             f'<span class="brand-text"><b>{BRAND["logo_title"]}</b><small>{BRAND["logo_sub"]}</small></span>')
 # Taxi z boku (animacje: droga w hero i taksometr)
 CAR = ('<svg width="64" height="28" viewBox="0 0 64 28" aria-hidden="true"><rect x="25" y="1" width="13" height="5" rx="1.5" fill="#FFC72C" stroke="#1C2430" stroke-width=".8"/>'
        '<path d="M6 18 12 10Q14 8 18 8H42Q46 8 49 11L54 16Q60 17 61 20V23H3V20Q3 18 6 18Z" fill="#FFC72C"/>'
@@ -51,8 +53,6 @@ def place_of(d):
     label = d["name"] if d["kind"] in ("airport", "spa") else (d["short"] if d["kind"] == "station" else d["name"])
     return dict(address=label, lat=d["lat"], lng=d["lng"])
 
-CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balice", "Balice"), ("plane", "lotnisko-wroclaw", "Wrocław"),
-         ("train", "dworzec-gliwice", "Dworzec Gliwice"), ("train", "dworzec-katowice", "Dworzec Katowice")]
 
 def client_config(lang):
     """window.TAXI – ustawienia dla app.js (formularz rezerwacji, status, opinie)."""
@@ -96,58 +96,58 @@ def dest_copy(d):
     n, p = d["name"], d["price"]
     if d["kind"] == "airport":
         return dict(
-            h1=f"Taxi z Knurowa i Gierałtowic na lotnisko {n.replace('Lotnisko ', '')} ({d['code']})",
-            title=f"Taxi Knurów – {n} ({d['code']}) od {p} zł | {B['name']}",
-            desc=f"Transfer z Knurowa i Gierałtowic i okolic na lotnisko {n.replace('Lotnisko ', '')} od {p} zł. Stała cena ustalona przed wyjazdem, odbiór spod domu o każdej porze (w nocy po rezerwacji), auta do 7 osób, pomoc z bagażem.",
-            intro=f"Odbieramy spod domu w Knurowie, Gierałtowicach i okolicznych miejscowościach i wozimy prosto pod terminal. Cenę znasz przed wyjazdem, a przy powrocie czekamy w hali przylotów.",
+            h1=f"Taxi {A['from']} na lotnisko {n.replace('Lotnisko ', '')} ({d['code']})",
+            title=f"Taxi {BRAND['city']} – {n} ({d['code']}) od {p} zł | {B['name']}",
+            desc=f"Transfer {A['from_all']} na lotnisko {n.replace('Lotnisko ', '')} od {p} zł. Stała cena ustalona przed wyjazdem, odbiór spod domu o każdej porze (w nocy po rezerwacji), auta do 7 osób, pomoc z bagażem.",
+            intro=f"Odbieramy spod domu {A['in_list']} i wozimy prosto pod terminal. Cenę znasz przed wyjazdem, a przy powrocie czekamy w hali przylotów.",
             points=["Odbiór spod drzwi o dowolnej porze – w nocy (22:00–5:00) po wcześniejszej rezerwacji", "Przy przylocie śledzimy numer lotu – opóźnienie nie podnosi ceny",
                     "Auta do 7 osób i miejsce na walizki", "Płatność gotówką, kartą, BLIK-iem lub przelewem dla firm"],
-            faq=[(f"Ile kosztuje taxi z Knurowa i Gierałtowic na {d['short']}?", f"Kurs z Knurowa i Gierałtowic kosztuje od {p} zł. Z Przyszowic i strefy A dochodzi {ZONES['A']['surcharge']} zł, ze strefy B {ZONES['B']['surcharge']} zł. Dokładną cenę potwierdzamy przy rezerwacji."),
+            faq=[(f"Ile kosztuje taxi {A['from']} na {d['short']}?", f"Kurs {A['from']} kosztuje od {p} zł. Z {A['zone_a_gen']} i strefy A dochodzi {ZONES['A']['surcharge']} zł, ze strefy B {ZONES['B']['surcharge']} zł. Dokładną cenę potwierdzamy przy rezerwacji."),
                  ("Z jakim wyprzedzeniem rezerwować?", "Najlepiej dzień wcześniej, a przy wylotach w sezonie świątecznym i wakacyjnym kilka dni wcześniej. Kursy na już przyjmujemy telefonicznie, jeśli auto jest wolne."),
                  ("Co jeśli samolot się spóźni?", "Podaj numer lotu w rezerwacji. Sprawdzamy godzinę lądowania i przyjeżdżamy na rzeczywisty przylot."),
                  ("Czy można zarezerwować od razu powrót?", L("Tak. W formularzu zaznacz „Kurs powrotny” i wpisz datę przylotu.",
                                                               "Tak. Wpisz datę i godzinę przylotu w uwagach – potwierdzimy oba kursy jednocześnie."))])
     if d["kind"] == "spa":
         return dict(
-            h1=f"Taxi z Knurowa i Gierałtowic do sanatorium – {n}",
-            title=f"Taxi do sanatorium {n} z Knurowa i Gierałtowic od {p} zł | {B['name']}",
-            desc=f"Przejazd na turnus sanatoryjny do {d['gen']} z Knurowa i Gierałtowic i okolic od {p} zł. Odbiór spod domu, pomoc z bagażem, przywóz po turnusie w jednej rezerwacji.",
-            intro=f"Wozimy kuracjuszy z Knurowa i Gierałtowic i okolic prosto pod drzwi ośrodka {d['loc']}. Pomagamy z walizkami, a kurs powrotny po zakończeniu turnusu możesz zarezerwować od razu.",
+            h1=f"Taxi {A['from']} do sanatorium – {n}",
+            title=f"Taxi do sanatorium {n} {A['from']} od {p} zł | {B['name']}",
+            desc=f"Przejazd na turnus sanatoryjny do {d['gen']} {A['from_all']} od {p} zł. Odbiór spod domu, pomoc z bagażem, przywóz po turnusie w jednej rezerwacji.",
+            intro=f"Wozimy kuracjuszy {A['from_all']} prosto pod drzwi ośrodka {d['loc']}. Pomagamy z walizkami, a kurs powrotny po zakończeniu turnusu możesz zarezerwować od razu.",
             points=["Odbiór spod domu i podjazd pod wejście ośrodka", "Pomoc przy wnoszeniu i znoszeniu bagażu",
                     "Powrót po turnusie w tej samej rezerwacji", "Rezerwację może złożyć rodzina – dzwonimy do pasażera przed wyjazdem"],
-            faq=[(f"Ile kosztuje przejazd do {d['gen']}?", f"Od {p} zł z Knurowa i Gierałtowic w jedną stronę. " + L("Cenę za kurs w obie strony pokazuje kalkulator po zaznaczeniu „Kurs powrotny”.",
+            faq=[(f"Ile kosztuje przejazd do {d['gen']}?", f"Od {p} zł {A['from']} w jedną stronę. " + L("Cenę za kurs w obie strony pokazuje kalkulator po zaznaczeniu „Kurs powrotny”.",
                                                                                                                   "Kurs w obie strony wyceni kierowca przy zamówieniu.")),
                  ("Czy pomożecie z bagażem?", "Tak, kierowca pomaga z walizkami przy domu i w ośrodku."),
                  ("Czy mogę zamówić kurs dla mamy lub taty?", "Tak. Wpisz w uwagach imię i telefon pasażera. Przed wyjazdem potwierdzimy z nim godzinę odbioru."),
                  ("Kiedy zarezerwować?", "Najlepiej od razu po otrzymaniu skierowania i terminu turnusu. Turnusy w popularnych terminach startują w te same dni, więc auta szybko się zajmują.")])
     if d["kind"] == "clinic":
         return dict(
-            h1=f"Taxi z Knurowa i Gierałtowic do klinik i szpitali – {n}",
-            title=f"Taxi Knurów – kliniki i szpitale {n} od {p} zł | {B['name']}",
-            desc=f"Przejazdy na wizyty, badania i zabiegi {d['loc']}: od {p} zł z Knurowa i Gierałtowic. Odbiór spod domu, czekanie podczas wizyty, kurs powrotny.",
+            h1=f"Taxi {A['from']} do klinik i szpitali – {n}",
+            title=f"Taxi {BRAND['city']} – kliniki i szpitale {n} od {p} zł | {B['name']}",
+            desc=f"Przejazdy na wizyty, badania i zabiegi {d['loc']}: od {p} zł {A['from']}. Odbiór spod domu, czekanie podczas wizyty, kurs powrotny.",
             intro=f"Dowozimy na wizyty, badania i zabiegi w szpitalach i klinikach {d['loc']}. Możemy poczekać na miejscu albo przyjechać po zakończeniu wizyty.",
             points=["Podjazd pod wskazane wejście lub izbę przyjęć", "Czekanie podczas wizyty albo odbiór po telefonie",
                     "Pomoc przy wsiadaniu i wysiadaniu", "Stali pacjenci: stała godzina i stały kierowca"],
-            faq=[(f"Ile kosztuje taxi do {d['gen']}?", f"Od {p} zł z Knurowa i Gierałtowic w jedną stronę. Czas oczekiwania ustalamy przy rezerwacji."),
+            faq=[(f"Ile kosztuje taxi do {d['gen']}?", f"Od {p} zł {A['from']} w jedną stronę. Czas oczekiwania ustalamy przy rezerwacji."),
                  ("Czy kierowca poczeka na mnie?", "Tak, przy krótszych wizytach kierowca czeka na miejscu. Przy dłuższych przyjeżdża po telefonie."),
                  ("Czy wozicie osoby starsze lub z ograniczoną sprawnością?", "Tak. Napisz w uwagach, jakiej pomocy potrzebuje pasażer, żebyśmy mogli się przygotować.")])
     if d["kind"] == "station":
         return dict(
-            h1=f"Taxi z Knurowa i Gierałtowic na dworzec – {n}",
-            title=f"Taxi Knurów – dworzec {n} od {p} zł | {B['name']}",
-            desc=f"Dojazd na dworzec {d['loc']} ({d.get('note','')}) z Knurowa i Gierałtowic i okolic od {p} zł. Odbiór 7 dni w tygodniu, także na pierwsze i ostatnie pociągi.",
+            h1=f"Taxi {A['from']} na dworzec – {n}",
+            title=f"Taxi {BRAND['city']} – dworzec {n} od {p} zł | {B['name']}",
+            desc=f"Dojazd na dworzec {d['loc']} ({d.get('note','')}) {A['from_all']} od {p} zł. Odbiór 7 dni w tygodniu, także na pierwsze i ostatnie pociągi.",
             intro=f"Zawozimy na pociągi i autobusy dalekobieżne {d['loc']} i odbieramy po przyjeździe. Podaj godzinę odjazdu, a dobierzemy godzinę wyjazdu z zapasem.",
             points=["Odbiór także na pierwsze poranne i ostatnie wieczorne połączenia", "Przy odbiorze czekamy przy wyjściu z dworca",
                     "Bagaż i walizki bez dopłat", "Stała cena ustalona przed kursem"],
-            faq=[(f"Ile kosztuje taxi na dworzec {d['loc']}?", f"Od {p} zł z Knurowa i Gierałtowic."),
+            faq=[(f"Ile kosztuje taxi na dworzec {d['loc']}?", f"Od {p} zł {A['from']}."),
                  ("Czy odbierzecie mnie z pociągu?", "Tak. Podaj w rezerwacji numer lub godzinę przyjazdu pociągu.")])
     return dict(
-        h1=f"Taxi z Knurowa i Gierałtowic do {d['gen']}",
-        title=f"Taxi Knurów – {n} od {p} zł | {B['name']}",
-        desc=f"Kurs z Knurowa i Gierałtowic do {d['gen']} od {p} zł: rynek, zakupy, imprezy, powroty nocą. Odbiór spod domu, płatność kartą lub BLIK-iem.",
+        h1=f"Taxi {A['from']} do {d['gen']}",
+        title=f"Taxi {BRAND['city']} – {n} od {p} zł | {B['name']}",
+        desc=f"Kurs {A['from']} do {d['gen']} od {p} zł: rynek, zakupy, imprezy, powroty nocą. Odbiór spod domu, płatność kartą lub BLIK-iem.",
         intro=f"Jeździmy do {d['gen']} na zakupy, spotkania i wieczorne wyjścia, a w nocy odbieramy z rynku i odwozimy pod dom.",
         points=["Powroty nocne z rynku", "Kursy z postojem, np. na zakupy", "Płatność kartą i BLIK-iem w aucie", "Stała cena ustalona przed kursem"],
-        faq=[(f"Ile kosztuje kurs z Knurowa i Gierałtowic do {d['gen']}?", f"Od {p} zł. Ze strefy A (np. Przyszowice, Bojków) dochodzi {ZONES['A']['surcharge']} zł, ze strefy B {ZONES['B']['surcharge']} zł."),
+        faq=[(f"Ile kosztuje kurs {A['from']} do {d['gen']}?", f"Od {p} zł. Ze strefy A (np. {A['zone_a_examples']}) dochodzi {ZONES['A']['surcharge']} zł, ze strefy B {ZONES['B']['surcharge']} zł."),
              ("Czy można zamówić odbiór z rynku w nocy?", "Tak. Zadzwoń albo napisz na WhatsApp z adresem odbioru.")])
 
 # ---------------- templates ----------------
@@ -163,7 +163,7 @@ BASE = r"""<!doctype html>
 <meta property="og:url" content="{{ site }}{{ path }}"><meta property="og:image" content="{{ site }}/assets/og.png"><meta property="og:locale" content="{{ 'en_GB' if lang=='en' else 'pl_PL' }}">
 <meta name="theme-color" content="#0A1430">{% if noindex or lite_noindex %}<meta name="robots" content="noindex">{% endif %}
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Taxi Adam"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="{{ brand.short }}"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="/assets/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="preload" href="/assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css?v={{ av }}">
@@ -215,7 +215,7 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
     <img class="fly-icon" src="/assets/icon-192.png" alt="" width="64" height="64">
   </div>
   <div class="install-text">
-    <h2 id="install-title">{{ 'Taxi Knurów on your phone' if lang=='en' else 'Taxi Knurów w Twoim telefonie' }}</h2>
+    <h2 id="install-title">{{ ('Taxi ' + brand.city + ' on your phone') if lang=='en' else ('Taxi ' + brand.city + ' w Twoim telefonie') }}</h2>
     <p>{{ 'Add the site to your home screen and book a ride with one tap – just like an app. No download, no account.' if lang=='en' else 'Dodaj stronę do ekranu głównego i zamawiaj kurs jednym dotknięciem – jak w aplikacji. Bez pobierania i zakładania konta.' }}</p>
     <ol class="install-ios" hidden>
       <li>{{ 'Tap' if lang=='en' else 'Dotknij' }} <span class="ios-share"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 7.5 6.5l1.4 1.4L11 5.8V15h2V5.8l2.1 2.1 1.4-1.4zM5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10h-4v2h2v8H7v-8h2v-2z"/></svg> {{ 'Share' if lang=='en' else 'Udostępnij' }}</span> {{ 'in Safari' if lang=='en' else 'na dole Safari' }}</li>
@@ -405,7 +405,7 @@ T_BOOK_LITE = {
 }
 
 def waiting_text():
-    """Zasada oczekiwania z prices.json (ustawia Adam w panelu)."""
+    """Zasada oczekiwania z prices.json (ustawia właściciel w panelu)."""
     f, p = WAITING.get("free_min"), WAITING.get("per_min")
     if f is None or p is None:
         return "Czas oczekiwania na miejscu ustalamy przy zamówieniu."
@@ -415,7 +415,7 @@ def waiting_text():
 ICON["sms"] = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 1-2zm3 6v2h2V9zm4 0v2h2V9zm4 0v2h2V9z"/></svg>'
 
 env = Environment(loader=DictLoader({"base": BASE, "book": BOOK, "book_lite": BOOK_LITE}), autoescape=False)
-env.globals.update(lite=LITE_MODE, lite_noindex=LITE_MODE and LITE_NOINDEX, credit=CREDIT)
+env.globals.update(lite=LITE_MODE, lite_noindex=LITE_MODE and LITE_NOINDEX, credit=CREDIT, brand=BRAND)
 # version stamp for style.css / app.js / lite.js: a new deploy always loads the new files (no stale copies in phones / the installed app)
 _here = os.path.dirname(os.path.abspath(__file__))
 _stamped = ("style.css", "lite.js", "lite-msg.js", "panel.js") if LITE_MODE else ("style.css", "app.js")
@@ -440,7 +440,7 @@ def org():
             "telephone": B["phone_e164"], "email": B["email"],
             "department": [{"@type": "TaxiService", "name": l["name"], "telephone": l["phone_e164"],
                             "address": {"@type": "PostalAddress", "streetAddress": l["street"].replace("ul. ", ""), "postalCode": l["postal"],
-                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [B["facebook"]], "alternateName": [B["aka"], "Taxi Gierałtowice"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": "15–900 zł",
+                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [B["facebook"]], "alternateName": BRAND["alternate_names"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": f"{min(v[4] for v in VILLAGES)}–{max(d['price'] for d in DESTINATIONS)} zł",
             "address": {"@type": "PostalAddress", "streetAddress": B["street"].replace("ul. ", ""), "postalCode": B["postal"],
                         "addressLocality": B["city"], "addressCountry": "PL"},
             "geo": {"@type": "GeoCoordinates", "latitude": B["lat"], "longitude": B["lng"]},
@@ -464,7 +464,7 @@ def crumbs_html(items):
         f'<a href="{u}">{n}</a>' if i < len(items) - 1 else f"<span>{n}</span>" for i, (n, u) in enumerate(items)) + "</nav>"
 
 def zone_table(price):
-    rows = "".join(f"<tr><td>{'Knurów i Gierałtowice' if z == '0' else 'Strefa ' + z + ': ' + ', '.join(ZONE_VILL[z])}</td><td>{price + ZONES[z]['surcharge']} zł</td></tr>" for z in ZONES)
+    rows = "".join(f"<tr><td>{ZONES['0']['label'] if z == '0' else 'Strefa ' + z + ': ' + ', '.join(ZONE_VILL[z])}</td><td>{price + ZONES[z]['surcharge']} zł</td></tr>" for z in ZONES)
     return f'<div class="table-wrap"><table class="price-table"><thead><tr><th>Odbiór z</th><th>Cena od</th></tr></thead><tbody>{rows}</tbody></table></div>'
 
 def board(groups):
@@ -512,9 +512,9 @@ ROAD = f'<div class="hero-road" aria-hidden="true"><span class="car">{CAR}</span
 # Usługi jako karty ze zdjęciami (zdjęcia: Unsplash License, hostowane lokalnie)
 def min_price(k): return min(d["price"] for d in by_kind(k))
 SERVICES = [
-    ("lotniska", "/lotniska/", "Lotniska", f"Transfer od {min_price('airport')} zł", "Pyrzowice, Balice, Wrocław, Warszawa. Śledzimy lot przy powrocie.", "Podróżny z walizką na lotnisku, w tle startujący samolot"),
-    ("sanatoria", "/sanatoria/", "Sanatoria", f"Przejazd od {min_price('spa')} zł", "Busko-Zdrój, Szczyrk, Ustroń. Pomoc z bagażem i powrót po turnusie.", "Zabieg relaksacyjny w ośrodku uzdrowiskowym"),
-    ("kliniki", "/kliniki/", "Kliniki", f"Wizyty od {min_price('clinic')} zł", "Katowice, Gliwice, Zabrze. Kierowca może poczekać podczas wizyty.", "Lekarz w białym fartuchu ze stetoskopem"),
+    ("lotniska", "/lotniska/", "Lotniska", f"Transfer od {min_price('airport')} zł", SERVICE_NOTES["airport"], "Podróżny z walizką na lotnisku, w tle startujący samolot"),
+    ("sanatoria", "/sanatoria/", "Sanatoria", f"Przejazd od {min_price('spa')} zł", SERVICE_NOTES["spa"], "Zabieg relaksacyjny w ośrodku uzdrowiskowym"),
+    ("kliniki", "/kliniki/", "Kliniki", f"Wizyty od {min_price('clinic')} zł", SERVICE_NOTES["clinic"], "Lekarz w białym fartuchu ze stetoskopem"),
     ("dworce", "/dworce/", "Dworce", f"Dojazd od {min_price('station')} zł", "PKP i autobusy dalekobieżne, także pierwsze i ostatnie połączenia.", "Pociągi na peronach pod zadaszeniem dworca"),
     ("miasta", "/miasta/", "Miasta", f"Kursy od {min_price('city')} zł", "Rynek, zakupy, wieczorne wyjścia i bezpieczne powroty nocą.", "Podświetlony znak TAXI na dachu samochodu nocą"),
     ("firmy", "/dla-firm/", "Dla firm", "Faktura i przelew", "Delegacje, transfery gości i rozliczenie raz w miesiącu.", "Kierowca z zegarkiem na nadgarstku prowadzi samochód o zmierzchu"),
@@ -581,7 +581,7 @@ def vip_photos():
     return sorted(f for f in os.listdir(VIP_DIR) if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")))
 
 def vip_block():
-    # TODO(lite): „artystów” i „tabliczka z nazwiskiem” wrócą, gdy Adam potwierdzi, że tak pracuje
+    # TODO(lite): „artystów” i „tabliczka z nazwiskiem” wrócą, gdy właściciel potwierdzi, że tak pracuje
     feats = [("Punktualnie co do minuty", L("Śledzimy lot i korki, czekamy z tabliczką z nazwiskiem gościa.", "Śledzimy lot i korki, żeby być na czas.")),
              ("Pełna dyskrecja", "Plany, rozmowy i trasa zostają w aucie."),
              ("Komfort na długą trasę", "Czyste, klimatyzowane auto i miejsce na bagaż całej ekipy."),
@@ -591,25 +591,18 @@ def vip_block():
     if photos:
         gallery = '<ul class="vip-gallery">' + "".join(
             f'<li data-reveal style="--i:{i}"><button type="button" class="vip-ph" data-full="/assets/img/vip/{f}" data-cap="{VIP_CAPTIONS.get(f, "")}">'
-            f'<img src="/assets/img/vip/{f}" alt="{VIP_CAPTIONS.get(f, "Przewóz VIP – Taxi Knurów Adam Mączka")}" loading="lazy" decoding="async">'
+            f'<img src="/assets/img/vip/{f}" alt="{VIP_CAPTIONS.get(f, "Przewóz VIP – " + B["name"])}" loading="lazy" decoding="async">'
             + (f'<span>{VIP_CAPTIONS[f]}</span>' if VIP_CAPTIONS.get(f) else "") + '</button></li>'
             for i, f in enumerate(photos)) + "</ul>"
     items = "".join(f'<li><b>{t}</b><span>{d}</span></li>' for t, d in feats)
     return (f'<section class="vip" id="vip"><div class="wrap"><div class="vip-grid"><div>'
-            f'<span class="vip-badge">VIP · ŚLĄSK</span><h2>Przewozy VIP na Śląsku</h2>'
+            f'<span class="vip-badge">VIP · {A["region_badge"]}</span><h2>Przewozy VIP {A["region_loc"]}</h2>'
             f'<p class="lead">Wozimy gości biznesowych{L(", artystów", "")} i delegacje – z lotniska na spotkanie, galę czy koncert, i z powrotem. Dyskretnie, punktualnie i w komfortowym aucie.</p>'
             f'<p class="vip-cta"><a class="btn btn-gold" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zarezerwuj przejazd VIP</a> <a class="btn btn-line" href="/dla-firm/">Oferta dla firm</a></p>'
             f'</div><ul class="vip-feats">{items}</ul></div>{gallery}</div></section>')
 
-# Auta Adama (zdjęcia z jego Facebooka) – kliknięcie powiększa zdjęcie
-FLEET = [
-    dict(name="Jetour X70 Plus", tag="do 7 osób", main=("suv-7", "Jetour X70 Plus – 7-osobowe taxi Adam Mączka"),
-         feats=["3 rzędy siedzeń – 7 miejsc", "skórzana tapicerka", "panoramiczny dach", "duży bagażnik na walizki"],
-         more=[("suv-7-przod", "Przednie fotele i panoramiczny dach"), ("suv-7-tyl", "Wygodna kanapa w drugim rzędzie"),
-               ("suv-7-trzeci-rzad", "Trzeci rząd siedzeń"), ("suv-7-bagaznik", "Bagażnik")]),
-    dict(name="Citroën C5 Aircross", tag="do 4 osób", main=("c5-aircross", "Citroën C5 Aircross – Taxi Adam Mączka"),
-         feats=["komfortowe zawieszenie", "klimatyzacja", "pojemny bagażnik", "idealny na lotnisko i do sanatorium"], more=[]),
-]
+# Auta firmy (src/data.py → FLEET_CARDS) – kliknięcie powiększa zdjęcie
+FLEET = FLEET_CARDS
 
 def fleet_block():
     def ph(f, alt, cls=""):
@@ -629,7 +622,7 @@ def fleet_block():
 
 # ================= HOME =================
 home_faq = [
-    ("Ile kosztuje taxi z Knurowa i Gierałtowic na lotnisko w Pyrzowicach?", f"Od {DEST['lotnisko-pyrzowice']['price']} zł z Knurowa i Gierałtowic. Ceny dla wszystkich lotnisk znajdziesz w cenniku" + L(" i w kalkulatorze.", ".")),
+    (f"Ile kosztuje taxi {A['from']} na lotnisko {MAIN_AIRPORT['loc']}?", f"Od {DEST[MAIN]['price']} zł {A['from']}. Ceny dla wszystkich lotnisk znajdziesz w cenniku" + L(" i w kalkulatorze.", ".")),
     ("Czy jeździcie w nocy i w święta?", "Jeździmy 7 dni w tygodniu, także w święta. Kursy nocne od 22:00 do 5:00 przyjmujemy tylko z wcześniejszą rezerwacją – "
      + L("zamów online („Na później”), telefonicznie albo przez WhatsApp.", "przez WhatsApp, SMS albo telefonicznie.") + " Bez rezerwacji w nocy nie jeździmy."),
     ("Jak zapłacić za kurs?", "Gotówką, kartą, BLIK-iem, a firmy także przelewem na fakturę."),
@@ -637,22 +630,22 @@ home_faq = [
     ("Czy mogę zamówić kurs dla rodzica?", "Tak. W uwagach wpisz imię i telefon pasażera. Przed wyjazdem potwierdzimy z nim godzinę odbioru."),
 ]
 if LITE_MODE: home_faq += [GROUP9, FEES]
-body = hero('<span class="sr-only">Taxi Gierałtowice i Knurów – Adam Mączka. </span>Bezpiecznie. Szybko. <em>Zawsze na czas.</em>',
-            f"Taxi Gierałtowice i Knurów – lotniska, sanatoria, kliniki i kursy po całym Śląsku. "
+body = hero(f'<span class="sr-only">{BRAND["hero_name"]}. </span>Bezpiecznie. Szybko. <em>Zawsze na czas.</em>',
+            f"Taxi {A['nom']} – lotniska, sanatoria, kliniki i kursy {A['region_all']}. "
             + L("Cenę znasz przed kursem, a kierowcę widzisz na żywo.", "Cenę od poznasz na stronie, a kierowca potwierdzi kurs w kilka minut.")
-            + f" Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł.",
+            + f" {DEST[MAIN]['short']} od {DEST[MAIN]['price']} zł.",
             book(), logo=True)
 body += services_block()
 body += fleet_block()
 body += vip_block()
-body += ('<section class="alt"><div class="wrap"><div class="sec-head"><h2>Najczęstsze trasy</h2><p class="muted">Ceny od, z Knurowa i Gierałtowic. Z dalszych miejscowości +10 lub +20 zł.</p></div>'
+body += (f'<section class="alt"><div class="wrap"><div class="sec-head"><h2>Najczęstsze trasy</h2><p class="muted">Ceny od, {A["from"]}. Z dalszych miejscowości +{ZONES["A"]["surcharge"]} lub +{ZONES["B"]["surcharge"]} zł.</p></div>'
          + board(["airport", "spa"]) + '<p style="margin-top:14px">Kliniki, dworce i miasta: <a href="/kliniki/">kliniki</a>, <a href="/dworce/">dworce</a>, <a href="/miasta/">miasta</a> albo <a href="/cennik/">pełny cennik</a>.</p></div></section>')
 body += f'<section><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div></section>'
 body += reviews_block()
 body += (f'<section id="rejon"><div class="wrap"><h2>Rejon odbioru</h2><p>Przyjeżdżamy po pasażerów w tych miejscowościach. Wybierz swoją, żeby zobaczyć ceny z Twojej okolicy.</p>{village_links()}</div></section>')
 body += f'<section class="alt"><div class="wrap"><h2>Pytania i odpowiedzi</h2>{faq_html(home_faq)}</div></section>'
-page("/", f"Taxi Gierałtowice i Knurów – Adam Mączka | lotniska od {DEST['lotnisko-pyrzowice']['price']} zł, sanatoria, kliniki",
-     f"Taxi w Knurowie i Gierałtowicach: transfery na lotniska (Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł), do sanatoriów i klinik. Stała cena przed kursem, "
+page("/", f"{BRAND['hero_name']} | lotniska od {DEST[MAIN]['price']} zł, sanatoria, kliniki",
+     f"Taxi {A['in']}: transfery na lotniska ({DEST[MAIN]['short']} od {DEST[MAIN]['price']} zł), do sanatoriów i klinik. Stała cena przed kursem, "
      + L("zamówienie online lub przez WhatsApp.", "zamówienie przez WhatsApp, SMS lub telefon.") + " Jeździmy wszędzie, gdzie potrzebujesz.",
      body, [org(), faq_ld(home_faq)])
 
@@ -672,7 +665,7 @@ for d in DESTINATIONS:
     body += f'<section><div class="wrap"><h2>Inne trasy: {k["plural"].lower()}</h2>{rel}</div></section>'
     svc = {"@context": "https://schema.org", "@type": "Service", "serviceType": "Taxi", "name": c["h1"],
            "provider": {"@id": SITE_URL + "/#firma"}, "areaServed": [v[1] for v in VILLAGES],
-           "offers": {"@type": "Offer", "priceCurrency": "PLN", "price": d["price"], "description": "Cena od, z Knurowa i Gierałtowic"}}
+           "offers": {"@type": "Offer", "priceCurrency": "PLN", "price": d["price"], "description": f"Cena od, {A['from']}"}}
     page(f"/{d['slug']}/", c["title"], c["desc"], body, [org(), svc, faq_ld(c["faq"]), crumbs_ld(cr)])
 
 # ================= HUBS =================
@@ -687,28 +680,28 @@ for kk, k in KIND.items():
     items = by_kind(kk)
     cr = [("Strona główna", "/"), (k["hub_name"], f"/{k['hub']}/")]
     first = items[0]
-    body = hero(k["hub_name"] + " z Knurowa i Gierałtowic", hub_lead[kk], book(dest=first["slug"], mode="now" if kk == "city" else "later"), crumbs_html(cr))
-    body += f'<section><div class="wrap"><div class="sec-head"><h2>{k["plural"]} i ceny</h2><p class="muted">Ceny od, z Knurowa i Gierałtowic.</p></div>{board([kk])}</div></section>'
+    body = hero(k["hub_name"] + " " + A["from"], hub_lead[kk], book(dest=first["slug"], mode="now" if kk == "city" else "later"), crumbs_html(cr))
+    body += f'<section><div class="wrap"><div class="sec-head"><h2>{k["plural"]} i ceny</h2><p class="muted">Ceny od, {A["from"]}.</p></div>{board([kk])}</div></section>'
     body += f'<section class="alt"><div class="wrap"><h2>Jak zarezerwować kurs</h2>{STEPS}</div></section>'
-    page(f"/{k['hub']}/", f"{k['hub_name']} z Knurowa i Gierałtowic – ceny od {min(x['price'] for x in items)} zł | {B['name']}",
-         f"{k['hub_name']} z Knurowa i Gierałtowic, Gierałtowic i okolic: {', '.join(x['short'] for x in items)}. Stała cena, rezerwacja przez WhatsApp lub telefon.",
+    page(f"/{k['hub']}/", f"{k['hub_name']} {A['from']} – ceny od {min(x['price'] for x in items)} zł | {B['name']}",
+         f"{k['hub_name']} {A['from_all']}: {', '.join(x['short'] for x in items)}. Stała cena, rezerwacja przez WhatsApp lub telefon.",
          body, [org(), crumbs_ld(cr)])
 
 # ================= VILLAGES =================
 for slug, name, loc, zone, price in VILLAGES:
     if slug == "knurow": continue
-    pyrz = route_price(slug, zone, DEST["lotnisko-pyrzowice"])
+    pyrz = route_price(slug, zone, DEST[MAIN])
     cr = [("Strona główna", "/"), (f"Taxi {name}", f"/taxi-{slug}/")]
     rows = "".join(f'<tr><td><a href="/{d["slug"]}/">{d["short"]}</a></td><td>{route_price(slug, zone, d)} zł</td></tr>'
                    for d in DESTINATIONS if d["kind"] in ("airport", "spa", "station"))
     body = hero(f"Taxi {name}: lotniska, sanatoria i kursy lokalne",
-                f"Odbieramy pasażerów {loc} 7 dni w tygodniu. Kurs do Knurowa od {price} zł, a na lotnisko w Pyrzowicach od {pyrz} zł.",
+                f"Odbieramy pasażerów {loc} 7 dni w tygodniu. Kurs do {A['base_gen']} od {price} zł, a na lotnisko {MAIN_AIRPORT['loc']} od {pyrz} zł.",
                 book(pickup_ph=f"Adres odbioru, {name}"), crumbs_html(cr))
     body += (f'<section><div class="wrap"><h2>Ceny z miejscowości {name}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Trasa</th><th>Cena od</th></tr></thead>'
-             f'<tbody><tr><td>Knurów</td><td>{price} zł</td></tr>{rows}</tbody></table></div></div></section>')
+             f'<tbody><tr><td>{A["base_nom"]}</td><td>{price} zł</td></tr>{rows}</tbody></table></div></div></section>')
     body += f'<section class="alt"><div class="wrap"><h2>Inne miejscowości w rejonie</h2>{village_links()}</div></section>'
     page(f"/taxi-{slug}/", f"Taxi {name} – lotniska, sanatoria, kliniki | {B['name']}",
-         f"Taxi {loc}: odbiór spod domu 7 dni w tygodniu, Pyrzowice od {pyrz} zł, sanatoria i kliniki. Rezerwacja przez WhatsApp lub telefon.",
+         f"Taxi {loc}: odbiór spod domu 7 dni w tygodniu, {DEST[MAIN]['short']} od {pyrz} zł, sanatoria i kliniki. Rezerwacja przez WhatsApp lub telefon.",
          body, [org(), crumbs_ld(cr)])
 
 # ================= CENNIK =================
@@ -716,19 +709,19 @@ def price_rows(kind):
     return "".join(f'<tr><td><a href="/{d["slug"]}/">{d["name"]}</a></td><td>{d["price"]} zł</td></tr>' for d in by_kind(kind))
 tables = ""
 for kk, k in KIND.items():
-    tables += f'<h2 style="margin-top:1.2em">{k["plural"]}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Trasa z Knurowa / Gierałtowic</th><th>Cena od</th></tr></thead><tbody>{price_rows(kk)}</tbody></table></div>'
+    tables += f'<h2 style="margin-top:1.2em">{k["plural"]}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Trasa {A["from_slash"]}</th><th>Cena od</th></tr></thead><tbody>{price_rows(kk)}</tbody></table></div>'
 local = "".join(f'<tr><td>{n}</td><td>{p} zł</td></tr>' for s, n, l, z, p in VILLAGES)
-zones_txt = "".join(f"<li><strong>{'Knurów i Gierałtowice' if z == '0' else 'Strefa ' + z}</strong> (+{ZONES[z]['surcharge']} zł): {', '.join(ZONE_VILL[z])}</li>" for z in ZONES)
+zones_txt = "".join(f"<li><strong>{ZONES['0']['label'] if z == '0' else 'Strefa ' + z}</strong> (+{ZONES[z]['surcharge']} zł): {', '.join(ZONE_VILL[z])}</li>" for z in ZONES)
 body = (f'<section class="hero" style="padding:0"><div class="wrap" style="grid-template-columns:1fr"><div>{crumbs_html([("Strona główna","/"),("Cennik","/cennik/")])}'
-        f'<h1>Cennik</h1><p class="lead">Ceny od, z Knurowa i Gierałtowic. Przy odbiorze z innej miejscowości doliczamy dopłatę strefową. Cenę każdego kursu potwierdzamy przed wyjazdem.</p></div></div></section>'
+        f'<h1>Cennik</h1><p class="lead">Ceny od, {A["from"]}. Przy odbiorze z innej miejscowości doliczamy dopłatę strefową. Cenę każdego kursu potwierdzamy przed wyjazdem.</p></div></div></section>'
         f'<section><div class="wrap"><h2>Dopłata za miejsce odbioru</h2><ul>{zones_txt}</ul>'
-        f'<h2 style="margin-top:1.2em">Kursy lokalne z Knurowa i Gierałtowic</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Do</th><th>Cena od</th></tr></thead><tbody>{local}</tbody></table></div>'
+        f'<h2 style="margin-top:1.2em">Kursy lokalne {A["from"]}</h2><div class="table-wrap"><table class="price-table"><thead><tr><th>Do</th><th>Cena od</th></tr></thead><tbody>{local}</tbody></table></div>'
         f'{tables}<p class="small muted" style="margin-top:16px">Płatność: {", ".join(B["payments"])}. Kursy niewymienione wyceniamy telefonicznie.</p>'
         + L("", f'<h2 style="margin-top:1.2em">Oczekiwanie i dodatkowe opłaty</h2><p>{waiting_text()}</p>'
                 f'<p>*Wszelkie dodatkowe opłaty pokrywa zamawiający (parkingi, wjazdy na tereny płatne itd.).</p><p>{GROUP9[0]} {GROUP9[1]}</p>')
         + f'<p><a class="btn btn-ink" href="/rezerwacja/">{L("Sprawdź cenę w kalkulatorze", "Zamów kurs")}</a></p></div></section>')
-page("/cennik/", f"Cennik taxi Knurów – lotniska, sanatoria, kliniki | {B['name']}",
-     f"Pełny cennik {B['name']}: kursy lokalne od {VILLAGES[0][4]} zł, Pyrzowice od {DEST['lotnisko-pyrzowice']['price']} zł, Balice od {DEST['lotnisko-balice']['price']} zł, sanatoria, kliniki i dworce.",
+page("/cennik/", f"Cennik taxi {BRAND['city']} – lotniska, sanatoria, kliniki | {B['name']}",
+     f"Pełny cennik {B['name']}: kursy lokalne od {VILLAGES[0][4]} zł, {DEST[MAIN]['short']} od {DEST[MAIN]['price']} zł, {DEST[SECOND]['short']} od {DEST[SECOND]['price']} zł, sanatoria, kliniki i dworce.",
      body, [org(), crumbs_ld([("Strona główna", "/"), ("Cennik", "/cennik/")])])
 
 # ================= REZERWACJA =================
@@ -736,34 +729,34 @@ body = hero("Zamów taxi", L("Kurs teraz albo rezerwacja na wybrany dzień. Zgł
                             "Kurs teraz albo rezerwacja na wybrany dzień. Wyślij zamówienie przez WhatsApp lub SMS albo zadzwoń – kierowca potwierdzi kurs i cenę w kilka minut."), book(),
             crumbs_html([("Strona główna", "/"), ("Rezerwacja", "/rezerwacja/")]))
 body += f'<section><div class="wrap"><h2>Jak to działa</h2>{STEPS}</div></section>'
-page("/rezerwacja/", f"Zamów taxi Knurów online – teraz lub na później | {B['name']}",
-     L("Zamów taxi z Knurowa i Gierałtowic i okolic online: Twoja lokalizacja, cena i czas przejazdu od razu, potwierdzenie kierowcy i status kursu na żywo.",
-       "Zamów taxi z Knurowa i Gierałtowic i okolic: wpisz trasę i wyślij przez WhatsApp lub SMS albo zadzwoń. Kierowca potwierdza kurs i cenę w kilka minut."), body, [org()])
+page("/rezerwacja/", f"Zamów taxi {BRAND['city']} online – teraz lub na później | {B['name']}",
+     L(f"Zamów taxi {A['from_all']} online: Twoja lokalizacja, cena i czas przejazdu od razu, potwierdzenie kierowcy i status kursu na żywo.",
+       f"Zamów taxi {A['from_all']}: wpisz trasę i wyślij przez WhatsApp lub SMS albo zadzwoń. Kierowca potwierdza kurs i cenę w kilka minut."), body, [org()])
 
 # ================= DLA FIRM =================
 firm_faq = [("Czy wystawiacie faktury?", "Tak, za każdy kurs lub zbiorczo na koniec miesiąca."),
             ("Jak wygląda rozliczenie miesięczne?", "Stały klient firmowy zamawia kursy telefonicznie lub przez WhatsApp, a na koniec miesiąca dostaje jedną fakturę z zestawieniem kursów."),
             ("Czy wozicie gości i kontrahentów z lotniska?", "Tak. Podaj numer lotu i nazwisko gościa – kierowca czeka w hali przylotów.")]
 body = (f'<section class="hero" style="padding:0"><div class="wrap" style="grid-template-columns:1fr"><div>{crumbs_html([("Strona główna","/"),("Dla firm","/dla-firm/")])}'
-        f'<h1>Taxi dla firm z Knurowa i Gierałtowic i okolic</h1><p class="lead">Delegacje, transfery gości z lotnisk i dojazdy pracowników. Faktura, przelew i jedno rozliczenie na koniec miesiąca.</p>'
+        f'<h1>Taxi dla firm {A["from_all"]}</h1><p class="lead">Delegacje, transfery gości z lotnisk i dojazdy pracowników. Faktura, przelew i jedno rozliczenie na koniec miesiąca.</p>'
         f'<p><a class="btn btn-ink" href="tel:{B["phone_e164"]}">{ICON["phone"]} Zadzwoń: {B["phone"]}</a></p></div></div></section>'
         '<section><div class="wrap cols"><div class="panel"><h3>Faktura i przelew</h3><p>Za każdy kurs albo zbiorczo raz w miesiącu.</p></div>'
-        f'<div class="panel"><h3>Transfery gości</h3><p>Odbiór kontrahentów z Pyrzowic, Balic i Okęcia{L(" z kartką z nazwiskiem", "")}.</p></div>'
+        f'<div class="panel"><h3>Transfery gości</h3><p>Odbiór kontrahentów z {AIRPORTS_GEN}{L(" z kartką z nazwiskiem", "")}.</p></div>'
         '<div class="panel"><h3>Stałe kursy</h3><p>Regularne dojazdy pracowników lub kurierskie przewozy dokumentów.</p></div></div></section>'
         + vip_block() +
         f'<section class="alt"><div class="wrap"><h2>Pytania i odpowiedzi</h2>{faq_html(firm_faq)}</div></section>')
-page("/dla-firm/", f"Taxi dla firm Knurów – faktura, przelew, transfery gości | {B['name']}",
-     "Taxi dla firm z Knurowa i Gierałtowic i okolic: delegacje, transfery gości z lotnisk, faktura i rozliczenie miesięczne przelewem.", body, [org(), faq_ld(firm_faq)])
+page("/dla-firm/", f"Taxi dla firm {BRAND['city']} – faktura, przelew, transfery gości | {B['name']}",
+     f"Taxi dla firm {A['from_all']}: delegacje, transfery gości z lotnisk, faktura i rozliczenie miesięczne przelewem.", body, [org(), faq_ld(firm_faq)])
 
 # ================= KONTAKT =================
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs_html([("Strona główna","/"),("Kontakt","/kontakt/")])}'
         f'<h1>Kontakt</h1><p class="lead"><a href="tel:{B["phone_e164"]}" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;text-decoration:none">{B["phone"]}</a></p>'
-        f'<p>Jeździmy z Gierałtowic, Knurowa i okolic – po całym Śląsku i całej Polsce.</p>'
+        f'<p>Jeździmy {A["from_rev"]} – {A["region_all"]} i całej Polsce.</p>'
         + '<ul class="locs">' + "".join(f'<li><b>{l["name"]}</b><span>{l["street"]}, {l["postal"]} {l["city"]}</span><a href="tel:{l["phone_e164"]}">{ICON["phone"]} {l["phone"]}</a></li>' for l in B["locations"])
         + "".join(f'<li><b>{n}</b><a href="tel:{e}">{ICON["phone"]} {ph}</a></li>' for n, ph, e in B["extra_phones"]) + '</ul>'
-        f'<p>E-mail: <a href="mailto:{B["email"]}">{B["email"]}</a><br>Facebook: <a href="{B["facebook"]}" target="_blank" rel="noopener">Taxi Adam Mączka</a></p><p>Kursy przyjmujemy 7 dni w tygodniu: {L("online, telefonicznie, przez WhatsApp lub SMS", "telefonicznie, przez WhatsApp lub SMS")}. Kursy nocne (22:00–5:00) tylko z wcześniejszą rezerwacją.</p>'
+        f'<p>E-mail: <a href="mailto:{B["email"]}">{B["email"]}</a><br>Facebook: <a href="{B["facebook"]}" target="_blank" rel="noopener">{BRAND["facebook_label"]}</a></p><p>Kursy przyjmujemy 7 dni w tygodniu: {L("online, telefonicznie, przez WhatsApp lub SMS", "telefonicznie, przez WhatsApp lub SMS")}. Kursy nocne (22:00–5:00) tylko z wcześniejszą rezerwacją.</p>'
         f'<p><a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Pokaż w Mapach Google</a></p></div>{book()}</div></section>')
-page("/kontakt/", f"Kontakt – {B['name']}, tel. {B['phone']}", f"Zamów taxi w Knurowie: tel. {B['phone']}, WhatsApp, SMS. {B['street']}, {B['city']}.", body, [org()])
+page("/kontakt/", f"Kontakt – {B['name']}, tel. {B['phone']}", f"Zamów taxi {BRAND['city_loc']}: tel. {B['phone']}, WhatsApp, SMS. {B['street']}, {B['city']}.", body, [org()])
 
 # ================= PRIVACY =================
 body = ('<section><div class="wrap"><h1>Polityka prywatności</h1>'
@@ -821,13 +814,13 @@ page("/polityka-prywatnosci/", f"Polityka prywatności – {B['name']}",
 air = by_kind("airport")
 rows = "".join(f'<tr><td>{d["name"].replace("Lotnisko ", "").replace("Warszawa", "Warsaw")} ({d["code"]})</td><td>from {d["price"]} PLN</td></tr>' for d in air)
 en_meter = book(lang="en", title="Book your ride")
-body = (f'<section class="hero" style="padding:0"><div class="wrap"><div><h1>Airport taxi from Knurów and Gierałtowice</h1>'
-        f'<p class="lead">Fixed prices to Katowice, Kraków, Wrocław, Ostrava and Warsaw airports. Door-to-door pickup 7 days a week (night rides 10 pm–5 am by advance booking only), cars for up to {B["seats"]} people.</p>'
+body = (f'<section class="hero" style="padding:0"><div class="wrap"><div><h1>Airport taxi from {A["en"]}</h1>'
+        f'<p class="lead">Fixed prices to {EN_AIRPORTS} airports. Door-to-door pickup 7 days a week (night rides 10 pm–5 am by advance booking only), cars for up to {B["seats"]} people.</p>'
         f'<p>Call or WhatsApp: <a href="tel:{B["phone_e164"]}"><strong>{B["phone"]}</strong></a></p></div>{en_meter}</div></section>'
-        f'<section><div class="wrap"><h2>Airport prices from Knurów</h2><div class="table-wrap"><table class="price-table"><tbody>{rows}</tbody></table></div>'
-        '<p class="small muted" style="margin-top:12px">Pickup outside Knurów adds 10–20 PLN. We confirm the final price when you book. Pay by cash, card or BLIK.</p></div></section>')
-page("/en/", f"Airport taxi Knurów – Katowice from {air[0]['price']} PLN | {B['name']}",
-     f"Airport transfers from Knurów and Gierałtowice: Katowice (KTW) from {air[0]['price']} PLN, Kraków (KRK) from {air[1]['price']} PLN. Fixed price, "
+        f'<section><div class="wrap"><h2>Airport prices from {A["en_base"]}</h2><div class="table-wrap"><table class="price-table"><tbody>{rows}</tbody></table></div>'
+        f'<p class="small muted" style="margin-top:12px">Pickup outside {A["en_base"]} adds {ZONES["A"]["surcharge"]}–{ZONES["B"]["surcharge"]} PLN. We confirm the final price when you book. Pay by cash, card or BLIK.</p></div></section>')
+page("/en/", f"Airport taxi {A['en_base']} – {MAIN_AIRPORT['en']} from {DEST[MAIN]['price']} PLN | {B['name']}",
+     f"Airport transfers from {A['en']}: {MAIN_AIRPORT['en']} ({DEST[MAIN]['code']}) from {DEST[MAIN]['price']} PLN, {SECOND_AIRPORT['en']} ({DEST[SECOND]['code']}) from {DEST[SECOND]['price']} PLN. Fixed price, "
      + L("book online or on WhatsApp.", "book on WhatsApp, by SMS or phone."),
      body, [org()], lang="en")
 
@@ -858,7 +851,7 @@ body = ('<section class="hero track-hero" style="padding:0"><div class="wrap tra
         '</div>'
         '<div class="track-side"><div class="map map-lg" id="t-map" hidden></div><dl class="t-details" id="t-details"></dl>'
         '<section class="chat" id="t-chat" hidden aria-labelledby="t-chat-h">'
-        '<div class="chat-head"><h2 id="t-chat-h">💬 Wiadomości</h2><span class="chat-who" id="t-chat-who">do Taxi Adam</span></div>'
+        '<div class="chat-head"><h2 id="t-chat-h">💬 Wiadomości</h2><span class="chat-who" id="t-chat-who">do ' + BRAND["short"] + '</span></div>'
         '<ol class="chat-list" id="t-chat-list" aria-live="polite" aria-relevant="additions"></ol>'
         '<p class="chat-empty" id="t-chat-empty">Coś się zmieniło albo masz pytanie? Napisz – wiadomość trafi prosto do kierowcy, a jego odpowiedź zobaczysz tutaj.</p>'
         '<div class="chat-quick" id="t-chat-quick"><button type="button" class="chat-chip" data-q="Jestem przed budynkiem">Jestem przed budynkiem</button><button type="button" class="chat-chip" data-q="Proszę zadzwonić">Proszę zadzwonić</button><button type="button" class="chat-chip" data-q="Mam dużo bagażu">Mam dużo bagażu</button><button type="button" class="chat-chip" data-q="Spóźnię się 5 minut">Spóźnię się 5 minut</button></div>'
@@ -956,8 +949,8 @@ input.changed{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,159,10,.25
     <p class="card" id="pr-off" hidden>Podgląd cen. Edycja z panelu zostanie włączona po podpisaniu umowy – do tego czasu zmiany cen wyślij Ramemu.</p>
     <div class="card"><h2>Miejscowości – kurs lokalny i strefa</h2><table class="pt"><thead><tr><th>Miejscowość</th><th>Kurs od (zł)</th><th>Strefa</th></tr></thead><tbody id="pr-villages"></tbody></table>
       <h3>Dopłata za strefę (do tras dalekich)</h3><div id="pr-zones"></div></div>
-    <div class="card"><h2>Trasy – ceny od (z Knurowa i Gierałtowic)</h2><div id="pr-dest"></div></div>
-    <div class="card"><h2>Wyjątki: miejscowość → trasa</h2><p class="note">Np. Czerwionka → Pyrzowice 220 zł. Zastępuje cenę trasy + dopłatę strefową.</p>
+    <div class="card"><h2>Trasy – ceny od ({{from}})</h2><div id="pr-dest"></div></div>
+    <div class="card"><h2>Wyjątki: miejscowość → trasa</h2><p class="note">Np. {{example}}. Zastępuje cenę trasy + dopłatę strefową.</p>
       <div id="pr-over"></div><button class="btn btn-line" id="over-add" type="button">+ Dodaj wyjątek</button></div>
     <div class="card wait"><h2>Oczekiwanie na miejscu</h2>
       <label>Pierwsze <input id="w-free" type="number" min="0" max="60" inputmode="numeric"> min gratis</label>
@@ -986,8 +979,8 @@ open(os.path.join(OUT, "robots.txt"), "w", encoding="utf-8").write(
     else f"User-agent: *\nAllow: /\nDisallow: /panel/\nSitemap: {SITE_URL}/sitemap.xml\n" if LITE_MODE
     else f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n")
 open(os.path.join(OUT, "manifest.webmanifest"), "w", encoding="utf-8").write(json.dumps({
-    "id": "/", "name": B["name"], "short_name": "Taxi Adam",
-    "description": L("Taxi Gierałtowice i Knurów – zamów teraz albo na później, status kursu na żywo.", "Taxi Gierałtowice i Knurów – zamów kurs przez WhatsApp, SMS albo telefon."),
+    "id": "/", "name": B["name"], "short_name": BRAND["short"],
+    "description": L(f"Taxi {A['nom']} – zamów teraz albo na później, status kursu na żywo.", f"Taxi {A['nom']} – zamów kurs przez WhatsApp, SMS albo telefon."),
     "start_url": L("/rezerwacja/?app=1", "/?app=1"), "scope": "/", "display": "standalone", "orientation": "portrait",
     "background_color": "#0A1430", "theme_color": "#0A1430", "lang": "pl",
     "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
@@ -1002,12 +995,12 @@ open(os.path.join(OUT, "sw.js"), "w", encoding="utf-8").write(
     "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/')"
     + ("||u.pathname.startsWith('/panel/')||u.pathname==='/version.json'" if LITE_MODE else "") + ")return;\n"
     " e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp));return r;}).catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});\n")
-# Netlify / Cloudflare Pages: 404 + stare adresy z taxifest.pl (uzupełnij, jeśli domena będzie przekierowana)
-open(os.path.join(OUT, "_redirects"), "w", encoding="utf-8").write("/cennik-transfery-na-lotniska  /lotniska/  301\n/kontakt.html  /kontakt/  301\n"
+# Netlify / Cloudflare Pages: 404 + stare adresy (src/data.py → REDIRECTS)
+open(os.path.join(OUT, "_redirects"), "w", encoding="utf-8").write("".join(f"{a}  {b}  301\n" for a, b in REDIRECTS)
     + ("/przejazd/*  /rezerwacja/  302\n/przejazd  /rezerwacja/  302\n/konto/*  /  302\n/konto  /  302\n" if LITE_MODE else ""))
 if LITE_MODE:   # panel właściciela: /panel/#<sekret> (noindex, poza sitemapą; dane tylko przez /api/panel/* po PIN-ie)
     os.makedirs(os.path.join(OUT, "panel"), exist_ok=True)
-    open(os.path.join(OUT, "panel", "index.html"), "w", encoding="utf-8").write(PANEL.replace("{{av}}", env.globals["av"]).replace("{{name}}", B["name"]))
+    open(os.path.join(OUT, "panel", "index.html"), "w", encoding="utf-8").write(PANEL.replace("{{av}}", env.globals["av"]).replace("{{name}}", B["name"]).replace("{{from}}", A["from"]).replace("{{example}}", PANEL_EXAMPLE))
 if LITE_MODE:   # panel: „wdrożono” = ta wersja (commit z Cloudflare) jest już na stronie
     open(os.path.join(OUT, "version.json"), "w", encoding="utf-8").write(json.dumps(
         {"commit": os.environ.get("CF_PAGES_COMMIT_SHA", ""), "prices_version": __import__("data").PRICES.get("version")}))

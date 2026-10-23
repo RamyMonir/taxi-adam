@@ -189,6 +189,71 @@ VIP_CAPTIONS = {
     # "gala-katowice.jpg": "Gala w Katowicach, 2026",
 }
 
+# ---------------- TOŻSAMOŚĆ FIRMY (white-label) ----------------
+# Wszystkie teksty zależne od firmy i regionu. Polskie formy wpisujemy RĘCZNIE (nic nie jest odmieniane automatycznie).
+OWNER = {
+    "nom": "Adam",          # kto? – „Adam przydzielił Ci rezerwację”
+    "gen": "Adama",         # kogo? – „Poproś Adama o link”
+    "dat": "Adamowi",       # komu? – „Do oddania Adamowi”
+    "full": "Adam Mączka",
+}
+BRAND = {
+    "short": "Taxi Adam",                         # nazwa aplikacji na telefonie, bot, czat
+    "city": "Knurów",                             # „Taxi Knurów – …” w tytułach stron
+    "city_loc": "w Knurowie",                     # „Zamów taxi w Knurowie”
+    "logo_title": "TAXI ADAM MĄCZKA",             # tekst przy logo w nagłówku
+    "logo_sub": "GIERAŁTOWICE · KNURÓW · OKOLICE",
+    "hero_name": "Taxi Gierałtowice i Knurów – Adam Mączka",   # nagłówek strony głównej (dla Google)
+    "facebook_label": "Taxi Adam Mączka",
+    "alternate_names": ["Taxi Fest Knurów", "Taxi Gierałtowice"],   # inne nazwy firmy (dane strukturalne)
+}
+AREA = {
+    "nom": "Gierałtowice i Knurów",               # „Taxi Gierałtowice i Knurów – lotniska…”
+    "from": "z Knurowa i Gierałtowic",            # „Taxi z Knurowa i Gierałtowic na lotnisko”
+    "from_all": "z Knurowa i Gierałtowic i okolic",
+    "from_rev": "z Gierałtowic, Knurowa i okolic",
+    "from_slash": "z Knurowa / Gierałtowic",
+    "in": "w Knurowie i Gierałtowicach",
+    "in_list": "w Knurowie, Gierałtowicach i okolicznych miejscowościach",
+    "base_nom": "Knurów", "base_gen": "Knurowa",  # „Kurs do Knurowa od 15 zł” (strony miejscowości)
+    "zone_a_gen": "Przyszowic",                   # „Z Przyszowic i strefy A dochodzi …”
+    "zone_a_examples": "Przyszowice, Bojków",
+    "region_all": "po całym Śląsku",
+    "region_loc": "na Śląsku",
+    "region_badge": "ŚLĄSK",
+    "en": "Knurów and Gierałtowice", "en_base": "Knurów",
+}
+# Główne lotniska (slugi z DESTINATIONS) i teksty o lotniskach
+MAIN_AIRPORT = {"slug": "lotnisko-pyrzowice", "loc": "w Pyrzowicach", "en": "Katowice"}
+SECOND_AIRPORT = {"slug": "lotnisko-balice", "en": "Kraków"}
+AIRPORTS_GEN = "Pyrzowic, Balic i Okęcia"                         # „Odbiór kontrahentów z …”
+EN_AIRPORTS = "Katowice, Kraków, Wrocław, Ostrava and Warsaw"
+# Szybkie cele w formularzu: (ikona, slug, etykieta)
+CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balice", "Balice"), ("plane", "lotnisko-wroclaw", "Wrocław"),
+         ("train", "dworzec-gliwice", "Dworzec Gliwice"), ("train", "dworzec-katowice", "Dworzec Katowice")]
+# Opisy na kartach usług (strona główna)
+SERVICE_NOTES = {
+    "airport": "Pyrzowice, Balice, Wrocław, Warszawa. Śledzimy lot przy powrocie.",
+    "spa": "Busko-Zdrój, Szczyrk, Ustroń. Pomoc z bagażem i powrót po turnusie.",
+    "clinic": "Katowice, Gliwice, Zabrze. Kierowca może poczekać podczas wizyty.",
+}
+# Auta firmy (zdjęcia w src/assets/img/fleet/<plik>.webp). Pusta lista = sekcja „Czym pojedziesz” bez kart.
+FLEET_CARDS = [
+    dict(name="Jetour X70 Plus", tag="do 7 osób", main=("suv-7", "Jetour X70 Plus – 7-osobowe taxi Adam Mączka"),
+         feats=["3 rzędy siedzeń – 7 miejsc", "skórzana tapicerka", "panoramiczny dach", "duży bagażnik na walizki"],
+         more=[("suv-7-przod", "Przednie fotele i panoramiczny dach"), ("suv-7-tyl", "Wygodna kanapa w drugim rzędzie"),
+               ("suv-7-trzeci-rzad", "Trzeci rząd siedzeń"), ("suv-7-bagaznik", "Bagażnik")]),
+    dict(name="Citroën C5 Aircross", tag="do 4 osób", main=("c5-aircross", "Citroën C5 Aircross – Taxi Adam Mączka"),
+         feats=["komfortowe zawieszenie", "klimatyzacja", "pojemny bagażnik", "idealny na lotnisko i do sanatorium"], more=[]),
+]
+# Przykład wyjątku cenowego w panelu
+PANEL_EXAMPLE = "Czerwionka → Pyrzowice 220 zł"
+# Przekierowania starych adresów (np. z poprzedniej strony firmy): (stary, nowy)
+REDIRECTS = [("/cennik-transfery-na-lotniska", "/lotniska/"), ("/kontakt.html", "/kontakt/")]
+# Przykładowe adresy w pomocy bota i AI (miasto bazowe i ulice z okolicy)
+EXAMPLES = {"town": "Knurów", "addr": "Rynek 1 Knurów", "addr2": "Lipowa 5 Gierałtowice", "street": "Szpitalna 5",
+            "probe": "Dworcowa Knurów", "region_en": "Silesia, Poland", "towns_en": "Knurów and Gierałtowice"}
+
 # ---------------- WERSJA LITE ----------------
 # True = strona bez systemu rezerwacji: klient wysyła kurs przez WhatsApp / SMS albo dzwoni, kierowca potwierdza.
 # Każde kliknięcie trafia do raportu w panelu (/panel/). False = pełny system (mapa, cena, Telegram, status na żywo).
