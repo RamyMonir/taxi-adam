@@ -137,10 +137,10 @@ for _d in DESTINATIONS:
 
 # Strefy odbioru liczone odległością od centrum Knurowa (km w linii prostej).
 # Do ZONE_KM["0"] = Knurów, do "A" = strefa A, do "B" = strefa B, dalej = wycena za kilometr.
-KNUROW_CENTER = (50.2197, 18.6767)
+BASE_CENTER = (50.2197, 18.6767)
 # Gierałtowice (baza Adama) też bez dopłaty: do tylu km od centrum Gierałtowic = strefa "0"
-GIERALTOWICE_CENTER = (50.2241, 18.7271)
-GIERALTOWICE_KM = 2.5
+BASE2_CENTER = (50.2241, 18.7271)
+BASE2_KM = 2.5
 ZONE_KM = {"0": 4.5, "A": 9, "B": 16}
 
 # Wycena kursów spoza cennika (SZACUNEK – potwierdź z Adamem): start + zł za km trasy, nie mniej niż minimum.

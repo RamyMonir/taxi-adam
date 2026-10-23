@@ -3,8 +3,8 @@
 import json, os, shutil, datetime, hashlib
 from fleet import CARS as FLEET_CARS, DRIVERS as FLEET_DRIVERS   # auta i kierowcy: src/fleet.py
 from jinja2 import Environment, DictLoader
-from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
-                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY,
+from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, BASE_CENTER,
+                  GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, BASE2_CENTER, BASE2_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY,
                   OVERRIDES, WAITING, LITE_MODE, LITE_NOINDEX, PHONE2, CREDIT, OWNER, BRAND, AREA, MAIN_AIRPORT, SECOND_AIRPORT,
                   AIRPORTS_GEN, EN_AIRPORTS, CHIPS, SERVICE_NOTES, FLEET_CARDS, PANEL_EXAMPLE, REDIRECTS, EXAMPLES)
 A = AREA; MAIN = MAIN_AIRPORT["slug"]; SECOND = SECOND_AIRPORT["slug"]
@@ -77,8 +77,8 @@ def write_server_config():
     """server/config.js – te same ceny i strefy dla funkcji Cloudflare (liczą cenę po stronie serwera)."""
     cfg = dict(
         phone=B["phone_e164"], seats=B["seats"], waitMin=NOW_WAIT_MIN, googleClientId=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, places=GOOGLE_PLACES,
-        base=dict(lat=B["lat"], lng=B["lng"]), center=dict(lat=KNUROW_CENTER[0], lng=KNUROW_CENTER[1]),
-        center2=dict(lat=GIERALTOWICE_CENTER[0], lng=GIERALTOWICE_CENTER[1]), center2Km=GIERALTOWICE_KM,
+        base=dict(lat=B["lat"], lng=B["lng"]), center=dict(lat=BASE_CENTER[0], lng=BASE_CENTER[1]),
+        center2=dict(lat=BASE2_CENTER[0], lng=BASE2_CENTER[1]), center2Km=BASE2_KM,
         commission=COMMISSION, fleet=fleet_config(), zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
         destinations=[dict(slug=d["slug"], code=d.get("code"), short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
     cfg.update(owner=OWNER, brand=dict(short=BRAND["short"], name=B["name"], city=BRAND["city"]), examples=EXAMPLES)   # bot, SMS, chat, AI texts (server/brand.js)
@@ -542,7 +542,7 @@ FEES = ("Czy są dodatkowe opłaty?", "Wszelkie dodatkowe opłaty pokrywa zamawi
 
 def village_links():
     return '<ul class="villages">' + "".join(
-        f'<li><a href="{"/" if s == "knurow" else "/taxi-" + s + "/"}">{n}</a></li>' for s, n, *_ in VILLAGES) + "</ul>"
+        f'<li><a href="{"/" if s == VILLAGES[0][0] else "/taxi-" + s + "/"}">{n}</a></li>' for s, n, *_ in VILLAGES) + "</ul>"
 
 def reviews_block():
     """Opinie z Google – karty ładuje app.js z /api/reviews; bez backendu zostaje sama ocena i link."""
@@ -690,7 +690,7 @@ for kk, k in KIND.items():
 
 # ================= VILLAGES =================
 for slug, name, loc, zone, price in VILLAGES:
-    if slug == "knurow": continue
+    if slug == VILLAGES[0][0]: continue   # the base town = the home page
     pyrz = route_price(slug, zone, DEST[MAIN])
     cr = [("Strona główna", "/"), (f"Taxi {name}", f"/taxi-{slug}/")]
     rows = "".join(f'<tr><td><a href="/{d["slug"]}/">{d["short"]}</a></td><td>{route_price(slug, zone, d)} zł</td></tr>'
