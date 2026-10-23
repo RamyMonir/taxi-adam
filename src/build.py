@@ -195,7 +195,7 @@ window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();win
       {% for l in B.locations %}<p class="foot-loc"><b>{{ l.name }}</b><br>{{ l.street }}, {{ l.postal }} {{ l.city }}<br><a href="tel:{{ l.phone_e164 }}">{{ l.phone }}</a></p>{% endfor %}
       {% for n, ph, e164 in B.extra_phones %}<p class="foot-loc"><b>{{ n }}</b><br><a href="tel:{{ e164 }}">{{ ph }}</a></p>{% endfor %}
       <p><a href="https://wa.me/{{ B.whatsapp }}">WhatsApp</a><br>
-      <a href="mailto:{{ B.email }}">{{ B.email }}</a><br><a href="{{ B.facebook }}" target="_blank" rel="noopener">Facebook</a></p></div>
+      <a href="mailto:{{ B.email }}">{{ B.email }}</a>{% if B.facebook %}<br><a href="{{ B.facebook }}" target="_blank" rel="noopener">Facebook</a>{% endif %}</p></div>
     <div><h3>Trasy</h3><ul>{% for k in kinds %}<li><a href="/{{ k.hub }}/">{{ k.hub_name }}</a></li>{% endfor %}<li><a href="/cennik/">Cennik</a></li></ul></div>
     <div><h3>Rejon odbioru</h3><ul>{% for v in villages[1:8] %}<li><a href="/taxi-{{ v[0] }}/">Taxi {{ v[1] }}</a></li>{% endfor %}<li><a href="/#rejon">Wszystkie miejscowości</a></li></ul></div>
     <div><h3>Informacje</h3><ul><li><a href="/dla-firm/">Dla firm</a></li><li><a href="/kontakt/">Kontakt</a></li><li><a href="/en/">English</a></li><li><a href="/polityka-prywatnosci/">Polityka prywatności</a></li></ul></div>
@@ -362,7 +362,7 @@ BOOK_LITE = r"""<form class="book lite-book" id="booking" data-mode="{{ mode }}"
       <a class="btn btn-sms" id="go-sms" href="sms:{{ B.phone_e164 }}">{{ icon.sms }}<span>{{ t.sms }}</span></a>
       <a class="btn btn-call" data-lead="tel" href="tel:{{ B.phone_e164 }}">{{ icon.phone }}<span>{{ t.call }} {{ B.phone }}</span></a>
     </div>
-    <p class="lite-tel2">{{ t.or_ }} <a data-lead="tel" href="tel:{{ phone2[1] }}">{{ phone2[0] }}</a></p>
+    {% if phone2 %}<p class="lite-tel2">{{ t.or_ }} <a data-lead="tel" href="tel:{{ phone2[1] }}">{{ phone2[0] }}</a></p>{% endif %}
   </div>
   <p class="lite-price">{{ t.price_note }}</p>
   <details class="more"><summary>{{ t.more }}</summary>
@@ -441,7 +441,7 @@ def org():
             "telephone": B["phone_e164"], "email": B["email"],
             "department": [{"@type": "TaxiService", "name": l["name"], "telephone": l["phone_e164"],
                             "address": {"@type": "PostalAddress", "streetAddress": l["street"].replace("ul. ", ""), "postalCode": l["postal"],
-                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [B["facebook"]], "alternateName": BRAND["alternate_names"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": f"{min(v[4] for v in VILLAGES)}–{max(d['price'] for d in DESTINATIONS)} zł",
+                                        "addressLocality": l["city"], "addressCountry": "PL"}} for l in B["locations"][1:]], "sameAs": [x for x in [B["facebook"]] if x], "alternateName": BRAND["alternate_names"], "url": SITE_URL + "/", "image": SITE_URL + "/assets/og.png", "priceRange": f"{min(v[4] for v in VILLAGES)}–{max(d['price'] for d in DESTINATIONS)} zł",
             "address": {"@type": "PostalAddress", "streetAddress": B["street"].replace("ul. ", ""), "postalCode": B["postal"],
                         "addressLocality": B["city"], "addressCountry": "PL"},
             "geo": {"@type": "GeoCoordinates", "latitude": B["lat"], "longitude": B["lng"]},
@@ -502,7 +502,7 @@ def hero(h1, lead, meter_html, crumbs=None, facts=True, logo=False):
     f = ""
     if facts:
         f = (f'<ul class="hero-facts"><li class="status">7 dni w tygodniu · w nocy po rezerwacji</li>'
-             f'<li>{ICON["star"]}<span class="stars">{B["rating"]}</span>&nbsp;z {B["reviews"]} opinii w Google</li>'
+             + (f'<li>{ICON["star"]}<span class="stars">{B["rating"]}</span>&nbsp;z {B["reviews"]} opinii w Google</li>' if B.get("reviews") else '') +
              f'<li>{ICON["check"]} Auta do {B["seats"]} osób</li><li>{ICON["check"]} Karta, BLIK, przelew</li></ul>')
     lg = ('<img class="hero-logo" src="/assets/img/logo.webp" alt="" width="560" height="671" fetchpriority="high">' if logo else "")
     return (f'<section class="hero" style="padding:0"><div class="wrap"><div class="hero-copy">{crumbs or ""}{lg}<h1>{h1}</h1>'
@@ -551,7 +551,7 @@ def reviews_block():
         return (f'<section class="reviews" id="opinie"><div class="wrap">'
                 f'<div class="rv-head"><div><h2>Co mówią klienci</h2><p class="muted">Opinie z trzech naszych wizytówek Google – razem.</p></div>'
                 f'<div class="g-score"><span class="g-num">{B["rating"]}</span><span><span class="g-stars">{stars}</span>'
-                f'<small>z {B["reviews"]} opinii w Google</small></span></div></div>'
+                f'<small>{"z " + str(B["reviews"]) + " opinii w Google" if B.get("reviews") else "Opinie w Google"}</small></span></div></div>'
                 + '<ul class="g-places">' + "".join(
                     f'<li><b>{pl["name"]}</b>'
                     f'<span class="gp-links"><a href="https://www.google.com/maps/place/?q=place_id:{pl["id"]}" target="_blank" rel="noopener">Opinie</a>'
@@ -563,7 +563,7 @@ def reviews_block():
     return (f'<section class="reviews" id="opinie"><div class="wrap">'
             f'<div class="rv-head"><div><h2>Co mówią klienci</h2><p class="muted">Opinie z trzech naszych wizytówek Google – razem.</p></div>'
             f'<div class="g-score"><span class="g-num" id="g-num">{B["rating"]}</span><span><span class="g-stars">{stars}</span>'
-            f'<small id="g-count">{B["reviews"]} opinii w Google</small></span></div></div>'
+            f'<small id="g-count">{str(B["reviews"]) + " opinii w Google" if B.get("reviews") else "Opinie w Google"}</small></span></div></div>'
             + '<ul class="g-places" id="g-places">' + "".join(
                 f'<li data-place="{k}"><b>{pl["name"]}</b><span class="gp-score">{ICON["star"]}<span class="gp-num">–</span></span>'
                 f'<span class="gp-links"><a href="https://www.google.com/maps/place/?q=place_id:{pl["id"]}" target="_blank" rel="noopener">Opinie</a>'
@@ -606,6 +606,7 @@ def vip_block():
 FLEET = FLEET_CARDS
 
 def fleet_block():
+    if not FLEET: return ""   # no car photos yet (src/data.py FLEET_CARDS)
     def ph(f, alt, cls=""):
         return (f'<button type="button" class="vip-ph {cls}" data-full="/assets/img/fleet/{f}.webp" data-cap="{alt}">'
                 f'<img src="/assets/img/fleet/{f}.webp" alt="{alt}" loading="lazy" decoding="async"></button>')
@@ -750,12 +751,13 @@ page("/dla-firm/", f"Taxi dla firm {BRAND['city']} – faktura, przelew, transfe
      f"Taxi dla firm {A['from_all']}: delegacje, transfery gości z lotnisk, faktura i rozliczenie miesięczne przelewem.", body, [org(), faq_ld(firm_faq)])
 
 # ================= KONTAKT =================
+FB_LINE = ('<br>Facebook: <a href="' + B["facebook"] + '" target="_blank" rel="noopener">' + BRAND["facebook_label"] + '</a>') if B["facebook"] else ""
 body = (f'<section class="hero" style="padding:0"><div class="wrap"><div>{crumbs_html([("Strona główna","/"),("Kontakt","/kontakt/")])}'
         f'<h1>Kontakt</h1><p class="lead"><a href="tel:{B["phone_e164"]}" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;text-decoration:none">{B["phone"]}</a></p>'
         f'<p>Jeździmy {A["from_rev"]} – {A["region_all"]} i całej Polsce.</p>'
         + '<ul class="locs">' + "".join(f'<li><b>{l["name"]}</b><span>{l["street"]}, {l["postal"]} {l["city"]}</span><a href="tel:{l["phone_e164"]}">{ICON["phone"]} {l["phone"]}</a></li>' for l in B["locations"])
         + "".join(f'<li><b>{n}</b><a href="tel:{e}">{ICON["phone"]} {ph}</a></li>' for n, ph, e in B["extra_phones"]) + '</ul>'
-        f'<p>E-mail: <a href="mailto:{B["email"]}">{B["email"]}</a><br>Facebook: <a href="{B["facebook"]}" target="_blank" rel="noopener">{BRAND["facebook_label"]}</a></p><p>Kursy przyjmujemy 7 dni w tygodniu: {L("online, telefonicznie, przez WhatsApp lub SMS", "telefonicznie, przez WhatsApp lub SMS")}. Kursy nocne (22:00–5:00) tylko z wcześniejszą rezerwacją.</p>'
+        f'<p>E-mail: <a href="mailto:{B["email"]}">{B["email"]}</a>{FB_LINE}</p><p>Kursy przyjmujemy 7 dni w tygodniu: {L("online, telefonicznie, przez WhatsApp lub SMS", "telefonicznie, przez WhatsApp lub SMS")}. Kursy nocne (22:00–5:00) tylko z wcześniejszą rezerwacją.</p>'
         f'<p><a class="btn btn-ink" href="{B["google_maps"]}" target="_blank" rel="noopener">Pokaż w Mapach Google</a></p></div>{book()}</div></section>')
 page("/kontakt/", f"Kontakt – {B['name']}, tel. {B['phone']}", f"Zamów taxi {BRAND['city_loc']}: tel. {B['phone']}, WhatsApp, SMS. {B['street']}, {B['city']}.", body, [org()])
 
