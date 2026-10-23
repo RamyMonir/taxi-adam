@@ -2,6 +2,7 @@
 // buttons -> status lines -> closed after the ride. A reservation, so it runs at any hour.
 // Needs fake Telegram :8999, fake Google :8998, wrangler with the fleet sync ON and CHAT_CLOSE_MIN=0.05 – see README.
 import { nowWarsaw } from "../../server/util.js";
+import { OWNER, BRAND } from "../../server/brand.js";
 const S = "http://localhost:8788", TG = "http://127.0.0.1:8999";
 let uid = 1, fails = 0;
 const ok = (c, m, x = "") => { console.log((c ? "✔ " : "✘ ") + m + (x ? " | " + x : "")); if (!c) fails++; };
@@ -47,7 +48,7 @@ ok(/Odpowiedz na tę wiadomość/.test(m.text || "") && qb.map((b) => b.text).jo
 await msg(OWNER, "Dzień dobry, zaraz przydzielę kierowcę", { reply_to_message: { message_id: m._mid } });
 g = await get();
 const last = (x) => x.messages[x.messages.length - 1] || {};
-ok(last(g).from === "taxi" && last(g).who === "Taxi Adam" && last(g).text === "Dzień dobry, zaraz przydzielę kierowcę", "Adam replies -> customer sees it signed 'Taxi Adam'");
+ok(last(g).from === "taxi" && last(g).who === BRAND.short && last(g).text === "Dzień dobry, zaraz przydzielę kierowcę", "Adam replies -> customer sees it signed 'Taxi Adam'");
 ok((await log()).some((x) => x.method === "setMessageReaction"), "Adam's reply gets a quiet 👍 instead of another message");
 
 // 2. Adam gives the reservation to Marek -> status line; Marek gets what the customer said before; new messages go to Marek

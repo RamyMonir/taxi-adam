@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderReport, chunks, parsePeriod, parsePaid, warsawMidnight } from "../server/report.js";
+import { OWNER, BRAND } from "../server/brand.js";
 
 const at = (hhmm) => Date.parse(`2026-10-10T${hhmm}:00+02:00`);
 const trip = (id, drv, name, car, carLabel, time, from, to, paid, method) => ({
@@ -39,7 +40,7 @@ test("owner report: totals, every ride with driver + car, settlement per driver,
   assert.match(t, /gotówka 145,00 zł · 💳 karta \/ BLIK \/ przelew 300,00 zł/);
   assert.match(t, /07:40 <b>Marek<\/b> · Rynek → Dworzec Gliwice · 85,00 zł 💵 · Toyota Corolla · SGL 1A234/);
   assert.match(t, /Marek Nowak<\/b> · 50% dla kierowcy · 2 kursy/);
-  assert.match(t, /kierowca 102,50 zł · firma 102,50 zł → <b>💸 Adam dopłaca: 17,50 zł<\/b>/);
+  assert.match(t, new RegExp(`kierowca 102,50 zł · firma 102,50 zł → <b>💸 ${OWNER.nom} dopłaca: 17,50 zł</b>`));
   // daily fee 120 zł, only 60 zł in cash: she hands in the 60 zł and owes 60 zł more
   assert.match(t, /kierowca −60,00 zł · firma 120,00 zł → <b>💵 Katarzyna oddaje 120,00 zł<\/b>/);
   assert.match(t, /Hyundai i30 · SK 5E456 – 🔧 w serwisie: wymiana klocków/);

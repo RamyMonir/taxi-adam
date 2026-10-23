@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { settleDay, settlePeriod, modelOf, zl2, handInText } from "../server/settle.js";
+import { OWNER, BRAND } from "../server/brand.js";
 
 const cfg = { default_driver_pct: 50, default_daily_fee: 120, cash_methods: ["gotówka"] };
 const T = (paid, method, extra = {}) => ({ status: "done", day: "2026-10-10", paid, method, price: paid, ...extra });
@@ -11,14 +12,14 @@ test("50/50: cash below the driver's share -> Adam pays the driver", () => {
   assert.equal(s.model, "percent"); assert.equal(s.pct, 50);
   assert.deepEqual([s.gross, s.cash, s.noncash, s.driverShare, s.ownerShare, s.handIn], [490, 160, 330, 245, 245, -85]);
   assert.equal(handInText(s), "💸 Firma dopłaca Ci: 85,00 zł");
-  assert.equal(handInText(s, "Marek"), "💸 Adam dopłaca: 85,00 zł");
+  assert.equal(handInText(s, "Marek"), `💸 ${OWNER.nom} dopłaca: 85,00 zł`);
 });
 
 test("daily car fee: driver keeps gross minus fee, hands in the rest of the cash", () => {
   const kasia = [T(60, "gotówka"), T(95, "gotówka"), T(40, "karta"), T(150, "gotówka")];
   const s = settleDay(kasia, { id: "d2", pay_model: "daily_fee", daily_fee: 120 }, cfg);
   assert.deepEqual([s.gross, s.cash, s.noncash, s.ownerShare, s.driverShare, s.handIn], [345, 305, 40, 120, 225, 80]);
-  assert.equal(handInText(s), "💵 Do oddania Adamowi: 80,00 zł");
+  assert.equal(handInText(s), `💵 Do oddania ${OWNER.dat}: 80,00 zł`);
 });
 
 test("per-driver percentage override and rounding to grosze", () => {

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cleanText, chatOpen, routeOf, publicMessage, systemLine, canAnswer, taxiText, MAX_LEN, PER_MINUTE } from "../server/chat.js";
 import { hit } from "../server/ratelimit.js";
+import { OWNER, BRAND } from "../server/brand.js";
 
 const env = { TELEGRAM_CHAT_ID: "999" };
 const ride = (status, data = {}, extra = {}) => ({ id: "abcdef123456", status, updated: Date.now(), data: { pickup: { address: "Rynek 1, Knurów" }, ...data }, ...extra });
@@ -39,7 +40,7 @@ test("what the customer sees: no Telegram ids, signed Kierowca / Taxi Adam", () 
   const row = { id: 7, sender: "driver", text: "Jadę", created_at: 1, tg_chat_id: "4101", tg_message_id: 55 };
   const p = publicMessage(row);
   assert.deepEqual(p, { id: 7, from: "taxi", who: "Kierowca", text: "Jadę", at: 1 });
-  assert.equal(publicMessage({ ...row, sender: "owner" }).who, "Taxi Adam");
+  assert.equal(publicMessage({ ...row, sender: "owner" }).who, BRAND.short);
   assert.equal(publicMessage({ ...row, sender: "customer" }).from, "me");
   assert.equal(publicMessage({ ...row, sender: "system" }).from, "system");
   assert.ok(!JSON.stringify(p).includes("4101"));

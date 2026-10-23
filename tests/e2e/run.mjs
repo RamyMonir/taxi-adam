@@ -1,3 +1,4 @@
+import { OWNER, BRAND } from "../../server/brand.js";
 const S = "http://localhost:8788", TG = "http://127.0.0.1:8999";
 let uid = 1, fails = 0;
 const ok = (c, m) => { console.log((c ? "✔ " : "✘ ") + m); if (!c) fails++; };
@@ -124,7 +125,7 @@ ok(/RAPORT – CAŁA FIRMA/.test(t) && /Rozliczenie kierowców/.test(t) && /🚗
 console.log("\n--- owner /raport ---\n" + (await texts(999)).filter((x) => /RAPORT/.test(x))[0]);
 await reset(); await msg(111, "/raport");
 t = (await texts(111)).join("\n");
-ok(/TWÓJ RAPORT – Marek/.test(t) && /Twój udział \(50%\)/.test(t) && /Firma dopłaca Ci|Do oddania Adamowi/.test(t), "driver /raport: share + hand-in");
+ok(/TWÓJ RAPORT – Marek/.test(t) && /Twój udział \(50%\)/.test(t) && new RegExp(`Firma dopłaca Ci|Do oddania ${OWNER.dat}`).test(t), "driver /raport: share + hand-in");
 console.log("\n--- Marek /raport ---\n" + (await texts(111)).filter((x) => /RAPORT/.test(x))[0]);
 await reset(); await msg(111, "/ja");
 ok(/Auto: <b>/.test((await last(111)).text) && /Zdjęcie dla klienta: ✅/.test((await last(111)).text), "/ja shows car + photo");

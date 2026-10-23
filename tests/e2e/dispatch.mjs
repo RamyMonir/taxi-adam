@@ -1,4 +1,5 @@
 // Adam as dispatcher, end to end. Needs the fleet sync ON (no FLEET_FROM_FILE=0), fake Telegram :8999, fake Google :8998 (fake-google.mjs) – see README.
+import { OWNER, BRAND } from "../../server/brand.js";
 const S = "http://localhost:8788", TG = "http://127.0.0.1:8999";
 let uid = 1, fails = 0;
 const ok = (c, m, x = "") => { console.log((c ? "✔ " : "✘ ") + m + (x ? " | " + x : "")); if (!c) fails++; };
@@ -100,7 +101,7 @@ await reset(); await tap(OWNER, "drmy|f_k4");
 m = (await sentTo(OWNER)).pop();
 ok(/Usunięto: <b>Paweł/.test(m.text) && !/Paweł Zieliński/.test(m.text.split("\n").slice(1).join("\n")), "removed -> gone from the list");
 await reset(); await tap(MAREK, "drm|f_k1");
-ok((await alerts()).some((t) => /Tylko Adam/.test(t)), "drivers can't remove anyone");
+ok((await alerts()).some((t) => new RegExp(`Tylko ${OWNER.nom}`).test(t)), "drivers can't remove anyone");
 await reset(); await msg(OWNER, "❓ Pomoc");
 ok(/Ktoś dzwoni\?/.test((await sentTo(OWNER)).pop()?.text || ""), "Adam's ❓ Pomoc starts with 'Ktoś dzwoni?'");
 await reset(); await msg(OWNER, "➕ Nowy kurs");
