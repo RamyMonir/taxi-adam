@@ -2,7 +2,7 @@
 // buttons -> status lines -> closed after the ride. A reservation, so it runs at any hour.
 // Needs fake Telegram :8999, fake Google :8998, wrangler with the fleet sync ON and CHAT_CLOSE_MIN=0.05 – see README.
 import { nowWarsaw } from "../../server/util.js";
-import { OWNER, BRAND } from "../../server/brand.js";
+import { OWNER as OWNER_NAME, BRAND } from "../../server/brand.js";
 const S = "http://localhost:8788", TG = "http://127.0.0.1:8999";
 let uid = 1, fails = 0;
 const ok = (c, m, x = "") => { console.log((c ? "✔ " : "✘ ") + m + (x ? " | " + x : "")); if (!c) fails++; };
