@@ -8,7 +8,7 @@ CENY: pola "price" to cena OD Knurowa w zł.
   confirmed=False -> SZACUNEK – do potwierdzenia z Adamem przed publikacją
 """
 
-SITE_URL = "https://www.taxiknurowadam.pl"   # TODO: docelowa domena (sprawdź dostępność)
+SITE_URL = "https://www.taxiknurowadam.pl"
 BUSINESS = {
     "name": "Taxi Knurów Adam Mączka",
     "short": "Taxi Adam",
@@ -194,7 +194,7 @@ VIP_CAPTIONS = {
 # Każde kliknięcie trafia do raportu w panelu (/panel/). False = pełny system (mapa, cena, Telegram, status na żywo).
 LITE_MODE = __import__("os").environ.get("TAXI_LITE", "1") != "0"   # TAXI_LITE=0 py src/build.py = pełna wersja (testy)
 # Prototyp na osobnym adresie: noindex + robots Disallow, żeby nie konkurował w Google z główną stroną. False po starcie na domenie.
-LITE_NOINDEX = True
+LITE_NOINDEX = False   # na prawdziwej domenie taxiknurowadam.pl: widoczna w Google
 # Drugi numer pokazywany pod przyciskiem „Zadzwoń”
 PHONE2 = ("515 650 750", "+48515650750")
 # Podpis w stopce (jeden sprzedawca wszędzie: stopka, oferta, faktura, umowa powierzenia)
