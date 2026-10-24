@@ -37,7 +37,8 @@ function initBooking(form) {
   const err = q("form-error"), note = q("lite-night");
   let geo = null, plus = null;
   // Lite Plus: address suggestions, price from the route, map, flight (same ?v= stamp as this file)
-  if (C.plus) import("./lite-plus.js" + new URL(import.meta.url).search).then((m) => { plus = m.initPlus(form, () => form.dataset.mode); }).catch(() => {});
+  if (C.plus) import("./lite-plus.js" + new URL(import.meta.url).search)
+    .then((m) => { plus = m.initPlus(form, { getMode: () => form.dataset.mode, setMode }); }).catch(() => {});
 
   const fields = () => ({
     mode: form.dataset.mode, date: q("date").value, time: q("time").value, from: q("pickup").value, to: q("dest").value, geo,
@@ -66,11 +67,32 @@ function initBooking(form) {
     }
     const today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
     q("date").min = today.toISOString().slice(0, 10);
-    showNight();
+    showNight(); markDay();
   }
   form.querySelectorAll(".seg-btn").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); if (plus) plus.modeChanged(); }));
   q("time").addEventListener("change", showNight);
-  q("date").addEventListener("change", showNight);
+  q("date").addEventListener("change", () => { showNight(); markDay(); });
+
+  // quick day buttons: Dziś, Jutro, then the next days ("pt 30.10")
+  const days = q("when-days"), en = C.lang === "en";
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (days) {
+    for (let i = 0; i < 8; i++) {
+      const d = new Date(); d.setDate(d.getDate() + i);
+      const b = document.createElement("button"); b.type = "button"; b.className = "when-day"; b.dataset.date = ymd(d);
+      const top = i === 0 ? (en ? "Today" : "Dziś") : i === 1 ? (en ? "Tomorrow" : "Jutro") : d.toLocaleDateString(en ? "en-GB" : "pl-PL", { weekday: "short" });
+      b.innerHTML = `<b></b><small>${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}</small>`;
+      b.firstChild.textContent = top;
+      b.addEventListener("click", () => { q("date").value = b.dataset.date; q("date").dispatchEvent(new Event("change", { bubbles: true })); });
+      days.append(b);
+    }
+  }
+  function markDay() {
+    if (!days) return;
+    days.querySelectorAll(".when-day").forEach((b) => b.setAttribute("aria-pressed", b.dataset.date === q("date").value ? "true" : "false"));
+  }
+  // tapping anywhere on the date / time box opens the picker (desktop browsers only open it on the small icon)
+  form.querySelectorAll(".when-f input").forEach((i) => i.addEventListener("click", () => { try { i.showPicker(); } catch (e) {} }));
 
   // chips fill "Dokąd"
   form.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { q("dest").value = c.dataset.dest; c.blur(); if (plus) plus.typed("dest"); }));
@@ -78,7 +100,7 @@ function initBooking(form) {
   // "Tu jestem": browser location only (no Google API) – the link goes into the message
   const gps = q("gps"), gpsOk = q("gps-ok");
   function setGeo(g) {
-    geo = g; gpsOk.hidden = !g; gps.hidden = !!g;
+    geo = g; gpsOk.hidden = !g; gps.hidden = !!g; form.classList.toggle("has-geo", !!g);
     if (g && !q("pickup").value) q("pickup").placeholder = "Moja lokalizacja (link w wiadomości)";
     if (plus) plus.gps(g);
   }

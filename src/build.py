@@ -336,9 +336,12 @@ BOOK_LITE = r"""<form class="book lite-book" id="booking" data-mode="{{ mode }}"
     <button type="button" role="radio" class="seg-btn" data-mode="later" aria-checked="{{ 'true' if mode=='later' else 'false' }}">{{ icon.cal }}<span>{{ t.later }}<small>{{ t.later_s }}</small></span></button>
     <span class="seg-ind" aria-hidden="true"></span>
   </div>
-  <div class="row2 later-only lite-when"{% if mode != 'later' %} hidden{% endif %}>
-    <div class="field"><label for="date">{{ t.date }}</label><input type="date" id="date"></div>
-    <div class="field"><label for="time">{{ t.time }}</label><input type="time" id="time" step="300"></div>
+  <div class="later-only lite-when"{% if mode != 'later' %} hidden{% endif %}>
+    <div class="when-days" id="when-days" role="group" aria-label="{{ t.date }}"></div>
+    <div class="when-row">
+      <label class="when-f" for="date">{{ icon.cal }}<span><small>{{ t.date }}</small><input type="date" id="date"></span></label>
+      <label class="when-f" for="time"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm1-13h-2v6l5 3 1-1.7-4-2.4z"/></svg><span><small>{{ 'Time' if lang == 'en' else 'Godzina' }}</small><input type="time" id="time" step="300"></span></label>
+    </div>
   </div>
   <div class="trip">
     <div class="loc">
@@ -357,14 +360,21 @@ BOOK_LITE = r"""<form class="book lite-book" id="booking" data-mode="{{ mode }}"
       {% if plus %}<ul class="sugg" id="dest-list" role="listbox" hidden></ul>{% endif %}
     </div>
   </div>
-  {% if plus %}<div class="lite-plus">
-    <div class="lite-map" id="lite-map" hidden></div>
-    <p class="lite-quote" id="lite-quote" aria-live="polite" hidden></p>
-    <div class="field" id="flight-wrap" hidden><label for="flight">{{ 'Flight number (optional)' if lang == 'en' else 'Numer lotu (opcjonalnie)' }}</label>
-      <input id="flight" placeholder="{{ 'e.g. FR3014' if lang == 'en' else 'np. FR3014' }}" maxlength="10" autocapitalize="characters" autocomplete="off">
-      <p class="lite-flight" id="flight-info" aria-live="polite" hidden></p></div>
-  </div>{% endif %}
   <div class="chips" role="group" aria-label="{{ t.popular }}">{% for c in chips %}<button type="button" class="chip" data-dest="{{ c.dest|e }}">{{ icon[c.icon] }}{{ c.label }}</button>{% endfor %}</div>
+  {% if plus %}<div class="flight-wrap" id="flight-wrap" hidden>
+    <div class="field"><label for="flight">{{ 'Flight number (optional)' if lang == 'en' else 'Numer lotu (opcjonalnie)' }}</label>
+      <input id="flight" placeholder="{{ 'e.g. FR3014' if lang == 'en' else 'np. FR3014' }}" maxlength="10" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
+    <div class="flight-info" id="flight-info" aria-live="polite" hidden></div>
+  </div>
+  <div class="map-wrap" id="map-wrap" hidden><div class="map" id="map"></div></div>
+  <div class="quote" id="quote" hidden>
+    <div class="q-cells" aria-live="polite">
+      <div><span>{{ 'Distance' if lang == 'en' else 'Trasa' }}</span><b id="q-dist">–</b></div>
+      <div><span>{{ 'Drive' if lang == 'en' else 'Czas jazdy' }}</span><b id="q-time">–</b></div>
+      <div class="q-price"><span id="q-price-lbl">{{ 'Price' if lang == 'en' else 'Cena' }}</span><b id="q-price">–</b></div>
+    </div>
+    <p class="q-note">{{ 'Approximate – the driver confirms the price on WhatsApp.' if lang == 'en' else 'Cena orientacyjna – kierowca potwierdzi ją na WhatsAppie.' }}</p>
+  </div>{% endif %}
   <p class="lite-note" id="lite-night" hidden>{{ t.night }}</p>
   <div class="field"><label for="tel">{{ t.phone }} <span class="req">*</span></label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="{{ t.phone_ph }}" maxlength="30"></div>
   <p class="form-error" id="form-error" role="alert"></p>
