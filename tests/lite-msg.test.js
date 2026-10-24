@@ -84,3 +84,13 @@ test("lead payload trims and caps fields, keeps the honeypot", () => {
   assert.deepEqual(p.geo, { lat: 50.2197, lng: 18.6767 });
   assert.equal(p.website, "spam");
 });
+
+test("Lite Plus: route + flight lines go into the message after people/luggage; empty ones are skipped", () => {
+  const m = buildMessage({ mode: "now", from: "Rynek 1, Knurów", to: "Lotnisko Pyrzowice", pax: "2", phone: "600100200",
+    extra: ["Trasa: 56 km · ok. 46 min · cena ok. 250 zł", "", "Lot: FR3014"] }, { site: "taxiknurowadam.pl" });
+  const L = m.split("\n");
+  const i = L.indexOf("Osoby: 2");
+  assert.equal(L[i + 1], "Trasa: 56 km · ok. 46 min · cena ok. 250 zł");
+  assert.equal(L[i + 2], "Lot: FR3014");
+  assert.equal(L[i + 3], "Telefon: 600100200");
+});

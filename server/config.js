@@ -359,6 +359,7 @@ export const CONFIG = {
   }
  ],
  "lite": true,
+ "lite_plus": false,
  "prices": {
   "version": 1,
   "zones": {

@@ -5,7 +5,7 @@ from fleet import CARS as FLEET_CARS, DRIVERS as FLEET_DRIVERS   # auta i kierow
 from jinja2 import Environment, DictLoader
 from data import (VIP_CAPTIONS, SITE_URL, BUSINESS as B, ZONES, VILLAGES, DESTINATIONS, KIND, TARIFF, ZONE_KM, KNUROW_CENTER,
                   GOOGLE_MAPS_BROWSER_KEY, GOOGLE_MAP_ID, NOW_WAIT_MIN, GOOGLE_OAUTH_CLIENT_ID, NIGHT, GIERALTOWICE_CENTER, GIERALTOWICE_KM, GOOGLE_PLACES, COMMISSION, TURNSTILE_SITE_KEY,
-                  OVERRIDES, WAITING, LITE_MODE, LITE_NOINDEX, PHONE2, CREDIT)
+                  OVERRIDES, WAITING, LITE_MODE, LITE_NOINDEX, LITE_PLUS, PHONE2, CREDIT)
 
 def L(full, lite):
     """Tekst zależny od wersji: pełny system albo LITE (WhatsApp / SMS / telefon)."""
@@ -57,9 +57,13 @@ CHIPS = [("plane", "lotnisko-pyrzowice", "Pyrzowice"), ("plane", "lotnisko-balic
 def client_config(lang):
     """window.TAXI – ustawienia dla app.js (formularz rezerwacji, status, opinie)."""
     if LITE_MODE:   # lite.js: bez kluczy Google, bez logowania – tylko numery, noc i wizytówki do linku „Dodaj opinię”
-        return json.dumps(dict(lang=lang, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"], night=NIGHT,
-                               site=SITE_URL.split("//")[-1].replace("www.", ""),
-                               places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES]), ensure_ascii=False)
+        cfg = dict(lang=lang, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"], night=NIGHT,
+                   site=SITE_URL.split("//")[-1].replace("www.", ""),
+                   places=[dict(name=p["name"], id=p["id"]) for p in GOOGLE_PLACES])
+        if LITE_PLUS:   # lite-plus.js: podpowiedzi adresów, cena z trasy, mapa, lot
+            cfg.update(plus=True, key=GOOGLE_MAPS_BROWSER_KEY, base=dict(lat=B["lat"], lng=B["lng"]),
+                       airports=[dict(code=d["code"], lat=d["lat"], lng=d["lng"]) for d in DESTINATIONS if d["kind"] == "airport"])
+        return json.dumps(cfg, ensure_ascii=False)
     return json.dumps(dict(
         lang=lang, key=GOOGLE_MAPS_BROWSER_KEY, mapId=GOOGLE_MAP_ID, gid=GOOGLE_OAUTH_CLIENT_ID, night=NIGHT, wa=B["whatsapp"], tel=B["phone_e164"], telLabel=B["phone"],
         base=dict(lat=B["lat"], lng=B["lng"]), waitMin=NOW_WAIT_MIN, review=B["google_review"], maps=B["google_maps"],
@@ -82,7 +86,7 @@ def write_server_config():
         commission=COMMISSION, fleet=fleet_config(), zoneKm=ZONE_KM, surcharge={z: ZONES[z]["surcharge"] for z in ZONES}, tariff=TARIFF,
         destinations=[dict(slug=d["slug"], code=d.get("code"), short=d["short"], price=d["price"], lat=d["lat"], lng=d["lng"], matchKm=d["match_km"]) for d in DESTINATIONS])
     if LITE_MODE:   # panel: wersja lite + nazwy do edytora cen (te same slugi co w src/prices.json)
-        cfg.update(lite=True, prices=__import__("data").PRICES, panel=dict(
+        cfg.update(lite=True, lite_plus=LITE_PLUS, prices=__import__("data").PRICES, panel=dict(
             villages=[dict(slug=s, name=n, zone=z) for s, n, _l, z, _p in VILLAGES],
             destinations=[dict(slug=d["slug"], name=d["name"], short=d["short"], kind=d["kind"]) for d in DESTINATIONS],
             kinds={k: v["plural"] for k, v in KIND.items()}, zones=list(ZONES)))
@@ -343,14 +347,23 @@ BOOK_LITE = r"""<form class="book lite-book" id="booking" data-mode="{{ mode }}"
       <input id="pickup" type="text" placeholder="{{ pickup_ph or t.from_ph }}" autocomplete="street-address" maxlength="160">
       <button type="button" class="gps" id="gps" title="{{ t.gps }}">{{ icon.gps }}<span>{{ t.gps_s }}</span></button>
       <span class="gps gps-ok" id="gps-ok" hidden>{{ icon.check }}<span>{{ t.gps_ok }}</span><button type="button" id="gps-x" aria-label="{{ t.gps_x }}">×</button></span>
+      {% if plus %}<ul class="sugg" id="pickup-list" role="listbox" hidden></ul>{% endif %}
     </div>
     <div class="trip-line" aria-hidden="true"></div>
     <div class="loc">
       <span class="pin pin-b" aria-hidden="true"></span>
       <label class="sr-only" for="dest">{{ t.to }}</label>
       <input id="dest" type="text" placeholder="{{ t.to_ph }}" autocomplete="off" maxlength="160">
+      {% if plus %}<ul class="sugg" id="dest-list" role="listbox" hidden></ul>{% endif %}
     </div>
   </div>
+  {% if plus %}<div class="lite-plus">
+    <div class="lite-map" id="lite-map" hidden></div>
+    <p class="lite-quote" id="lite-quote" aria-live="polite" hidden></p>
+    <div class="field" id="flight-wrap" hidden><label for="flight">{{ 'Flight number (optional)' if lang == 'en' else 'Numer lotu (opcjonalnie)' }}</label>
+      <input id="flight" placeholder="{{ 'e.g. FR3014' if lang == 'en' else 'np. FR3014' }}" maxlength="10" autocapitalize="characters" autocomplete="off">
+      <p class="lite-flight" id="flight-info" aria-live="polite" hidden></p></div>
+  </div>{% endif %}
   <div class="chips" role="group" aria-label="{{ t.popular }}">{% for c in chips %}<button type="button" class="chip" data-dest="{{ c.dest|e }}">{{ icon[c.icon] }}{{ c.label }}</button>{% endfor %}</div>
   <p class="lite-note" id="lite-night" hidden>{{ t.night }}</p>
   <div class="field"><label for="tel">{{ t.phone }} <span class="req">*</span></label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="{{ t.phone_ph }}" maxlength="30"></div>
@@ -415,10 +428,10 @@ def waiting_text():
 ICON["sms"] = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 1-2zm3 6v2h2V9zm4 0v2h2V9zm4 0v2h2V9z"/></svg>'
 
 env = Environment(loader=DictLoader({"base": BASE, "book": BOOK, "book_lite": BOOK_LITE}), autoescape=False)
-env.globals.update(lite=LITE_MODE, lite_noindex=LITE_MODE and LITE_NOINDEX, credit=CREDIT)
+env.globals.update(lite=LITE_MODE, lite_noindex=LITE_MODE and LITE_NOINDEX, plus=LITE_MODE and LITE_PLUS, credit=CREDIT)
 # version stamp for style.css / app.js / lite.js: a new deploy always loads the new files (no stale copies in phones / the installed app)
 _here = os.path.dirname(os.path.abspath(__file__))
-_stamped = ("style.css", "lite.js", "lite-msg.js", "panel.js") if LITE_MODE else ("style.css", "app.js")
+_stamped = ("style.css", "lite.js", "lite-msg.js", "lite-plus.js", "panel.js") if LITE_MODE else ("style.css", "app.js")
 env.globals["av"] = hashlib.sha1(b"".join(open(os.path.join(_here, "assets", f), "rb").read() for f in _stamped)).hexdigest()[:10]
 NAV = [("/lotniska/", "Lotniska"), ("/sanatoria/", "Sanatoria"), ("/kliniki/", "Kliniki"), ("/dworce/", "Dworce"),
        ("/cennik/", "Cennik"), ("/dla-firm/", "Dla firm"), ("/kontakt/", "Kontakt")]
@@ -426,7 +439,7 @@ def book(dest=None, mode="now", title=None, pickup_ph=None, lang="pl"):
     """Formularz zamówienia. dest = slug celu (strony lotnisk itd.) – wpisany od razu w „Dokąd”."""
     if LITE_MODE:
         chips = [dict(icon=i, label=l, dest=place_of(DEST[s])["address"]) for i, s, l in CHIPS]
-        return env.get_template("book_lite").render(B=B, icon=ICON, t=T_BOOK_LITE[lang], mode=mode, title=title, pickup_ph=pickup_ph,
+        return env.get_template("book_lite").render(B=B, icon=ICON, t=T_BOOK_LITE[lang], lang=lang, mode=mode, title=title, pickup_ph=pickup_ph,
                                                     dest=place_of(DEST[dest])["address"] if dest else None, chips=chips,
                                                     phone2=PHONE2, waiting=waiting_text())
     d = json.dumps(place_of(DEST[dest]), ensure_ascii=False).replace("'", "&#39;") if dest else None

@@ -44,6 +44,7 @@ export function buildMessage(f, opts = {}) {
   const pax = [`Osoby: ${parseInt(f.pax, 10) || 1}`];
   if (clean(f.luggage)) pax.push(`Bagaż: ${clean(f.luggage, 40)}`);
   L.push(pax.join(" · "));
+  for (const x of f.extra || []) if (clean(x)) L.push(clean(x, 200));   // Lite Plus: route + price, flight
   const who = [];
   if (clean(f.name)) who.push(`Imię: ${clean(f.name, 60)}`);
   if (clean(f.phone)) who.push(`Telefon: ${clean(f.phone, 30)}`);

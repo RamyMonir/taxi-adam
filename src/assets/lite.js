@@ -35,11 +35,14 @@ if (rv.length && !reduce && "IntersectionObserver" in window) {
 function initBooking(form) {
   const q = (id) => form.querySelector("#" + id);
   const err = q("form-error"), note = q("lite-night");
-  let geo = null;
+  let geo = null, plus = null;
+  // Lite Plus: address suggestions, price from the route, map, flight (same ?v= stamp as this file)
+  if (C.plus) import("./lite-plus.js" + new URL(import.meta.url).search).then((m) => { plus = m.initPlus(form, () => form.dataset.mode); }).catch(() => {});
 
   const fields = () => ({
     mode: form.dataset.mode, date: q("date").value, time: q("time").value, from: q("pickup").value, to: q("dest").value, geo,
     pax: q("pax").value, luggage: q("lug").value, name: q("name").value, phone: q("tel").value, notes: q("notes").value, website: q("website").value,
+    extra: plus ? plus.extra() : [],
   });
 
   // remember the customer's name and phone on this device (like the full version)
@@ -65,18 +68,19 @@ function initBooking(form) {
     q("date").min = today.toISOString().slice(0, 10);
     showNight();
   }
-  form.querySelectorAll(".seg-btn").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+  form.querySelectorAll(".seg-btn").forEach((b) => b.addEventListener("click", () => { setMode(b.dataset.mode); if (plus) plus.modeChanged(); }));
   q("time").addEventListener("change", showNight);
   q("date").addEventListener("change", showNight);
 
   // chips fill "Dokąd"
-  form.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { q("dest").value = c.dataset.dest; c.blur(); }));
+  form.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { q("dest").value = c.dataset.dest; c.blur(); if (plus) plus.typed("dest"); }));
 
   // "Tu jestem": browser location only (no Google API) – the link goes into the message
   const gps = q("gps"), gpsOk = q("gps-ok");
   function setGeo(g) {
     geo = g; gpsOk.hidden = !g; gps.hidden = !!g;
     if (g && !q("pickup").value) q("pickup").placeholder = "Moja lokalizacja (link w wiadomości)";
+    if (plus) plus.gps(g);
   }
   gps.addEventListener("click", () => {
     if (!navigator.geolocation) { err.textContent = "Ta przeglądarka nie podaje lokalizacji – wpisz adres."; return; }

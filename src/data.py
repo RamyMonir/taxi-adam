@@ -195,6 +195,9 @@ VIP_CAPTIONS = {
 LITE_MODE = __import__("os").environ.get("TAXI_LITE", "1") != "0"   # TAXI_LITE=0 py src/build.py = pełna wersja (testy)
 # Prototyp na osobnym adresie: noindex + robots Disallow, żeby nie konkurował w Google z główną stroną. False po starcie na domenie.
 LITE_NOINDEX = False   # na prawdziwej domenie taxiknurowadam.pl: widoczna w Google
+# LITE PLUS: zamówienie dalej przez WhatsApp/SMS, ale z podpowiedziami adresów, ulicą z GPS, ceną z trasy, mapą i sprawdzaniem lotu.
+# Wymaga GOOGLE_MAPS_BROWSER_KEY (wyżej) oraz w Cloudflare: GOOGLE_SERVER_KEY i AERODATABOX_KEY. False = zwykła Lite (0 zł).
+LITE_PLUS = False
 # Drugi numer pokazywany pod przyciskiem „Zadzwoń”
 PHONE2 = ("515 650 750", "+48515650750")
 # Podpis w stopce (jeden sprzedawca wszędzie: stopka, oferta, faktura, umowa powierzenia)
