@@ -5,8 +5,8 @@ export const CONFIG = {
  "waitMin": 3,
  "googleClientId": "33873511500-i7snf730jquenheagpdku5j7l6dfkrld.apps.googleusercontent.com",
  "night": {
-  "from": "22:00",
-  "to": "05:00",
+  "from": "00:00",
+  "to": "00:00",
   "ahead_min": 60
  },
  "places": [

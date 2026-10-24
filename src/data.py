@@ -157,7 +157,7 @@ GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Manag
 GOOGLE_OAUTH_CLIENT_ID = "33873511500-i7snf730jquenheagpdku5j7l6dfkrld.apps.googleusercontent.com"
 # Kursy nocne (od Adama): od 22:00 do 5:00 tylko z wcześniejszą rezerwacją, bez rezerwacji w nocy nie jeździmy.
 # W tych godzinach nie da się zamówić kursu "teraz"; rezerwacja na noc najpóźniej ahead_min minut przed odbiorem.
-NIGHT = {"from": "22:00", "to": "05:00", "ahead_min": 60}   # TODO: ahead_min potwierdzić z Adamem
+NIGHT = {"from": "00:00", "to": "00:00", "ahead_min": 60}   # TODO: ahead_min potwierdzić z Adamem
 # Wizytówki Google Adama – opinie z wszystkich trzech są pokazywane razem (pierwsza = główna)
 GOOGLE_PLACES = [
     {"name": "Taxi Knurów Adam Mączka", "id": "ChIJCVqphGI1EUcRyoJoD4bKXYg"},
