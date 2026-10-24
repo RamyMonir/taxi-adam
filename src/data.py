@@ -150,7 +150,7 @@ TARIFF = {"start": 9, "per_km": 3.0, "min": 15, "confirmed": False}
 # Klucz przeglądarkowy Google Maps (Maps JavaScript API, Places API (New), Geocoding API).
 # Jest publiczny z założenia – w Google Cloud ogranicz go do domeny strony (HTTP referrers).
 # Pusty = strona działa bez mapy i podpowiedzi adresów (wpisywanie ręczne + GPS).
-GOOGLE_MAPS_BROWSER_KEY = ""   # TODO
+GOOGLE_MAPS_BROWSER_KEY = "AIzaSyAOrgmyxac9-odUDw_gkAKBWKrocDgLD40"   # TODO
 GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Management)
 # Logowanie klientów przez Google (opcjonalne). Client ID typu "Web application" z Google Cloud
 # (APIs & Services -> Credentials -> OAuth client ID). Publiczny z założenia. Pusty = brak logowania.
