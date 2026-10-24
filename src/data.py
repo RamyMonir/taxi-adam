@@ -12,9 +12,9 @@ SITE_URL = "https://www.taxiknurowadam.pl"
 BUSINESS = {
     "name": "Taxi Knurów Adam Mączka",
     "short": "Taxi Adam",
-    "phone": "570 762 777",
-    "phone_e164": "+48570762777",
-    "whatsapp": "48570762777",
+    "phone": "503 467 198",
+    "phone_e164": "+48503467198",
+    "whatsapp": "48503467198",
     # baza (z facebooka Adama): Gierałtowice; jeździ w Gierałtowicach, Knurowie i po całym Śląsku
     "street": "ul. Powstańców Śląskich 116",
     "postal": "44-186",
@@ -150,7 +150,7 @@ TARIFF = {"start": 9, "per_km": 3.0, "min": 15, "confirmed": False}
 # Klucz przeglądarkowy Google Maps (Maps JavaScript API, Places API (New), Geocoding API).
 # Jest publiczny z założenia – w Google Cloud ogranicz go do domeny strony (HTTP referrers).
 # Pusty = strona działa bez mapy i podpowiedzi adresów (wpisywanie ręczne + GPS).
-GOOGLE_MAPS_BROWSER_KEY = ""   # TODO
+GOOGLE_MAPS_BROWSER_KEY = "AIzaSyAOrgmyxac9-odUDw_gkAKBWKrocDgLD40"   # TODO
 GOOGLE_MAP_ID = "DEMO_MAP_ID"   # TODO: własny Map ID z Google Cloud (Map Management)
 # Logowanie klientów przez Google (opcjonalne). Client ID typu "Web application" z Google Cloud
 # (APIs & Services -> Credentials -> OAuth client ID). Publiczny z założenia. Pusty = brak logowania.
@@ -197,7 +197,7 @@ LITE_MODE = __import__("os").environ.get("TAXI_LITE", "1") != "0"   # TAXI_LITE=
 LITE_NOINDEX = False   # na prawdziwej domenie taxiknurowadam.pl: widoczna w Google
 # LITE PLUS: zamówienie dalej przez WhatsApp/SMS, ale z podpowiedziami adresów, ulicą z GPS, ceną z trasy, mapą i sprawdzaniem lotu.
 # Wymaga GOOGLE_MAPS_BROWSER_KEY (wyżej) oraz w Cloudflare: GOOGLE_SERVER_KEY i AERODATABOX_KEY. False = zwykła Lite (0 zł).
-LITE_PLUS = False
+LITE_PLUS = True
 # Drugi numer pokazywany pod przyciskiem „Zadzwoń”
 PHONE2 = ("515 650 750", "+48515650750")
 # Podpis w stopce (jeden sprzedawca wszędzie: stopka, oferta, faktura, umowa powierzenia)
