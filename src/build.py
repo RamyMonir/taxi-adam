@@ -569,7 +569,7 @@ def village_links():
 def reviews_block():
     """Opinie z Google – karty ładuje app.js z /api/reviews; bez backendu zostaje sama ocena i link."""
     stars = ICON["star"] * 5
-    if LITE_MODE:   # bez Places API: stała ocena z data.py i linki do każdej wizytówki
+    if LITE_MODE and not LITE_PLUS:   # bez Places API: stała ocena z data.py i linki do każdej wizytówki (Lite Plus: karty jak w pełnej wersji)
         return (f'<section class="reviews" id="opinie"><div class="wrap">'
                 f'<div class="rv-head"><div><h2>Co mówią klienci</h2><p class="muted">Opinie z trzech naszych wizytówek Google – razem.</p></div>'
                 f'<div class="g-score"><span class="g-num">{B["rating"]}</span><span><span class="g-stars">{stars}</span>'

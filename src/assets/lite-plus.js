@@ -37,6 +37,59 @@ async function api(path, body, ms = 8000) {
   } finally { clearTimeout(t); }
 }
 
+/* ---------- live Google reviews (same cards as the full version; /api/reviews is cached 12 h) ---------- */
+export async function initReviews() {
+  const track = document.getElementById("rv-track"); if (!track) return;
+  const $ = (id) => document.getElementById(id);
+  const num = (x) => String(x.toFixed(1)).replace(".", en ? "." : ",");
+  let d; try { d = await api("/api/reviews", null, 10000); } catch (e) { return; }
+  if (!d || !d.reviews || !d.reviews.length) return;
+  if (d.rating) $("g-num").textContent = num(d.rating);
+  if (d.count) $("g-count").textContent = d.count + (en ? " Google reviews" : " opinii w Google");
+  if (d.url) $("rv-all").href = d.url;
+  (d.places || []).forEach((pl, k) => {
+    const li = document.querySelector('#g-places [data-place="' + k + '"]'); if (!li) return;
+    li.querySelector(".gp-num").textContent = pl.rating ? num(pl.rating) + " (" + pl.count + ")" : (en ? "no reviews yet" : "brak ocen");
+    if (pl.url) li.querySelector("a").href = pl.url;
+  });
+  const star = () => {
+    const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg"); sv.setAttribute("width", "16"); sv.setAttribute("height", "16"); sv.setAttribute("viewBox", "0 0 24 24"); sv.setAttribute("aria-hidden", "true");
+    const pa = document.createElementNS("http://www.w3.org/2000/svg", "path"); pa.setAttribute("fill", "currentColor"); pa.setAttribute("d", "m12 2 3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z");
+    sv.append(pa); return sv;
+  };
+  const safeUrl = (u) => (typeof u === "string" && /^https:\/\//.test(u) ? u : null);
+  const more = en ? "More" : "Więcej", less = en ? "Less" : "Mniej";
+  track.textContent = "";
+  d.reviews.forEach((v, i) => {
+    const fig = el("figure", "rv"); fig.style.setProperty("--i", String(i));
+    const rating = Math.max(0, Math.min(5, parseInt(v.rating, 10) || 0));
+    const stars = el("div", "rv-stars"); stars.setAttribute("aria-label", rating + "/5");
+    for (let k = 0; k < rating; k++) stars.append(star());
+    const long = String(v.text || "").length > 220;
+    const bq = el("blockquote", long ? "clamp" : null, v.text || "");
+    fig.append(stars, bq);
+    if (long) { const b = el("button", "rv-more", more); b.type = "button"; b.addEventListener("click", () => { b.textContent = bq.classList.toggle("clamp") ? more : less; }); fig.append(b); }
+    const av = el("span", "rv-av");
+    if (safeUrl(v.photo)) { const im = el("img"); im.src = v.photo; im.alt = ""; im.width = 44; im.height = 44; im.loading = "lazy"; im.referrerPolicy = "no-referrer"; av.append(im); }
+    else av.append(el("span", null, (v.author || "?").trim().charAt(0).toUpperCase()));
+    const who = el("span"), nm = el("b");
+    if (safeUrl(v.authorUri)) { const a = el("a", null, v.author || ""); a.href = v.authorUri; a.target = "_blank"; a.rel = "noopener"; nm.append(a); }
+    else nm.textContent = v.author || "";
+    who.append(nm, el("small", null, (v.when || "") + " · " + (v.place || (en ? "Google review" : "Opinia z Google"))));
+    const cap = el("figcaption"); cap.append(av, who); fig.append(cap);
+    track.append(fig);
+  });
+  const nav = $("rv-nav");
+  if (nav && track.scrollWidth > track.clientWidth + 10) {
+    nav.hidden = false;
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    nav.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      const card = track.querySelector(".rv");
+      track.scrollBy({ left: (card ? card.offsetWidth + 16 : 300) * parseInt(b.dataset.dir, 10), behavior: reduce ? "auto" : "smooth" });
+    }));
+  }
+}
+
 export function initPlus(form, { getMode, setMode }) {
   const q = (id) => form.querySelector("#" + id);
   const S = { pickup: null, dest: null, quote: null };

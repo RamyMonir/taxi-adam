@@ -6,8 +6,9 @@ import { buildMessage, waLink, smsLink, validate, leadPayload, isNight } from ".
 const C = window.TAXI || {};
 const $ = (id) => document.getElementById(id);
 const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const store = { get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+// Lite Plus: address suggestions, price, map, flight, live Google reviews (same ?v= stamp as this file)
+const plusMod = C.plus ? import("./lite-plus.js" + new URL(import.meta.url).search) : null;
+if (plusMod) plusMod.then((m) => m.initReviews()).catch(() => {});
 
 /* ---------- menu & theme ---------- */
 const mb = document.querySelector(".menu-btn"), nav = document.querySelector(".nav");
@@ -36,9 +37,7 @@ function initBooking(form) {
   const q = (id) => form.querySelector("#" + id);
   const err = q("form-error"), note = q("lite-night");
   let geo = null, plus = null;
-  // Lite Plus: address suggestions, price from the route, map, flight (same ?v= stamp as this file)
-  if (C.plus) import("./lite-plus.js" + new URL(import.meta.url).search)
-    .then((m) => { plus = m.initPlus(form, { getMode: () => form.dataset.mode, setMode }); }).catch(() => {});
+  if (plusMod) plusMod.then((m) => { plus = m.initPlus(form, { getMode: () => form.dataset.mode, setMode }); }).catch(() => {});
 
   const fields = () => ({
     mode: form.dataset.mode, date: q("date").value, time: q("time").value, from: q("pickup").value, to: q("dest").value, geo,
@@ -46,9 +45,8 @@ function initBooking(form) {
     extra: plus ? plus.extra() : [],
   });
 
-  // remember the customer's name and phone on this device (like the full version)
-  const me = store.get("taxi.lite.me");
-  if (me) { if (me.name && !q("name").value) q("name").value = me.name; if (me.phone && !q("tel").value) q("tel").value = me.phone; }
+  // the form starts empty every time (nothing of the customer is kept on the device); drop what older versions saved
+  try { localStorage.removeItem("taxi.lite.me"); } catch (e) {}
 
   function showNight() {
     const f = fields(), now = new Date();
@@ -135,7 +133,6 @@ function initBooking(form) {
       const msg = buildMessage(f, { site: C.site, night: C.night });
       a.href = channel === "wa" ? waLink(C.wa, msg) : smsLink(C.tel, msg, navigator.userAgent);
     }
-    store.set("taxi.lite.me", { name: f.name, phone: f.phone });
     count(channel, f);
     sessionStorage.setItem("taxi.lite.sent", "1");
   }

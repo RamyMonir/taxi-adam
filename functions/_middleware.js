@@ -3,7 +3,7 @@
 // LITE PLUS (CONFIG.lite_plus) also opens the Google lookups, the price from the route and the flight check for the form.
 import { CONFIG } from "../server/config.js";
 
-const PLUS = new Set(["/api/places", "/api/place", "/api/geocode", "/api/quote", "/api/flight"]);
+const PLUS = new Set(["/api/places", "/api/place", "/api/geocode", "/api/quote", "/api/flight", "/api/reviews"]);
 
 export async function onRequest({ request, next }) {
   const path = new URL(request.url).pathname;
